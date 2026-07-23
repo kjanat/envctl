@@ -8,6 +8,23 @@ mode, so a crash mid-write never leaves a half-written env file.
 
 ## Install
 
+### Prebuilt binaries
+
+Download from [GitHub Releases](https://github.com/kjanat/envctl/releases)
+(`linux-amd64`, `linux-arm64`, `darwin-amd64`, `darwin-arm64`,
+`windows-amd64`, `windows-arm64`).
+
+```sh
+# Example: Linux x86_64 → ~/.local/bin
+curl -fsSL -o ~/.local/bin/envctl \
+  https://github.com/kjanat/envctl/releases/latest/download/envctl-linux-amd64
+chmod +x ~/.local/bin/envctl
+```
+
+Verify against `SHA256SUMS` on the same release when you care.
+
+### From source
+
 ```sh
 git clone https://github.com/kjanat/envctl.git
 cd envctl
@@ -22,16 +39,20 @@ git clone https://github.com/kjanat/envctl.git && cd envctl && make && make inst
 ```
 
 Needs a C11 compiler (`cc` by default). Override with `CC=` / `CFLAGS=` /
-`PREFIX=` as usual.
-
-Or build directly:
-
-```sh
-cc -O2 -Wall -Wextra -std=c11 -o envctl envctl.c
-```
+`PREFIX=` as usual. `make test` runs a short smoke suite.
 
 A pure Bash reference implementation lives in [`envctl.sh`](envctl.sh); the
 installed tool is the C binary from [`envctl.c`](envctl.c).
+
+### Releasing
+
+Push a version tag; CI builds the five artifacts, writes `SHA256SUMS`, and
+publishes a GitHub Release:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
 
 ## Usage
 

@@ -1,3 +1,6 @@
 # Build artifacts (the binary is built from envctl.c via `make`).
 /envctl
+/envctl.exe
+/dist/
 *.o
+dotenv.test
