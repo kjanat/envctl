@@ -1,6 +1,7 @@
-# Build artifacts (the binary is built from envctl.c via `make`).
+# Build artifacts (`make` compiles src/*.c).
 /envctl
 /envctl.exe
 /dist/
 *.o
+src/*.o
 dotenv.test

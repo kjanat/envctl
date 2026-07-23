@@ -41,8 +41,8 @@ git clone https://github.com/kjanat/envctl.git && cd envctl && make && make inst
 Needs a C11 compiler (`cc` by default). Override with `CC=` / `CFLAGS=` /
 `PREFIX=` as usual. `make test` runs a short smoke suite.
 
-A pure Bash reference implementation lives in [`envctl.sh`](envctl.sh); the
-installed tool is the C binary from [`envctl.c`](envctl.c).
+Sources live under [`src/`](src/) (`util`, `agent`, `help`, `lines`, `redact`,
+`fileio`, `main`). A pure Bash reference is [`envctl.sh`](envctl.sh).
 
 ### Releasing
 
@@ -104,15 +104,11 @@ Help: `-h` for short usage, `--help` (or no args) for long help.
 
 ### Redaction
 
-Secret-looking key names are masked as `****` + last 4 characters when
-redaction is on:
+Presentation hygiene only (not a security boundary against `cat .env`). When
+redaction is on, values become `<redacted>`, `<redacted:private-key>`, or
+`<redacted:credentials>` — never partial suffixes.
 
-- **Substring:** `KEY`, `TOKEN`, `SECRET`, `PASSWORD`, `PASSWD`, `CREDENTIAL`, `API`
-- **Full `_`-separated segment only:** `PASS`, `PWD` (e.g. `DB_PASS`, `MYSQL_PWD`;
-  not `PASSPORT` / `COMPASS`)
-
-Disk writes are never redacted — only stdout from `get`, `list --values`, and
-`--dry-run`.
+**When redaction is on**
 
 | Situation                                     | Redact?                |
 | --------------------------------------------- | ---------------------- |
@@ -120,8 +116,24 @@ Disk writes are never redacted — only stdout from `get`, `list --values`, and
 | Coding agent detected **and** stdout is a TTY | Yes (unless `--raw`)   |
 | Piped / redirected / scripts                  | No (unless `--redact`) |
 
-Agent detection follows the same environment signals as [unjs/std-env](https://github.com/unjs/std-env)
-(plus `AI_AGENT` as an explicit override).
+`get` stays raw on pipes so scripts and command substitution keep working.
+Agent detection follows [unjs/std-env](https://github.com/unjs/std-env) signals
+(plus `AI_AGENT`).
+
+**What counts as secret**
+
+- **Key names** (case-insensitive `_` segments): `PASSWORD` / `PASS` / `PWD`,
+  `SECRET`, `TOKEN`, `CREDENTIAL(S)`, `DSN`, credentialed `*_KEY` (e.g.
+  `API_KEY`, `PRIVATE_KEY`), `DATABASE_URL` / `DB_URL`, …
+- **Not by name alone:** path-like suffixes `*_FILE`, `*_PATH`, `*_ENDPOINT`,
+  `*_NAME`, `*_VERSION`, `*_DIR`, `*_HOME` (value may still be masked)
+- **Values:** PEM private keys, credentialed URLs (`scheme://user:pass@host`),
+  known token prefixes (`ghp_`, `sk_live_`, …), JWT compact form, plus
+  random-looking values under weaker key names
+- **Multiline:** PEM bodies after a masked assignment are suppressed in dry-run
+  output
+
+Disk writes are never redacted.
 
 ### Examples
 
