@@ -39,7 +39,7 @@ valid_key() { [[ "$1" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "invalid key: '$1'";
 # vars (ENVIRON) so shell metacharacters in VALUE are never re-interpreted.
 render() {
 	local file=$1 action=$2 key=$3
-	ENVCTL_ACTION=$action ENVCTL_KEY=$key awk '
+	ENVCTL_ACTION="${action}" ENVCTL_KEY="${key}" awk '
 		function is_def(line, commented,   s, rest) {
 			s = line
 			if (commented) {
@@ -82,22 +82,22 @@ render() {
 			if (A == "set" && !fa && !fc) out[++n] = K "=" V
 			for (i = 1; i <= n; i++) print out[i]
 		}
-	' "$file"
+	' "${file}"
 }
 
 commit() { # $1=file  $2=rendered-content
 	local file=$1 tmp
-	tmp=$(mktemp "$(dirname -- "$file")/.envctl.XXXXXX") || die "mktemp failed"
-	trap 'rm -f "$tmp"' EXIT
-	printf '%s\n' "$2" >"$tmp"
-	chmod --reference="$file" "$tmp" 2>/dev/null || true
-	mv -f "$tmp" "$file"
+	tmp=$(mktemp "$(dirname -- "${file}")/.envctl.XXXXXX") || die "mktemp failed"
+	trap 'rm -f "${tmp}"' EXIT
+	printf '%s\n' "$2" >"${tmp}"
+	chmod --reference="${file}" "${tmp}" 2>/dev/null || true
+	mv -f "${tmp}" "${file}"
 	trap - EXIT
 }
 
 main() {
 	local dry=0 args=()
-	for a in "$@"; do [[ "$a" == --dry-run ]] && dry=1 || args+=("$a"); done
+	for a in "$@"; do [[ "${a}" == --dry-run ]] && dry=1 || args+=("${a}"); done
 	set -- "${args[@]}"
 	[[ $# -ge 2 ]] || die "usage: envctl [<cmd>] <file> <KEY> [VALUE]  (cmd: set get disable enable delete list; aliases ls=list rm=delete)"
 	local action file
@@ -113,50 +113,50 @@ main() {
 		file=$1
 		shift
 		case $# in
-		1) action=get ;;
-		2) action=set ;;
+		1) action="get" ;;
+		2) action="set" ;;
 		*) die "usage: envctl <file> <KEY> [VALUE]  or  envctl <cmd> <file> ..." ;;
 		esac
 		;;
 	esac
-	[[ "$action" == ls ]] && action=list
-	[[ "$action" == rm ]] && action=delete
-	[[ -f "$file" ]] || die "no such file: $file"
+	[[ "${action}" == ls ]] && action="list"
+	[[ "${action}" == rm ]] && action="delete"
+	[[ -f "${file}" ]] || die "no such file: ${file}"
 
-	case "$action" in
+	case "${action}" in
 	get)
 		[[ $# -ge 1 ]] || die "get needs KEY"
 		valid_key "$1"
 		local v
-		v=$(ENVCTL_KEY=$1 awk '
+		v=$(ENVCTL_KEY="$1" awk '
 			BEGIN { K = ENVIRON["ENVCTL_KEY"] }
 			/^[ \t]*#/ { next }
 			{ s = $0; sub(/^export[ \t]+/, "", s)
 			  if (substr(s,1,length(K)+1) == K "=") { print substr(s,length(K)+2); found=1; exit } }
-			END { exit(found ? 0 : 1) }' "$file") || return 1
-		printf '%s\n' "$v"
+			END { exit(found ? 0 : 1) }' "${file}") || return 1
+		printf '%s\n' "${v}"
 		;;
 	set)
 		[[ $# -ge 1 ]] || die "set needs KEY"
 		valid_key "$1"
 		local out
-		out=$(ENVCTL_VAL=${2-} render "$file" set "$1")
-		if [[ $dry -eq 1 ]]; then printf '%s\n' "$out"; else commit "$file" "$out"; fi
+		out=$(ENVCTL_VAL="${2-}" render "${file}" set "$1")
+		if [[ "${dry}" -eq 1 ]]; then printf '%s\n' "${out}"; else commit "${file}" "${out}"; fi
 		;;
 	disable | enable | delete)
-		[[ $# -ge 1 ]] || die "$action needs KEY"
+		[[ $# -ge 1 ]] || die "${action} needs KEY"
 		valid_key "$1"
 		local out
-		out=$(render "$file" "$action" "$1")
-		if [[ $dry -eq 1 ]]; then printf '%s\n' "$out"; else commit "$file" "$out"; fi
+		out=$(render "${file}" "${action}" "$1")
+		if [[ "${dry}" -eq 1 ]]; then printf '%s\n' "${out}"; else commit "${file}" "${out}"; fi
 		;;
 	list)
 		local values=0 all=0
 		for f in "$@"; do
-			[[ "$f" == --values ]] && values=1
-			[[ "$f" == --all ]] && all=1
+			[[ "${f}" == --values ]] && values=1
+			[[ "${f}" == --all ]] && all=1
 		done
-		awk -v show="$values" -v all="$all" '
+		awk -v show="${values}" -v all="${all}" '
 			{ s = $0; commented = 0
 			  if (s ~ /^[ \t]*#/) { if (!all) next; commented = 1; sub(/^[ \t]*#[ \t]*/, "", s) }
 			  sub(/^export[ \t]+/, "", s)
@@ -168,9 +168,9 @@ main() {
 			  v = substr(s, eq + 1)
 			  if (k ~ /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|API)/ && length(v) > 4)
 			      v = "****" substr(v, length(v) - 3)
-			  print k "=" v tag }' "$file"
+			  print k "=" v tag }' "${file}"
 		;;
-	*) die "unknown action: $action" ;;
+	*) die "unknown action: ${action}" ;;
 	esac
 }
 
