@@ -5,17 +5,24 @@
  * any other line. Writes atomically (temp file + rename) and preserves the
  * target's mode, so a crash mid-write can never leave a half-written env file.
  *
- *   envctl set     <file> <KEY> [VALUE]   set/replace KEY (uncomments if needed)
- *   envctl get     <file> <KEY>           print active value, exit 1 if unset
- *   envctl disable <file> <KEY>           comment KEY out, keep its value
- *   envctl enable  <file> <KEY>           uncomment KEY
- *   envctl delete  <file> <KEY>           remove KEY entirely (active + commented)
- *   envctl list    <file> [--values] [--all]
+ *   envctl set     [file] <KEY> [VALUE]   set/replace KEY (uncomments if needed)
+ *   envctl get     [file] <KEY>           print active value, exit 1 if unset
+ *   envctl disable [file] <KEY>           comment KEY out, keep its value
+ *   envctl enable  [file] <KEY>           uncomment KEY
+ *   envctl delete  [file] <KEY>           remove KEY entirely (active + commented)
+ *   envctl list    [file] [--values] [--all]
  *
  * Aliases: ls = list, rm = delete.
- * Bare form (first arg is the file): `<file> <KEY>` == get, `<file> <KEY> <VALUE>` == set.
+ * File is optional when ./.env exists as a regular file; an explicit path always
+ * wins when the first positional is an existing regular file.
+ * Bare form (no command word): `<file> <KEY>` / `<KEY>` == get,
+ * `<file> <KEY> <VALUE>` / `<KEY> <VALUE>` == set (with .env).
  * A command name wins over a same-named file.
- * Flag --dry-run prints the resulting file to stdout, writes nothing.
+ *
+ * Flags: --dry-run prints the result, writes nothing.
+ *        --redact / --raw force secret masking on or off for get, list --values,
+ *        and dry-run. Default: redact when a coding agent is detected and stdout
+ *        is a TTY (not when piped or used non-interactively), unless --raw.
  *
  * Help: `-h` prints the short usage; `--help` (or no args) prints the long help.
  * Inside a detected AI coding agent (per unjs/std-env), the long help is prefixed
@@ -142,41 +149,55 @@ static int detect_agent(void) {
 /* help                                                                       */
 /* -------------------------------------------------------------------------- */
 
-static const char *SHORT_USAGE =
-    "usage: envctl [<cmd>] <file> <KEY> [VALUE]\n"
-    "  commands: set get disable enable delete|rm list|ls\n"
-    "  bare:     envctl <file> <KEY>          == get\n"
-    "            envctl <file> <KEY> <VALUE>  == set\n"
-    "  flags:    --values --all (list)   --dry-run (set/disable/enable/delete)\n";
+static const char *SHORT_USAGE = "usage: envctl [<cmd>] [file] <KEY> [VALUE]\n"
+                                 "  commands: set get disable enable delete|rm list|ls\n"
+                                 "  file:     optional when ./.env exists\n"
+                                 "  bare:     envctl [file] <KEY>          == get\n"
+                                 "            envctl [file] <KEY> <VALUE>  == set\n"
+                                 "  flags:    --values --all (list)  --dry-run  --redact --raw\n";
 
 /* Prepended to the long help only when running inside a detected AI agent. */
 static const char *AI_PREAMBLE =
     "You are an AI coding agent. Use envctl to change a key in any env / .env-style file.\n"
     "NEVER hand-edit an env file to add, change, comment, or remove a key -\n"
-    "envctl does it in place, atomically, preserving order, comments, and mode.\n\n";
+    "envctl does it in place, atomically, preserving order, comments, and mode.\n"
+    "If ./.env exists you may omit the file argument. Secret-looking values are\n"
+    "redacted on a TTY by default; use --raw only when you truly need full secrets.\n\n";
 
 static const char *LONG_USAGE =
     "envctl — manage keys in env files\n"
     "\n"
     "Commands:\n"
-    "  envctl set     <file> <KEY> [VALUE]   set/replace KEY (uncomments if commented)\n"
-    "  envctl get     <file> <KEY>           print active value; exit 1 if unset\n"
-    "  envctl disable <file> <KEY>           comment KEY out, keep its value\n"
-    "  envctl enable  <file> <KEY>           uncomment KEY\n"
-    "  envctl delete  <file> <KEY>           remove KEY entirely (active + commented) [rm]\n"
-    "  envctl list    <file> [--values] [--all]  active keys; --values masks secrets;\n"
+    "  envctl set     [file] <KEY> [VALUE]   set/replace KEY (uncomments if commented)\n"
+    "  envctl get     [file] <KEY>           print active value; exit 1 if unset\n"
+    "  envctl disable [file] <KEY>           comment KEY out, keep its value\n"
+    "  envctl enable  [file] <KEY>           uncomment KEY\n"
+    "  envctl delete  [file] <KEY>           remove KEY entirely (active + commented) [rm]\n"
+    "  envctl list    [file] [--values] [--all]  active keys; --values shows values;\n"
     "                                        --all also lists disabled keys           [ls]\n"
     "\n"
-    "Bare form (first argument is the file, no command word):\n"
-    "  envctl <file> <KEY>            == get\n"
-    "  envctl <file> <KEY> <VALUE>    == set\n"
+    "File: optional when ./.env exists as a regular file. If the first positional is\n"
+    "an existing regular file, it is used; otherwise .env is assumed when present.\n"
     "\n"
-    "Flags: --dry-run on a mutating command prints the result, writes nothing.\n"
+    "Bare form (no command word):\n"
+    "  envctl [file] <KEY>            == get\n"
+    "  envctl [file] <KEY> <VALUE>    == set\n"
+    "\n"
+    "Flags:\n"
+    "  --dry-run   mutating command: print the result, write nothing\n"
+    "  --values    list: show values (secret-looking ones follow redact rules)\n"
+    "  --all       list: include disabled keys tagged (disabled)\n"
+    "  --redact    mask secret-looking values on get / list --values / dry-run\n"
+    "  --raw       never mask (overrides auto-redact and --redact)\n"
+    "\n"
+    "Redaction: secret-looking key names (KEY, TOKEN, SECRET, PASSWORD, PASSWD,\n"
+    "CREDENTIAL, API) are masked as **** + last 4 chars when redact is on.\n"
+    "Default on when a coding agent is detected and stdout is a TTY; off when\n"
+    "stdout is piped/redirected (scripts, command substitution) unless --redact.\n"
     "\n"
     "Guarantees: only the target key's line changes; re-running with the same args\n"
     "is a no-op; writes are atomic (temp + rename) and preserve file mode; VALUE is\n"
-    "literal (no shell/regex reinterpretation); secret-looking keys are masked by\n"
-    "`list --values`.\n";
+    "literal (no shell/regex reinterpretation).\n";
 
 /* longform: 0 = SHORT_USAGE (-h); 1 = LONG_USAGE (--help or no args).
  * The AI preamble is prepended to the long help only inside an AI agent. */
@@ -393,19 +414,8 @@ static Lines act_delete(Lines *L, const char *key, size_t kl) {
 	return out;
 }
 
-static int act_get(Lines *L, const char *key, size_t kl) {
-	for (size_t i = 0; i < L->n; i++) {
-		if (is_active_def(L->v[i], key, kl)) {
-			const char *s = skip_export(L->v[i]);
-			printf("%s\n", s + kl + 1);
-			return 0;
-		}
-	}
-	return 1; /* not set */
-}
-
 /* -------------------------------------------------------------------------- */
-/* list                                                                       */
+/* secrets / redaction                                                        */
 /* -------------------------------------------------------------------------- */
 
 static int secretish(const char *k) {
@@ -425,7 +435,44 @@ static int valid_keychars(const char *k, size_t kl) {
 	return 1;
 }
 
-static void act_list(Lines *L, int values, int all) {
+/* --raw wins; --redact forces on; else agent + TTY (not pipes/scripts). */
+static int want_redact(int flag_redact, int flag_raw) {
+	if (flag_raw)
+		return 0;
+	if (flag_redact)
+		return 1;
+	return detect_agent() && stdout_isatty();
+}
+
+/* Print a value, masking as **** + last 4 when redact && secretish. */
+static void print_value(const char *key, const char *val, int redact) {
+	if (redact && secretish(key)) {
+		size_t vlen = strlen(val);
+		if (vlen > 4)
+			printf("****%s\n", val + vlen - 4);
+		else
+			printf("****\n");
+	} else {
+		printf("%s\n", val);
+	}
+}
+
+static int act_get(Lines *L, const char *key, size_t kl, int redact) {
+	for (size_t i = 0; i < L->n; i++) {
+		if (is_active_def(L->v[i], key, kl)) {
+			const char *s = skip_export(L->v[i]);
+			print_value(key, s + kl + 1, redact);
+			return 0;
+		}
+	}
+	return 1; /* not set */
+}
+
+/* -------------------------------------------------------------------------- */
+/* list                                                                       */
+/* -------------------------------------------------------------------------- */
+
+static void act_list(Lines *L, int values, int all, int redact) {
 	for (size_t i = 0; i < L->n; i++) {
 		const char *orig = L->v[i];
 		const char *s;
@@ -462,11 +509,15 @@ static void act_list(Lines *L, int values, int all) {
 		memcpy(kbuf, s, kn);
 		kbuf[kn] = '\0';
 
-		size_t vlen = strlen(val);
-		if (secretish(kbuf) && vlen > 4)
-			printf("%.*s=****%s%s\n", (int)kl, s, val + vlen - 4, tag);
-		else
+		if (redact && secretish(kbuf)) {
+			size_t vlen = strlen(val);
+			if (vlen > 4)
+				printf("%.*s=****%s%s\n", (int)kl, s, val + vlen - 4, tag);
+			else
+				printf("%.*s=****%s\n", (int)kl, s, tag);
+		} else {
 			printf("%.*s=%s%s\n", (int)kl, s, val, tag);
+		}
 	}
 }
 
@@ -474,11 +525,56 @@ static void act_list(Lines *L, int values, int all) {
 /* atomic write                                                               */
 /* -------------------------------------------------------------------------- */
 
-static void emit(FILE *out, Lines *L) {
-	for (size_t i = 0; i < L->n; i++) {
-		fputs(L->v[i], out);
+/* Emit one line; when redact, mask secret-looking KEY=value (active or commented). */
+static void emit_line(FILE *out, const char *line, int redact) {
+	if (!redact) {
+		fputs(line, out);
 		fputc('\n', out);
+		return;
 	}
+
+	const char *p = skip_ws(line);
+	if (*p == '#')
+		p = skip_ws(p + 1);
+	p = skip_export(p);
+
+	const char *eq = strchr(p, '=');
+	if (!eq) {
+		fputs(line, out);
+		fputc('\n', out);
+		return;
+	}
+
+	size_t kl = (size_t)(eq - p);
+	if (!valid_keychars(p, kl)) {
+		fputs(line, out);
+		fputc('\n', out);
+		return;
+	}
+
+	char kbuf[256];
+	size_t kn = kl < sizeof(kbuf) - 1 ? kl : sizeof(kbuf) - 1;
+	memcpy(kbuf, p, kn);
+	kbuf[kn] = '\0';
+	if (!secretish(kbuf)) {
+		fputs(line, out);
+		fputc('\n', out);
+		return;
+	}
+
+	/* Keep everything through '=' (comment / export / spacing), mask the value. */
+	fwrite(line, 1, (size_t)(eq - line) + 1, out);
+	const char *val = eq + 1;
+	size_t vlen = strlen(val);
+	if (vlen > 4)
+		fprintf(out, "****%s\n", val + vlen - 4);
+	else
+		fputs("****\n", out);
+}
+
+static void emit(FILE *out, Lines *L, int redact) {
+	for (size_t i = 0; i < L->n; i++)
+		emit_line(out, L->v[i], redact);
 }
 
 /*
@@ -529,7 +625,7 @@ static void commit_file(const char *file, Lines *out) {
 		die("temp open failed");
 	}
 
-	emit(tf, out);
+	emit(tf, out, 0); /* never redact on disk */
 	if (fflush(tf) != 0 || fclose(tf) != 0) {
 		DeleteFileA(tmp);
 		die("write failed");
@@ -553,7 +649,7 @@ static void commit_file(const char *file, Lines *out) {
 		die("fdopen failed");
 	}
 
-	emit(tf, out);
+	emit(tf, out, 0); /* never redact on disk */
 	if (fflush(tf) != 0) {
 		fclose(tf);
 		unlink(tmpl);
@@ -593,20 +689,74 @@ static int is_command(const char *a) {
 	return 0;
 }
 
+static int is_reg_file(const char *path) {
+	struct stat st;
+	return path && stat(path, &st) == 0 && S_ISREG(st.st_mode);
+}
+
+/*
+ * Resolve [file] KEY [VALUE] from positionals after the command word.
+ *
+ * If the first positional is an existing regular file, it is the target file.
+ * Otherwise, when ./.env exists, use it and treat positionals as KEY [VALUE].
+ * A non-key-shaped first token that is not a file is rejected as a missing path
+ * (so `envctl get missing.env KEY` does not silently become a .env get).
+ */
+static void resolve_file_args(const char **rest, int nr, const char **file, const char **key,
+                              const char **val) {
+	*file = NULL;
+	*key = NULL;
+	*val = NULL;
+
+	if (nr >= 1 && is_reg_file(rest[0])) {
+		*file = rest[0];
+		if (nr >= 2)
+			*key = rest[1];
+		if (nr >= 3)
+			*val = rest[2];
+		if (nr > 3)
+			die("too many arguments");
+		return;
+	}
+
+	/* Path-shaped first arg that isn't a file — don't swallow it as a KEY. */
+	if (nr >= 1 && !valid_keychars(rest[0], strlen(rest[0])))
+		die("no such file: %s", rest[0]);
+
+	if (is_reg_file(".env")) {
+		*file = ".env";
+		if (nr >= 1)
+			*key = rest[0];
+		if (nr >= 2)
+			*val = rest[1];
+		if (nr > 2)
+			die("too many arguments");
+		return;
+	}
+
+	if (nr >= 1)
+		die("no file given and no .env in cwd");
+	die("no file given and no .env in cwd");
+}
+
 int main(int argc, char **argv) {
-	int dry = 0, values = 0, all = 0, np = 0;
+	int dry = 0, values = 0, all = 0, flag_redact = 0, flag_raw = 0, np = 0;
 	const char *pos[16];
 
 	for (int i = 1; i < argc; i++) {
 		const char *a = argv[i];
 
-		/* Options are global and position-free. --values/--all apply to list. */
+		/* Options are global and position-free. */
 		if (!strcmp(a, "--dry-run"))
 			dry = 1;
 		else if (!strcmp(a, "--values"))
 			values = 1;
 		else if (!strcmp(a, "--all"))
 			all = 1;
+		else if (!strcmp(a, "--redact"))
+			flag_redact = 1;
+		else if (!strcmp(a, "--raw"))
+			flag_raw = 1;
 		else if (!strcmp(a, "-h"))
 			print_help(0); /* short */
 		else if (!strcmp(a, "--help"))
@@ -622,9 +772,9 @@ int main(int argc, char **argv) {
 
 	/*
 	 * The command word may appear anywhere (before OR after the file): the first
-	 * one wins. Remaining positionals keep their order as file, key, value.
-	 * No command word: 2 args = get, 3 = set. So `envctl <file> get <KEY>` does
-	 * a get, instead of treating "get" as a key name.
+	 * one wins. Remaining positionals are [file] KEY [VALUE] (file optional when
+	 * ./.env exists). No command word: KEY only = get, KEY VALUE = set (with .env
+	 * or explicit file).
 	 */
 	const char *cmd = NULL;
 	const char *file = NULL;
@@ -640,41 +790,51 @@ int main(int argc, char **argv) {
 			rest[nr++] = pos[i];
 	}
 
-	if (nr < 1) {
-		if (cmd)
-			die("%s needs a file", cmd);
-		die("usage: envctl [<cmd>] <file> <KEY> [VALUE]");
-	}
-	if (nr > 3)
-		die("too many arguments");
-
-	file = rest[0];
-	if (nr >= 2)
-		key = rest[1];
-	if (nr >= 3)
-		val = rest[2];
-
 	if (!cmd) {
-		if (nr == 2)
-			cmd = "get";
-		else if (nr == 3)
+		/*
+		 * Bare form needs enough args to resolve a key. With an explicit file:
+		 * file KEY [VALUE]. With .env only: KEY [VALUE].
+		 */
+		if (nr < 1)
+			die("usage: envctl [<cmd>] [file] <KEY> [VALUE]");
+		resolve_file_args(rest, nr, &file, &key, &val);
+		if (!key)
+			die("usage: envctl [file] <KEY> [VALUE]  or  envctl <cmd> [file] ...");
+		if (val)
 			cmd = "set";
 		else
-			die("usage: envctl <file> <KEY> [VALUE]  or  envctl <cmd> <file> ...");
+			cmd = "get";
+	} else {
+		if (!strcmp(cmd, "ls"))
+			cmd = "list";
+		if (!strcmp(cmd, "rm"))
+			cmd = "delete";
+
+		if (!strcmp(cmd, "list")) {
+			if (nr == 0) {
+				if (!is_reg_file(".env"))
+					die("list needs a file (no .env in cwd)");
+				file = ".env";
+			} else if (nr == 1 && is_reg_file(rest[0])) {
+				file = rest[0];
+			} else if (nr == 1) {
+				die("no such file: %s", rest[0]);
+			} else {
+				die("too many arguments");
+			}
+		} else {
+			resolve_file_args(rest, nr, &file, &key, &val);
+		}
 	}
 
-	if (!strcmp(cmd, "ls"))
-		cmd = "list";
-	if (!strcmp(cmd, "rm"))
-		cmd = "delete";
-
-	struct stat st;
-	if (stat(file, &st) != 0 || !S_ISREG(st.st_mode))
+	if (!is_reg_file(file))
 		die("no such file: %s", file);
+
+	int redact = want_redact(flag_redact, flag_raw);
 
 	if (!strcmp(cmd, "list")) {
 		Lines L = read_file(file);
-		act_list(&L, values, all);
+		act_list(&L, values, all, redact);
 		return 0;
 	}
 
@@ -683,11 +843,15 @@ int main(int argc, char **argv) {
 	if (!valid_keychars(key, strlen(key)))
 		die("invalid key: '%s'", key);
 
+	/* get / disable / enable / delete take no VALUE positional. */
+	if (strcmp(cmd, "set") != 0 && val)
+		die("too many arguments");
+
 	Lines L = read_file(file);
 	size_t kl = strlen(key);
 
 	if (!strcmp(cmd, "get"))
-		return act_get(&L, key, kl);
+		return act_get(&L, key, kl, redact);
 
 	Lines out;
 	if (!strcmp(cmd, "set"))
@@ -700,7 +864,7 @@ int main(int argc, char **argv) {
 		out = act_delete(&L, key, kl);
 
 	if (dry)
-		emit(stdout, &out);
+		emit(stdout, &out, redact);
 	else
 		commit_file(file, &out);
 
