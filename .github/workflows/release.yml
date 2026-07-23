@@ -19,8 +19,9 @@ jobs:
         ]
     steps:
       - uses: actions/checkout@v7
+      - uses: kjanat/runner@master
       - name: Build artifact
-        run: make ${{ matrix.target }}
+        run: run ${{ matrix.target }}
       - uses: actions/upload-artifact@v7
         with: { if-no-files-found: error, name: "${{ matrix.artifact }}", path: "dist/${{ matrix.artifact }}" }
 

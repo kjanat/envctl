@@ -7,4 +7,4 @@ jobs:
     name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy: { matrix: { os: [ubuntu-26.04, macos-15, windows-2025-vs2026] }, fail-fast: false }
-    steps: [uses: actions/checkout@v7, run: make, run: make test]
+    steps: [uses: actions/checkout@v7, uses: kjanat/runner@master, run: run -s make test]

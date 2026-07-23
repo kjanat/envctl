@@ -18,6 +18,8 @@
 	},
 	"yaml": {
 		"printWidth": 160,
+		"preferSingleLine": true,
+		"proseWrap": "always",
 	},
 	"excludes": ["envctl"],
 	"plugins": [

@@ -3,5 +3,7 @@
 /envctl.exe
 /dist/
 *.o
+*.d
 src/*.o
+src/*.d
 dotenv.test
