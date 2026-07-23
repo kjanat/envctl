@@ -83,10 +83,15 @@ Help: `-h` for short usage, `--help` (or no args) for long help.
 
 ### Redaction
 
-Secret-looking key names (`KEY`, `TOKEN`, `SECRET`, `PASSWORD`, `PASSWD`,
-`CREDENTIAL`, `API`) are masked as `****` + last 4 characters when redaction is
-on. Disk writes are never redacted — only stdout from `get`, `list --values`,
-and `--dry-run`.
+Secret-looking key names are masked as `****` + last 4 characters when
+redaction is on:
+
+- **Substring:** `KEY`, `TOKEN`, `SECRET`, `PASSWORD`, `PASSWD`, `CREDENTIAL`, `API`
+- **Full `_`-separated segment only:** `PASS`, `PWD` (e.g. `DB_PASS`, `MYSQL_PWD`;
+  not `PASSPORT` / `COMPASS`)
+
+Disk writes are never redacted — only stdout from `get`, `list --values`, and
+`--dry-run`.
 
 | Situation                                     | Redact?                |
 | --------------------------------------------- | ---------------------- |

@@ -191,7 +191,8 @@ static const char *LONG_USAGE =
     "  --raw       never mask (overrides auto-redact and --redact)\n"
     "\n"
     "Redaction: secret-looking key names (KEY, TOKEN, SECRET, PASSWORD, PASSWD,\n"
-    "CREDENTIAL, API) are masked as **** + last 4 chars when redact is on.\n"
+    "CREDENTIAL, API; segment PASS/PWD e.g. DB_PASS) are masked as **** + last 4\n"
+    "chars when redact is on.\n"
     "Default on when a coding agent is detected and stdout is a TTY; off when\n"
     "stdout is piped/redirected (scripts, command substitution) unless --redact.\n"
     "\n"
@@ -418,9 +419,28 @@ static Lines act_delete(Lines *L, const char *key, size_t kl) {
 /* secrets / redaction                                                        */
 /* -------------------------------------------------------------------------- */
 
+/* True if `seg` appears as a full _-separated segment: (^|_)seg(_|$). */
+static int has_segment(const char *k, const char *seg) {
+	size_t n = strlen(seg);
+
+	for (const char *p = k; *p; p++) {
+		if (strncmp(p, seg, n) != 0)
+			continue;
+		int left = (p == k) || (p[-1] == '_');
+		int right = (p[n] == '\0') || (p[n] == '_');
+		if (left && right)
+			return 1;
+	}
+	return 0;
+}
+
 static int secretish(const char *k) {
-	return strstr(k, "KEY") || strstr(k, "TOKEN") || strstr(k, "SECRET") || strstr(k, "PASSWORD") ||
-	       strstr(k, "PASSWD") || strstr(k, "CREDENTIAL") || strstr(k, "API");
+	/* Long / unambiguous tokens: substring match. */
+	if (strstr(k, "KEY") || strstr(k, "TOKEN") || strstr(k, "SECRET") || strstr(k, "PASSWORD") ||
+	    strstr(k, "PASSWD") || strstr(k, "CREDENTIAL") || strstr(k, "API"))
+		return 1;
+	/* Short abbreviations: whole segment only (not PASSPORT / COMPASS). */
+	return has_segment(k, "PASS") || has_segment(k, "PWD");
 }
 
 static int valid_keychars(const char *k, size_t kl) {

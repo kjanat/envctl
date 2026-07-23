@@ -166,7 +166,8 @@ main() {
 			  tag = commented ? " (disabled)" : ""
 			  if (!show) { print k tag; next }
 			  v = substr(s, eq + 1)
-			  if (k ~ /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|API)/ && length(v) > 4)
+			  if ((k ~ /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|API)/ ||
+			       k ~ /(^|_)(PASS|PWD)(_|$)/) && length(v) > 4)
 			      v = "****" substr(v, length(v) - 3)
 			  print k "=" v tag }' "${file}"
 			;;
