@@ -1,9 +1,9 @@
 /*
  * envctl - env-file key manager (C port of envctl.sh).
  *
- * Edits a single KEY in place without disturbing order, comments, spacing, or
- * any other line. Writes atomically (temp file + rename) and preserves the
- * target's mode, so a crash mid-write can never leave a half-written env file.
+ * Edits a single KEY in place without disturbing order, comments, spacing, or any other line.
+ * Writes atomically (temp file + rename) and preserves the target's mode, so a crash
+ * mid-write can never leave a half-written env file.
  *
  *   envctl set     <file> <KEY> [VALUE]   set/replace KEY (uncomments if needed)
  *   envctl get     <file> <KEY>           print active value, exit 1 if unset
@@ -13,8 +13,8 @@
  *   envctl list    <file> [--values] [--all]
  *
  * Aliases: ls = list, rm = delete.
- * Bare form (first arg is the file): `<file> <KEY>` == get,
- * `<file> <KEY> <VALUE>` == set. A command name wins over a same-named file.
+ * Bare form (first arg is the file): `<file> <KEY>` == get, `<file> <KEY> <VALUE>` == set.
+ * A command name wins over a same-named file.
  * Flag --dry-run prints the resulting file to stdout, writes nothing.
  *
  * Help: `-h` prints the short usage; `--help` (or no args) prints the long help.
@@ -83,7 +83,7 @@ static char *xstrdup(const char *s) {
 	return p;
 }
 
-/* ---------- agent detection: mirrors unjs/std-env src/agents.ts ---------- */
+/* agent detection: mirrors unjs/std-env src/agents.ts */
 static int env_set(const char *k) {
 	const char *v = getenv(k);
 	return v && *v;
@@ -117,7 +117,7 @@ static int detect_agent(void) {
 	return 0;
 }
 
-/* ---------- help ---------- */
+/* help */
 static const char *SHORT_USAGE =
     "usage: envctl [<cmd>] <file> <KEY> [VALUE]\n"
     "  commands: set get disable enable delete|rm list|ls\n"
@@ -167,7 +167,7 @@ NORETURN static void print_help(int longform) {
 	exit(0);
 }
 
-/* ---------- line store ---------- */
+/* line store */
 typedef struct {
 	char **v;
 	size_t n, cap;
@@ -187,9 +187,9 @@ static void push_char(char **buf, size_t *cap, size_t *len, char c) {
 	}
 	(*buf)[(*len)++] = c;
 }
-/* Portable line reader (no getline): splits on '\n', strips a trailing '\r'
- * (so CRLF files read cleanly on any platform). Binary mode + explicit LF on
- * write keeps line endings consistent everywhere. */
+/* Portable line reader (no getline): splits on '\n', strips a trailing '\r' (so CRLF files read
+ * cleanly on any platform). Binary mode + explicit LF on write keeps line endings consistent
+ * everywhere. */
 static Lines read_file(const char *file) {
 	FILE *f = fopen(file, "rb");
 	if (!f)
@@ -220,7 +220,7 @@ static Lines read_file(const char *file) {
 	return L;
 }
 
-/* ---------- definition matching (mirrors the awk in envctl.sh) ---------- */
+/* definition matching (mirrors the awk in envctl.sh) */
 static const char *skip_ws(const char *s) {
 	while (*s == ' ' || *s == '\t')
 		s++;
@@ -264,7 +264,7 @@ static char *uncomment(const char *line) {
 	return xstrdup(skip_ws(p + 1));
 }
 
-/* ---------- transforms ---------- */
+/* transforms */
 static Lines act_set(Lines *L, const char *key, size_t kl, const char *val) {
 	long fa = -1, fc = -1;
 	for (size_t i = 0; i < L->n; i++) {
@@ -334,7 +334,7 @@ static int act_get(Lines *L, const char *key, size_t kl) {
 	return 1; /* not set */
 }
 
-/* ---------- list ---------- */
+/* list */
 static int secretish(const char *k) {
 	return strstr(k, "KEY") || strstr(k, "TOKEN") || strstr(k, "SECRET") || strstr(k, "PASSWORD") ||
 	       strstr(k, "PASSWD") || strstr(k, "CREDENTIAL") || strstr(k, "API");
@@ -387,7 +387,7 @@ static void act_list(Lines *L, int values, int all) {
 	}
 }
 
-/* ---------- atomic write ---------- */
+/* atomic write */
 static void emit(FILE *out, Lines *L) {
 	for (size_t i = 0; i < L->n; i++) {
 		fputs(L->v[i], out);
@@ -416,9 +416,9 @@ static char *dir_of(const char *path) {
 	return d;
 }
 
-/* Write `out` to `file` atomically: build a temp file in the same directory,
- * then replace the target in one step. POSIX preserves the file mode; Windows
- * needs MoveFileEx because rename() there won't overwrite an existing file. */
+/* Write `out` to `file` atomically: build a temp file in the same directory, then replace the
+ * target in one step. POSIX preserves the file mode; Windows needs MoveFileEx because rename()
+ * there won't overwrite an existing file. */
 static void commit_file(const char *file, Lines *out) {
 	char *dir = dir_of(file);
 #ifdef _WIN32
@@ -473,7 +473,7 @@ static void commit_file(const char *file, Lines *out) {
 	free(dir);
 }
 
-/* ---------- main ---------- */
+/* main */
 static int is_command(const char *a) {
 	static const char *cmds[] = {"set",  "get", "disable", "enable", "delete",
 	                             "list", "ls",  "rm",      NULL};
@@ -484,14 +484,17 @@ static int is_command(const char *a) {
 }
 
 int main(int argc, char **argv) {
-	int dry = 0, np = 0;
+	int dry = 0, values = 0, all = 0, np = 0;
 	const char *pos[16];
 	for (int i = 1; i < argc; i++) {
 		const char *a = argv[i];
-		/* --dry-run, -h and --help are global. --values/--all are list-only and
-		 * otherwise stay positional, so a literal value "--all" is honored. */
+		/* Options are global and position-free. --values/--all apply to list. */
 		if (!strcmp(a, "--dry-run"))
 			dry = 1;
+		else if (!strcmp(a, "--values"))
+			values = 1;
+		else if (!strcmp(a, "--all"))
+			all = 1;
 		else if (!strcmp(a, "-h"))
 			print_help(0); /* short */
 		else if (!strcmp(a, "--help"))
@@ -504,28 +507,37 @@ int main(int argc, char **argv) {
 	if (np == 0)
 		print_help(1); /* long */
 
-	const char *cmd, *file, *key = NULL, *val = NULL;
-	if (is_command(pos[0])) {
-		cmd = pos[0];
-		if (np < 2)
-			die("%s needs a file", pos[0]);
-		file = pos[1];
-		if (np >= 3)
-			key = pos[2];
-		if (np >= 4)
-			val = pos[3];
-	} else {
-		file = pos[0];
-		if (np == 2) {
+	/* The command word may appear anywhere (before OR after the file): the first one wins.
+	 * The remaining positionals keep their order as file, key, value.
+	 * No command word: 2 args = get, 3 = set. So `envctl <file> get <KEY>` does a get,
+	 * instead of "get=<KEY>". */
+	const char *cmd = NULL, *file, *key = NULL, *val = NULL, *rest[16];
+	int nr = 0;
+	for (int i = 0; i < np; i++) {
+		if (!cmd && is_command(pos[i]))
+			cmd = pos[i];
+		else
+			rest[nr++] = pos[i];
+	}
+	if (nr < 1) {
+		if (cmd)
+			die("%s needs a file", cmd);
+		die("%s", "usage: envctl [<cmd>] <file> <KEY> [VALUE]");
+	}
+	if (nr > 3)
+		die("%s", "too many arguments");
+	file = rest[0];
+	if (nr >= 2)
+		key = rest[1];
+	if (nr >= 3)
+		val = rest[2];
+	if (!cmd) {
+		if (nr == 2)
 			cmd = "get";
-			key = pos[1];
-		} else if (np == 3) {
+		else if (nr == 3)
 			cmd = "set";
-			key = pos[1];
-			val = pos[2];
-		} else {
+		else
 			die("%s", "usage: envctl <file> <KEY> [VALUE]  or  envctl <cmd> <file> ...");
-		}
 	}
 	if (!strcmp(cmd, "ls"))
 		cmd = "list";
@@ -537,13 +549,6 @@ int main(int argc, char **argv) {
 		die("no such file: %s", file);
 
 	if (!strcmp(cmd, "list")) {
-		int values = 0, all = 0;
-		for (int i = 2; i < np; i++) {
-			if (!strcmp(pos[i], "--values"))
-				values = 1;
-			else if (!strcmp(pos[i], "--all"))
-				all = 1;
-		}
 		Lines L = read_file(file);
 		act_list(&L, values, all);
 		return 0;
