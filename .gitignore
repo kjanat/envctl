@@ -4,3 +4,4 @@
 /dist/
 *.o
 dotenv.test
+/target

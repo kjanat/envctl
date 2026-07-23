@@ -5,6 +5,9 @@
 			"command": "clang-format --assume-filename={{file_path}}",
 			"exts": ["c", "cc", "cpp", "cxx", "h", "hpp", "hxx", "m", "mm"],
 			"cacheKeyFiles": [".clang-format"],
+		}, {
+			"command": "rustfmt --edition 2024",
+			"exts": ["rs"],
 		}],
 	},
 	"shfmt": {
