@@ -1,5 +1,5 @@
 /*
- * envctl - surgical, idempotent env-file key manager (C port of envctl.sh).
+ * envctl - env-file key manager (C port of envctl.sh).
  *
  * Edits a single KEY in place without disturbing order, comments, spacing, or
  * any other line. Writes atomically (temp file + rename) and preserves the
@@ -17,24 +17,48 @@
  * `<file> <KEY> <VALUE>` == set. A command name wins over a same-named file.
  * Flag --dry-run prints the resulting file to stdout, writes nothing.
  *
- * When run with no args (or -h/--help) *inside an AI coding agent* (detected per
- * unjs/std-env), the help output is an expanded agent-oriented prompt instead of
- * the terse human usage line.
+ * Help: `-h` prints the short usage; `--help` (or no args) prints the long help.
+ * Inside a detected AI coding agent (per unjs/std-env), the long help is prefixed
+ * with an agent-oriented preamble.
  *
  * Build:  cc -O2 -Wall -Wextra -std=c11 -o envctl envctl.c
  */
 #define _GNU_SOURCE
 #include <ctype.h>
-#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+
+#ifdef _WIN32
+#include <io.h>
+#include <windows.h>
+#define strdup _strdup
+#ifndef S_ISREG
+#define S_ISREG(m) (((m)&_S_IFMT) == _S_IFREG)
+#endif
+#else
 #include <unistd.h>
+#endif
+
+#if defined(_MSC_VER)
+#define NORETURN __declspec(noreturn)
+#else
+#define NORETURN _Noreturn
+#endif
+
+/* stdout tty check, portable across POSIX and Windows */
+static int stdout_isatty(void) {
+#ifdef _WIN32
+	return _isatty(_fileno(stdout));
+#else
+	return isatty(STDOUT_FILENO);
+#endif
+}
 
 static const char *PROG = "envctl";
 
-_Noreturn static void die(const char *fmt, const char *arg) {
+NORETURN static void die(const char *fmt, const char *arg) {
 	fprintf(stderr, "%s: ", PROG);
 	fprintf(stderr, fmt, arg);
 	fputc('\n', stderr);
@@ -88,7 +112,7 @@ static int detect_agent(void) {
 		return 1; /* pi */
 	if ((v = getenv("EDITOR")) && strstr(v, "devin"))
 		return 1; /* devin */
-	if ((v = getenv("TERM_PROGRAM")) && strstr(v, "kiro") && !isatty(STDOUT_FILENO))
+	if ((v = getenv("TERM_PROGRAM")) && strstr(v, "kiro") && !stdout_isatty())
 		return 1; /* kiro, only when non-interactive (noTTY) */
 	return 0;
 }
@@ -96,17 +120,19 @@ static int detect_agent(void) {
 /* ---------- help ---------- */
 static const char *SHORT_USAGE =
     "usage: envctl [<cmd>] <file> <KEY> [VALUE]\n"
-    "  commands: set get disable enable delete list     aliases: ls=list, rm=delete\n"
+    "  commands: set get disable enable delete|rm list|ls\n"
     "  bare:     envctl <file> <KEY>          == get\n"
     "            envctl <file> <KEY> <VALUE>  == set\n"
     "  flags:    --values --all (list)   --dry-run (set/disable/enable/delete)\n";
 
-static const char *AGENT_PROMPT =
-    "envctl - surgical, idempotent env-file key manager.\n"
-    "\n"
-    "You are an AI coding agent. Use envctl to change a key in any env / .env-style\n"
-    "file. NEVER hand-edit an env file to add, change, comment, or remove a key -\n"
-    "envctl does it in place, atomically, preserving order, comments, and mode.\n"
+/* Prepended to the long help only when running inside a detected AI agent. */
+static const char *AI_PREAMBLE =
+    "You are an AI coding agent. Use envctl to change a key in any env / .env-style file.\n"
+    "NEVER hand-edit an env file to add, change, comment, or remove a key -\n"
+    "envctl does it in place, atomically, preserving order, comments, and mode.\n\n";
+
+static const char *LONG_USAGE =
+    "envctl - env-file key manager.\n"
     "\n"
     "Commands:\n"
     "  envctl set     <file> <KEY> [VALUE]   set/replace KEY (uncomments if commented)\n"
@@ -128,9 +154,17 @@ static const char *AGENT_PROMPT =
     "literal (no shell/regex reinterpretation); secret-looking keys are masked by\n"
     "`list --values`.\n";
 
-_Noreturn static void print_help(int code) {
-	fputs(detect_agent() ? AGENT_PROMPT : SHORT_USAGE, code ? stderr : stdout);
-	exit(code);
+/* longform: 0 = SHORT_USAGE (-h); 1 = LONG_USAGE (--help or no args). The AI
+ * preamble is prepended to the long help only when run inside an AI agent. */
+NORETURN static void print_help(int longform) {
+	if (!longform) {
+		fputs(SHORT_USAGE, stdout);
+	} else {
+		if (detect_agent())
+			fputs(AI_PREAMBLE, stdout);
+		fputs(LONG_USAGE, stdout);
+	}
+	exit(0);
 }
 
 /* ---------- line store ---------- */
@@ -146,17 +180,39 @@ static void lpush(Lines *L, char *s) {
 	}
 	L->v[L->n++] = s;
 }
+static void push_char(char **buf, size_t *cap, size_t *len, char c) {
+	if (*len + 1 > *cap) {
+		*cap = *cap ? *cap * 2 : 128;
+		*buf = xrealloc(*buf, *cap);
+	}
+	(*buf)[(*len)++] = c;
+}
+/* Portable line reader (no getline): splits on '\n', strips a trailing '\r'
+ * (so CRLF files read cleanly on any platform). Binary mode + explicit LF on
+ * write keeps line endings consistent everywhere. */
 static Lines read_file(const char *file) {
-	FILE *f = fopen(file, "r");
+	FILE *f = fopen(file, "rb");
 	if (!f)
 		die("cannot open file: %s", file);
 	Lines L = {0};
 	char *buf = NULL;
-	size_t cap = 0;
-	ssize_t r;
-	while ((r = getline(&buf, &cap, f)) >= 0) {
-		if (r > 0 && buf[r - 1] == '\n')
-			buf[--r] = '\0';
+	size_t cap = 0, len = 0;
+	int c;
+	while ((c = fgetc(f)) != EOF) {
+		if (c == '\n') {
+			if (len && buf[len - 1] == '\r')
+				len--;
+			push_char(&buf, &cap, &len, '\0');
+			lpush(&L, xstrdup(buf));
+			len = 0;
+		} else {
+			push_char(&buf, &cap, &len, (char)c);
+		}
+	}
+	if (len > 0) { /* final line with no trailing newline */
+		if (buf[len - 1] == '\r')
+			len--;
+		push_char(&buf, &cap, &len, '\0');
 		lpush(&L, xstrdup(buf));
 	}
 	free(buf);
@@ -338,16 +394,59 @@ static void emit(FILE *out, Lines *L) {
 		fputc('\n', out);
 	}
 }
+/* Directory portion of a path (malloc'd; "." if none). Handles '/' and, on
+ * Windows, '\\'. Replaces POSIX dirname() so there is no libgen.h dependency. */
+static char *dir_of(const char *path) {
+	const char *slash = NULL;
+	for (const char *p = path; *p; p++)
+		if (*p == '/'
+#ifdef _WIN32
+		    || *p == '\\'
+#endif
+		)
+			slash = p;
+	if (!slash)
+		return xstrdup(".");
+	size_t n = (size_t)(slash - path);
+	if (n == 0)
+		n = 1; /* "/foo" -> keep the root "/" */
+	char *d = xmalloc(n + 1);
+	memcpy(d, path, n);
+	d[n] = '\0';
+	return d;
+}
+
+/* Write `out` to `file` atomically: build a temp file in the same directory,
+ * then replace the target in one step. POSIX preserves the file mode; Windows
+ * needs MoveFileEx because rename() there won't overwrite an existing file. */
 static void commit_file(const char *file, Lines *out) {
-	char *dup = xstrdup(file);
-	char *dir = dirname(dup);
+	char *dir = dir_of(file);
+#ifdef _WIN32
+	char tmp[MAX_PATH];
+	if (!GetTempFileNameA(dir, "env", 0, tmp))
+		die("%s", "GetTempFileName failed");
+	FILE *tf = fopen(tmp, "wb");
+	if (!tf) {
+		DeleteFileA(tmp);
+		die("%s", "temp open failed");
+	}
+	emit(tf, out);
+	if (fflush(tf) != 0 || fclose(tf) != 0) {
+		DeleteFileA(tmp);
+		die("%s", "write failed");
+	}
+	if (!MoveFileExA(tmp, file, MOVEFILE_REPLACE_EXISTING)) {
+		DeleteFileA(tmp);
+		die("%s", "replace failed");
+	}
+#else
 	size_t tl = strlen(dir) + sizeof("/.envctl.XXXXXX");
 	char *tmpl = xmalloc(tl);
 	snprintf(tmpl, tl, "%s/.envctl.XXXXXX", dir);
 	int fd = mkstemp(tmpl);
 	if (fd < 0)
 		die("%s", "mkstemp failed");
-	FILE *tf = fdopen(fd, "w");
+	FILE *tf = fdopen(fd, "wb");
 	if (!tf) {
 		unlink(tmpl);
 		die("%s", "fdopen failed");
@@ -370,7 +469,8 @@ static void commit_file(const char *file, Lines *out) {
 		die("%s", "rename failed");
 	}
 	free(tmpl);
-	free(dup);
+#endif
+	free(dir);
 }
 
 /* ---------- main ---------- */
@@ -388,19 +488,21 @@ int main(int argc, char **argv) {
 	const char *pos[16];
 	for (int i = 1; i < argc; i++) {
 		const char *a = argv[i];
-		/* Only --dry-run and -h are global. --values/--all are list-only and
+		/* --dry-run, -h and --help are global. --values/--all are list-only and
 		 * otherwise stay positional, so a literal value "--all" is honored. */
 		if (!strcmp(a, "--dry-run"))
 			dry = 1;
-		else if (!strcmp(a, "-h") || !strcmp(a, "--help"))
-			print_help(0);
+		else if (!strcmp(a, "-h"))
+			print_help(0); /* short */
+		else if (!strcmp(a, "--help"))
+			print_help(1); /* long */
 		else if (np < (int)(sizeof(pos) / sizeof(*pos)))
 			pos[np++] = a;
 		else
 			die("%s", "too many arguments");
 	}
 	if (np == 0)
-		print_help(0);
+		print_help(1); /* long */
 
 	const char *cmd, *file, *key = NULL, *val = NULL;
 	if (is_command(pos[0])) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# envctl - env-file key management.
+# envctl - env-file key manager.
 #
 # Edits a single KEY in place without disturbing order, comments, spacing, or
 # any other line. Writes atomically (temp file + mv) and preserves the target's
