@@ -102,61 +102,61 @@ main() {
 	[[ $# -ge 2 ]] || die "usage: envctl [<cmd>] <file> <KEY> [VALUE]  (cmd: set get disable enable delete list; aliases ls=list rm=delete)"
 	local action file
 	case "$1" in
-	set | get | disable | enable | delete | list | ls | rm)
-		# explicit command form: envctl <cmd> <file> [KEY] [VALUE]
-		action=$1 file=$2
-		shift 2
-		;;
-	*)
-		# bare form: first arg is the file. 1 trailing arg = get, 2 = set.
-		# (a command name always wins over a same-named file; rename such a file.)
-		file=$1
-		shift
-		case $# in
-		1) action="get" ;;
-		2) action="set" ;;
-		*) die "usage: envctl <file> <KEY> [VALUE]  or  envctl <cmd> <file> ..." ;;
-		esac
-		;;
+		set | get | disable | enable | delete | list | ls | rm)
+			# explicit command form: envctl <cmd> <file> [KEY] [VALUE]
+			action=$1 file=$2
+			shift 2
+			;;
+		*)
+			# bare form: first arg is the file. 1 trailing arg = get, 2 = set.
+			# (a command name always wins over a same-named file; rename such a file.)
+			file=$1
+			shift
+			case $# in
+				1) action="get" ;;
+				2) action="set" ;;
+				*) die "usage: envctl <file> <KEY> [VALUE]  or  envctl <cmd> <file> ..." ;;
+			esac
+			;;
 	esac
 	[[ "${action}" == ls ]] && action="list"
 	[[ "${action}" == rm ]] && action="delete"
 	[[ -f "${file}" ]] || die "no such file: ${file}"
 
 	case "${action}" in
-	get)
-		[[ $# -ge 1 ]] || die "get needs KEY"
-		valid_key "$1"
-		local v
-		v=$(ENVCTL_KEY="$1" awk '
+		get)
+			[[ $# -ge 1 ]] || die "get needs KEY"
+			valid_key "$1"
+			local v
+			v=$(ENVCTL_KEY="$1" awk '
 			BEGIN { K = ENVIRON["ENVCTL_KEY"] }
 			/^[ \t]*#/ { next }
 			{ s = $0; sub(/^export[ \t]+/, "", s)
 			  if (substr(s,1,length(K)+1) == K "=") { print substr(s,length(K)+2); found=1; exit } }
 			END { exit(found ? 0 : 1) }' "${file}") || return 1
-		printf '%s\n' "${v}"
-		;;
-	set)
-		[[ $# -ge 1 ]] || die "set needs KEY"
-		valid_key "$1"
-		local out
-		out=$(ENVCTL_VAL="${2-}" render "${file}" set "$1")
-		if [[ "${dry}" -eq 1 ]]; then printf '%s\n' "${out}"; else commit "${file}" "${out}"; fi
-		;;
-	disable | enable | delete)
-		[[ $# -ge 1 ]] || die "${action} needs KEY"
-		valid_key "$1"
-		local out
-		out=$(render "${file}" "${action}" "$1")
-		if [[ "${dry}" -eq 1 ]]; then printf '%s\n' "${out}"; else commit "${file}" "${out}"; fi
-		;;
-	list)
-		local values=0 all=0
-		for f in "$@"; do
-			[[ "${f}" == --values ]] && values=1
-			[[ "${f}" == --all ]] && all=1
-		done
-		awk -v show="${values}" -v all="${all}" '
+			printf '%s\n' "${v}"
+			;;
+		set)
+			[[ $# -ge 1 ]] || die "set needs KEY"
+			valid_key "$1"
+			local out
+			out=$(ENVCTL_VAL="${2-}" render "${file}" set "$1")
+			if [[ "${dry}" -eq 1 ]]; then printf '%s\n' "${out}"; else commit "${file}" "${out}"; fi
+			;;
+		disable | enable | delete)
+			[[ $# -ge 1 ]] || die "${action} needs KEY"
+			valid_key "$1"
+			local out
+			out=$(render "${file}" "${action}" "$1")
+			if [[ "${dry}" -eq 1 ]]; then printf '%s\n' "${out}"; else commit "${file}" "${out}"; fi
+			;;
+		list)
+			local values=0 all=0
+			for f in "$@"; do
+				[[ "${f}" == --values ]] && values=1
+				[[ "${f}" == --all ]] && all=1
+			done
+			awk -v show="${values}" -v all="${all}" '
 			{ s = $0; commented = 0
 			  if (s ~ /^[ \t]*#/) { if (!all) next; commented = 1; sub(/^[ \t]*#[ \t]*/, "", s) }
 			  sub(/^export[ \t]+/, "", s)
@@ -169,8 +169,8 @@ main() {
 			  if (k ~ /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|API)/ && length(v) > 4)
 			      v = "****" substr(v, length(v) - 3)
 			  print k "=" v tag }' "${file}"
-		;;
-	*) die "unknown action: ${action}" ;;
+			;;
+		*) die "unknown action: ${action}" ;;
 	esac
 }
 

@@ -1,0 +1,3 @@
+# Build artifacts (the binary is built from envctl.c via `make`).
+/envctl
+*.o

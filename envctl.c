@@ -1,0 +1,476 @@
+/*
+ * envctl - surgical, idempotent env-file key manager (C port of envctl.sh).
+ *
+ * Edits a single KEY in place without disturbing order, comments, spacing, or
+ * any other line. Writes atomically (temp file + rename) and preserves the
+ * target's mode, so a crash mid-write can never leave a half-written env file.
+ *
+ *   envctl set     <file> <KEY> [VALUE]   set/replace KEY (uncomments if needed)
+ *   envctl get     <file> <KEY>           print active value, exit 1 if unset
+ *   envctl disable <file> <KEY>           comment KEY out, keep its value
+ *   envctl enable  <file> <KEY>           uncomment KEY
+ *   envctl delete  <file> <KEY>           remove KEY entirely (active + commented)
+ *   envctl list    <file> [--values] [--all]
+ *
+ * Aliases: ls = list, rm = delete.
+ * Bare form (first arg is the file): `<file> <KEY>` == get,
+ * `<file> <KEY> <VALUE>` == set. A command name wins over a same-named file.
+ * Flag --dry-run prints the resulting file to stdout, writes nothing.
+ *
+ * When run with no args (or -h/--help) *inside an AI coding agent* (detected per
+ * unjs/std-env), the help output is an expanded agent-oriented prompt instead of
+ * the terse human usage line.
+ *
+ * Build:  cc -O2 -Wall -Wextra -std=c11 -o envctl envctl.c
+ */
+#define _GNU_SOURCE
+#include <ctype.h>
+#include <libgen.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+static const char *PROG = "envctl";
+
+_Noreturn static void die(const char *fmt, const char *arg) {
+	fprintf(stderr, "%s: ", PROG);
+	fprintf(stderr, fmt, arg);
+	fputc('\n', stderr);
+	exit(2);
+}
+static void *xmalloc(size_t n) {
+	void *p = malloc(n);
+	if (!p)
+		die("%s", "out of memory");
+	return p;
+}
+static void *xrealloc(void *q, size_t n) {
+	void *p = realloc(q, n);
+	if (!p)
+		die("%s", "out of memory");
+	return p;
+}
+static char *xstrdup(const char *s) {
+	char *p = strdup(s);
+	if (!p)
+		die("%s", "out of memory");
+	return p;
+}
+
+/* ---------- agent detection: mirrors unjs/std-env src/agents.ts ---------- */
+static int env_set(const char *k) {
+	const char *v = getenv(k);
+	return v && *v;
+}
+static int detect_agent(void) {
+	const char *v;
+	if (env_set("AI_AGENT"))
+		return 1; /* explicit override */
+	static const char *keys[] = {"CLAUDECODE",
+	                             "CLAUDE_CODE", /* claude   */
+	                             "REPL_ID",     /* replit   */
+	                             "GEMINI_CLI",  /* gemini   */
+	                             "CODEX_SANDBOX",
+	                             "CODEX_THREAD_ID", /* codex    */
+	                             "OPENCODE",        /* opencode */
+	                             "AUGMENT_AGENT",   /* auggie   */
+	                             "GOOSE_PROVIDER",  /* goose    */
+	                             "JUNIE_DATA",
+	                             "JUNIE_SHIM_PATH", /* junie    */
+	                             "CURSOR_AGENT",    /* cursor   */
+	                             NULL};
+	for (int i = 0; keys[i]; i++)
+		if (env_set(keys[i]))
+			return 1;
+	if ((v = getenv("PATH")) && (strstr(v, ".pi/agent") || strstr(v, ".pi\\agent")))
+		return 1; /* pi */
+	if ((v = getenv("EDITOR")) && strstr(v, "devin"))
+		return 1; /* devin */
+	if ((v = getenv("TERM_PROGRAM")) && strstr(v, "kiro") && !isatty(STDOUT_FILENO))
+		return 1; /* kiro, only when non-interactive (noTTY) */
+	return 0;
+}
+
+/* ---------- help ---------- */
+static const char *SHORT_USAGE =
+    "usage: envctl [<cmd>] <file> <KEY> [VALUE]\n"
+    "  commands: set get disable enable delete list     aliases: ls=list, rm=delete\n"
+    "  bare:     envctl <file> <KEY>          == get\n"
+    "            envctl <file> <KEY> <VALUE>  == set\n"
+    "  flags:    --values --all (list)   --dry-run (set/disable/enable/delete)\n";
+
+static const char *AGENT_PROMPT =
+    "envctl - surgical, idempotent env-file key manager.\n"
+    "\n"
+    "You are an AI coding agent. Use envctl to change a key in any env / .env-style\n"
+    "file. NEVER hand-edit an env file to add, change, comment, or remove a key -\n"
+    "envctl does it in place, atomically, preserving order, comments, and mode.\n"
+    "\n"
+    "Commands:\n"
+    "  envctl set     <file> <KEY> [VALUE]   set/replace KEY (uncomments if commented)\n"
+    "  envctl get     <file> <KEY>           print active value; exit 1 if unset\n"
+    "  envctl disable <file> <KEY>           comment KEY out, keep its value\n"
+    "  envctl enable  <file> <KEY>           uncomment KEY\n"
+    "  envctl delete  <file> <KEY>           remove KEY entirely (active + commented) [rm]\n"
+    "  envctl list    <file> [--values] [--all]  active keys; --values masks secrets;\n"
+    "                                        --all also lists disabled keys           [ls]\n"
+    "\n"
+    "Bare form (first argument is the file, no command word):\n"
+    "  envctl <file> <KEY>            == get\n"
+    "  envctl <file> <KEY> <VALUE>    == set\n"
+    "\n"
+    "Flags: --dry-run on a mutating command prints the result, writes nothing.\n"
+    "\n"
+    "Guarantees: only the target key's line changes; re-running with the same args\n"
+    "is a no-op; writes are atomic (temp + rename) and preserve file mode; VALUE is\n"
+    "literal (no shell/regex reinterpretation); secret-looking keys are masked by\n"
+    "`list --values`.\n";
+
+_Noreturn static void print_help(int code) {
+	fputs(detect_agent() ? AGENT_PROMPT : SHORT_USAGE, code ? stderr : stdout);
+	exit(code);
+}
+
+/* ---------- line store ---------- */
+typedef struct {
+	char **v;
+	size_t n, cap;
+} Lines;
+
+static void lpush(Lines *L, char *s) {
+	if (L->n == L->cap) {
+		L->cap = L->cap ? L->cap * 2 : 64;
+		L->v = xrealloc(L->v, L->cap * sizeof(char *));
+	}
+	L->v[L->n++] = s;
+}
+static Lines read_file(const char *file) {
+	FILE *f = fopen(file, "r");
+	if (!f)
+		die("cannot open file: %s", file);
+	Lines L = {0};
+	char *buf = NULL;
+	size_t cap = 0;
+	ssize_t r;
+	while ((r = getline(&buf, &cap, f)) >= 0) {
+		if (r > 0 && buf[r - 1] == '\n')
+			buf[--r] = '\0';
+		lpush(&L, xstrdup(buf));
+	}
+	free(buf);
+	fclose(f);
+	return L;
+}
+
+/* ---------- definition matching (mirrors the awk in envctl.sh) ---------- */
+static const char *skip_ws(const char *s) {
+	while (*s == ' ' || *s == '\t')
+		s++;
+	return s;
+}
+static const char *skip_export(const char *s) {
+	if (!strncmp(s, "export", 6) && (s[6] == ' ' || s[6] == '\t'))
+		s = skip_ws(s + 6);
+	return s;
+}
+static int key_at(const char *s, const char *key, size_t kl) {
+	return strncmp(s, key, kl) == 0 && s[kl] == '=';
+}
+static int is_active_def(const char *line, const char *key, size_t kl) {
+	if (*skip_ws(line) == '#')
+		return 0; /* a comment line is never an active def */
+	return key_at(skip_export(line), key, kl);
+}
+static int is_comment_def(const char *line, const char *key, size_t kl) {
+	const char *p = skip_ws(line);
+	if (*p != '#')
+		return 0;
+	p = skip_ws(p + 1);
+	return key_at(skip_export(p), key, kl);
+}
+
+static char *mk_kv(const char *key, const char *val) {
+	size_t n = strlen(key) + 1 + strlen(val) + 1;
+	char *s = xmalloc(n);
+	snprintf(s, n, "%s=%s", key, val);
+	return s;
+}
+static char *mk_comment(const char *line) {
+	size_t n = strlen(line) + 3;
+	char *s = xmalloc(n);
+	snprintf(s, n, "# %s", line);
+	return s;
+}
+static char *uncomment(const char *line) {
+	const char *p = skip_ws(line); /* at '#' */
+	return xstrdup(skip_ws(p + 1));
+}
+
+/* ---------- transforms ---------- */
+static Lines act_set(Lines *L, const char *key, size_t kl, const char *val) {
+	long fa = -1, fc = -1;
+	for (size_t i = 0; i < L->n; i++) {
+		if (fa < 0 && is_active_def(L->v[i], key, kl))
+			fa = (long)i;
+		if (fc < 0 && is_comment_def(L->v[i], key, kl))
+			fc = (long)i;
+	}
+	Lines out = {0};
+	for (size_t i = 0; i < L->n; i++) {
+		char *line = L->v[i];
+		if (fa >= 0) {
+			if ((long)i == fa)
+				line = mk_kv(key, val);
+			else if (is_active_def(L->v[i], key, kl))
+				line = mk_comment(L->v[i]); /* dedupe extra active defs */
+		} else if (fc >= 0 && (long)i == fc) {
+			line = mk_kv(key, val); /* revive first commented def */
+		}
+		lpush(&out, line);
+	}
+	if (fa < 0 && fc < 0)
+		lpush(&out, mk_kv(key, val)); /* append */
+	return out;
+}
+static Lines act_disable(Lines *L, const char *key, size_t kl) {
+	Lines out = {0};
+	for (size_t i = 0; i < L->n; i++) {
+		char *line = L->v[i];
+		if (is_active_def(line, key, kl))
+			line = mk_comment(line);
+		lpush(&out, line);
+	}
+	return out;
+}
+static Lines act_enable(Lines *L, const char *key, size_t kl) {
+	long fa = -1, fc = -1;
+	for (size_t i = 0; i < L->n; i++) {
+		if (fa < 0 && is_active_def(L->v[i], key, kl))
+			fa = (long)i;
+		if (fc < 0 && is_comment_def(L->v[i], key, kl))
+			fc = (long)i;
+	}
+	Lines out = {0};
+	for (size_t i = 0; i < L->n; i++) {
+		char *line = L->v[i];
+		if (fa < 0 && fc >= 0 && (long)i == fc)
+			line = uncomment(line);
+		lpush(&out, line);
+	}
+	return out;
+}
+static Lines act_delete(Lines *L, const char *key, size_t kl) {
+	Lines out = {0};
+	for (size_t i = 0; i < L->n; i++)
+		if (!is_active_def(L->v[i], key, kl) && !is_comment_def(L->v[i], key, kl))
+			lpush(&out, L->v[i]);
+	return out;
+}
+static int act_get(Lines *L, const char *key, size_t kl) {
+	for (size_t i = 0; i < L->n; i++)
+		if (is_active_def(L->v[i], key, kl)) {
+			const char *s = skip_export(L->v[i]);
+			printf("%s\n", s + kl + 1);
+			return 0;
+		}
+	return 1; /* not set */
+}
+
+/* ---------- list ---------- */
+static int secretish(const char *k) {
+	return strstr(k, "KEY") || strstr(k, "TOKEN") || strstr(k, "SECRET") || strstr(k, "PASSWORD") ||
+	       strstr(k, "PASSWD") || strstr(k, "CREDENTIAL") || strstr(k, "API");
+}
+static int valid_keychars(const char *k, size_t kl) {
+	if (kl < 1)
+		return 0;
+	if (!(isalpha((unsigned char)k[0]) || k[0] == '_'))
+		return 0;
+	for (size_t i = 1; i < kl; i++)
+		if (!(isalnum((unsigned char)k[i]) || k[i] == '_'))
+			return 0;
+	return 1;
+}
+static void act_list(Lines *L, int values, int all) {
+	for (size_t i = 0; i < L->n; i++) {
+		const char *orig = L->v[i], *s;
+		int commented = 0;
+		const char *p = skip_ws(orig);
+		if (*p == '#') {
+			if (!all)
+				continue;
+			commented = 1;
+			s = skip_ws(p + 1);
+		} else {
+			s = orig;
+		}
+		s = skip_export(s);
+		const char *eq = strchr(s, '=');
+		if (!eq)
+			continue;
+		size_t kl = (size_t)(eq - s);
+		if (!valid_keychars(s, kl))
+			continue;
+		const char *tag = commented ? " (disabled)" : "";
+		if (!values) {
+			printf("%.*s%s\n", (int)kl, s, tag);
+			continue;
+		}
+		const char *val = eq + 1;
+		char kbuf[256];
+		size_t kn = kl < sizeof(kbuf) - 1 ? kl : sizeof(kbuf) - 1;
+		memcpy(kbuf, s, kn);
+		kbuf[kn] = '\0';
+		size_t vlen = strlen(val);
+		if (secretish(kbuf) && vlen > 4)
+			printf("%.*s=****%s%s\n", (int)kl, s, val + vlen - 4, tag);
+		else
+			printf("%.*s=%s%s\n", (int)kl, s, val, tag);
+	}
+}
+
+/* ---------- atomic write ---------- */
+static void emit(FILE *out, Lines *L) {
+	for (size_t i = 0; i < L->n; i++) {
+		fputs(L->v[i], out);
+		fputc('\n', out);
+	}
+}
+static void commit_file(const char *file, Lines *out) {
+	char *dup = xstrdup(file);
+	char *dir = dirname(dup);
+	size_t tl = strlen(dir) + sizeof("/.envctl.XXXXXX");
+	char *tmpl = xmalloc(tl);
+	snprintf(tmpl, tl, "%s/.envctl.XXXXXX", dir);
+	int fd = mkstemp(tmpl);
+	if (fd < 0)
+		die("%s", "mkstemp failed");
+	FILE *tf = fdopen(fd, "w");
+	if (!tf) {
+		unlink(tmpl);
+		die("%s", "fdopen failed");
+	}
+	emit(tf, out);
+	if (fflush(tf) != 0) {
+		fclose(tf);
+		unlink(tmpl);
+		die("%s", "write failed");
+	}
+	struct stat st;
+	if (stat(file, &st) == 0)
+		(void)fchmod(fd, st.st_mode & 07777); /* preserve mode; best effort */
+	if (fclose(tf) != 0) {
+		unlink(tmpl);
+		die("%s", "close failed");
+	}
+	if (rename(tmpl, file) != 0) {
+		unlink(tmpl);
+		die("%s", "rename failed");
+	}
+	free(tmpl);
+	free(dup);
+}
+
+/* ---------- main ---------- */
+static int is_command(const char *a) {
+	static const char *cmds[] = {"set",  "get", "disable", "enable", "delete",
+	                             "list", "ls",  "rm",      NULL};
+	for (int i = 0; cmds[i]; i++)
+		if (!strcmp(a, cmds[i]))
+			return 1;
+	return 0;
+}
+
+int main(int argc, char **argv) {
+	int dry = 0, np = 0;
+	const char *pos[16];
+	for (int i = 1; i < argc; i++) {
+		const char *a = argv[i];
+		/* Only --dry-run and -h are global. --values/--all are list-only and
+		 * otherwise stay positional, so a literal value "--all" is honored. */
+		if (!strcmp(a, "--dry-run"))
+			dry = 1;
+		else if (!strcmp(a, "-h") || !strcmp(a, "--help"))
+			print_help(0);
+		else if (np < (int)(sizeof(pos) / sizeof(*pos)))
+			pos[np++] = a;
+		else
+			die("%s", "too many arguments");
+	}
+	if (np == 0)
+		print_help(0);
+
+	const char *cmd, *file, *key = NULL, *val = NULL;
+	if (is_command(pos[0])) {
+		cmd = pos[0];
+		if (np < 2)
+			die("%s needs a file", pos[0]);
+		file = pos[1];
+		if (np >= 3)
+			key = pos[2];
+		if (np >= 4)
+			val = pos[3];
+	} else {
+		file = pos[0];
+		if (np == 2) {
+			cmd = "get";
+			key = pos[1];
+		} else if (np == 3) {
+			cmd = "set";
+			key = pos[1];
+			val = pos[2];
+		} else {
+			die("%s", "usage: envctl <file> <KEY> [VALUE]  or  envctl <cmd> <file> ...");
+		}
+	}
+	if (!strcmp(cmd, "ls"))
+		cmd = "list";
+	if (!strcmp(cmd, "rm"))
+		cmd = "delete";
+
+	struct stat st;
+	if (stat(file, &st) != 0 || !S_ISREG(st.st_mode))
+		die("no such file: %s", file);
+
+	if (!strcmp(cmd, "list")) {
+		int values = 0, all = 0;
+		for (int i = 2; i < np; i++) {
+			if (!strcmp(pos[i], "--values"))
+				values = 1;
+			else if (!strcmp(pos[i], "--all"))
+				all = 1;
+		}
+		Lines L = read_file(file);
+		act_list(&L, values, all);
+		return 0;
+	}
+
+	if (!key)
+		die("%s needs KEY", cmd);
+	if (!valid_keychars(key, strlen(key)))
+		die("invalid key: '%s'", key);
+
+	Lines L = read_file(file);
+	size_t kl = strlen(key);
+
+	if (!strcmp(cmd, "get"))
+		return act_get(&L, key, kl);
+
+	Lines out;
+	if (!strcmp(cmd, "set"))
+		out = act_set(&L, key, kl, val ? val : "");
+	else if (!strcmp(cmd, "disable"))
+		out = act_disable(&L, key, kl);
+	else if (!strcmp(cmd, "enable"))
+		out = act_enable(&L, key, kl);
+	else /* delete */
+		out = act_delete(&L, key, kl);
+
+	if (dry)
+		emit(stdout, &out);
+	else
+		commit_file(file, &out);
+	return 0;
+}
