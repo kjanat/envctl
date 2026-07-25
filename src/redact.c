@@ -6,7 +6,6 @@
 #include "util.h"
 
 #include <ctype.h>
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -574,12 +573,32 @@ static int all_lower_alpha(const char *b, size_t bn) {
 	return 1;
 }
 
+static int short_secret_shape(const char *b, size_t bn) {
+	int lower = 0, upper = 0, digit = 0, other = 0;
+	for (size_t i = 0; i < bn; i++) {
+		unsigned char c = (unsigned char)b[i];
+		if (islower(c))
+			lower = 1;
+		else if (isupper(c))
+			upper = 1;
+		else if (isdigit(c))
+			digit = 1;
+		else
+			other = 1;
+	}
+	if (lower + upper + digit + other < 2)
+		return 0;
+	return shannon_q16(b, bn) >= (5u << 15);
+}
+
 int literal_maskable(const char *key, const char *val) {
 	if (!val)
 		return 0;
 	size_t bn;
 	const char *b = value_body(val, &bn);
-	if (bn < 8)
+	if (bn < 6)
+		return 0;
+	if (bn < 8 && !short_secret_shape(b, bn))
 		return 0;
 	if (is_trivial_value(b, bn) || is_plain_path(b, bn))
 		return 0;
@@ -615,42 +634,56 @@ void print_value(const char *key, const char *val, int redact) {
 #define PRIVKEY_TOKEN "<redacted:private-key>"
 #define PEM_CARRY_MAX 512
 
-static int pem_begin_label(const char *in, size_t n, char *label, size_t cap) {
+static int pem_begin_label(const char *in, size_t n, char *label, size_t cap, size_t *begin_off,
+                           size_t *begin_end) {
 	const char *p = mem_find(in, n, PEM_BEGIN);
 	if (!p)
 		return 0;
 	const char *s = p + sizeof(PEM_BEGIN) - 1;
 	size_t left = (size_t)((in + n) - s);
 	const char *e = mem_find(s, left, "-----");
-	if (!e || e == s || (size_t)(e - s) >= cap)
+	if (!e || e == s)
 		return 0;
-	memcpy(label, s, (size_t)(e - s));
-	label[(size_t)(e - s)] = '\0';
+	if (begin_off)
+		*begin_off = (size_t)(p - in);
+	if (begin_end)
+		*begin_end = (size_t)(e + 5 - in);
+	size_t ln = (size_t)(e - s);
+	if (ln >= cap) {
+		label[0] = '\0';
+		return mem_find(s, ln, "PRIVATE KEY") ? 2 : 0;
+	}
+	memcpy(label, s, ln);
+	label[ln] = '\0';
 	return 1;
 }
 
 /* RFC 7468 section 3: a pre-encapsulation boundary ends its line. */
-static int pem_begin_ends_line(const char *in, size_t n, const char *label) {
-	char beg[256];
-	int k = snprintf(beg, sizeof(beg), PEM_BEGIN "%s-----", label);
-	if (k < 0 || (size_t)k >= sizeof(beg))
-		return 0;
-	const char *p = mem_find(in, n, beg);
-	if (!p)
-		return 0;
-	for (const char *q = p + k; q < in + n; q++) {
-		if (!isspace((unsigned char)*q))
+static int pem_begin_ends_line(const char *in, size_t n, size_t begin_end) {
+	for (size_t i = begin_end; i < n; i++) {
+		if (!isspace((unsigned char)in[i]))
 			return 0;
 	}
 	return 1;
 }
 
-static int pem_end_here(const char *in, size_t n, const char *label) {
+static const char *pem_end_at(const char *in, size_t n, const char *label) {
+	if (!*label) {
+		const char *p = mem_find(in, n, "-----END ");
+		if (!p)
+			return NULL;
+		size_t left = (size_t)((in + n) - p);
+		const char *e = mem_find(p + 9, left - 9, "-----");
+		if (!e || !mem_find(p + 9, (size_t)(e - (p + 9)), "PRIVATE KEY"))
+			return NULL;
+		return e + 5;
+	}
 	char end[256];
 	int k = snprintf(end, sizeof(end), "-----END %s-----", label);
 	if (k < 0 || (size_t)k >= sizeof(end))
-		return 0;
-	return mem_find(in, n, end) != NULL;
+		return NULL;
+	const char *p = mem_find(in, n, end);
+	return p ? p + k : NULL;
 }
 
 static int is_text_delim(unsigned char c) {
@@ -701,6 +734,21 @@ static int authz_run(const char *s, size_t n) {
 	return 1;
 }
 
+static int unbalanced_closer(const char *v, size_t n) {
+	long curly = 0, square = 0;
+	for (size_t i = 0; i < n; i++) {
+		if (v[i] == '{')
+			curly++;
+		else if (v[i] == '}')
+			curly--;
+		else if (v[i] == '[')
+			square++;
+		else if (v[i] == ']')
+			square--;
+	}
+	return curly < 0 || square < 0;
+}
+
 static int mask_assignment(const char *in, size_t inlen, char **out, size_t *outcap, size_t *len) {
 	size_t i = lead_ws_n(in, inlen);
 	int quoted_key = 0;
@@ -740,12 +788,22 @@ static int mask_assignment(const char *in, size_t inlen, char **out, size_t *out
 		vs++;
 
 	size_t ve = inlen;
-	while (ve > vs && (in[ve - 1] == ' ' || in[ve - 1] == '\t' || in[ve - 1] == '\r'))
-		ve--;
-	if (ve > vs && in[ve - 1] == ',') {
-		ve--;
-		while (ve > vs && (in[ve - 1] == ' ' || in[ve - 1] == '\t'))
+	for (int trimmed = 1; trimmed && ve > vs;) {
+		trimmed = 0;
+		while (ve > vs && (in[ve - 1] == ' ' || in[ve - 1] == '\t' || in[ve - 1] == '\r')) {
 			ve--;
+			trimmed = 1;
+		}
+		if (ve > vs && in[ve - 1] == ',') {
+			ve--;
+			trimmed = 1;
+			continue;
+		}
+		if (ve > vs && (in[ve - 1] == '}' || in[ve - 1] == ']') &&
+		    unbalanced_closer(in + vs, ve - vs)) {
+			ve--;
+			trimmed = 1;
+		}
 	}
 	if (ve == vs)
 		return 0;
@@ -873,36 +931,53 @@ static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap
 	free(pend);
 }
 
-int scan_text_line(const char *in, size_t inlen, char **out, size_t *outcap, int *pem_open,
-                   char *pem_label, size_t pem_label_cap) {
+int scan_text_line(const char *in, size_t inlen, char **out, size_t *outcap, size_t *outlen,
+                   int *pem_open, char *pem_label, size_t pem_label_cap) {
 	size_t len = 0;
+	*outlen = 0;
 
 	if (*pem_open) {
 		if (*pem_open <= PEM_CARRY_MAX)
 			++(*pem_open);
-		if (pem_end_here(in, inlen, pem_label) ||
-		    (*pem_open > PEM_CARRY_MAX && !pem_body_line(in, inlen)))
+		const char *tail = pem_end_at(in, inlen, pem_label);
+		if (tail) {
 			*pem_open = 0;
-		return -1;
+			size_t tn = (size_t)(in + inlen - tail);
+			if (tn == 0)
+				return 0;
+			buf_put(out, outcap, &len, tail, tn);
+			buf_need(out, outcap, len + 1);
+			(*out)[len] = '\0';
+			*outlen = len;
+			return 1;
+		}
+		if (*pem_open > PEM_CARRY_MAX && !pem_body_line(in, inlen))
+			*pem_open = 0;
+		return 0;
 	}
 
 	size_t w = lead_ws_n(in, inlen);
-	int begins = pem_begin_label(in, inlen, pem_label, pem_label_cap) &&
-	             strstr(pem_label, "PRIVATE KEY") != NULL;
+	size_t boff = 0, bend = 0;
+	int lab = pem_begin_label(in, inlen, pem_label, pem_label_cap, &boff, &bend);
+	int begins = lab == 2 || (lab == 1 && strstr(pem_label, "PRIVATE KEY") != NULL);
 
 	if (begins) {
-		if (!pem_end_here(in, inlen, pem_label) && pem_begin_ends_line(in, inlen, pem_label))
+		const char *tail = pem_end_at(in + bend, inlen - bend, pem_label);
+		if (!tail && pem_begin_ends_line(in, inlen, bend))
 			*pem_open = 1;
+		buf_put(out, outcap, &len, in, boff);
 		buf_put(out, outcap, &len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
+		if (tail)
+			buf_put(out, outcap, &len, tail, (size_t)(in + inlen - tail));
 	} else if (mem_prefix(in + w, inlen - w, "PuTTY-User-Key-File")) {
+		buf_put(out, outcap, &len, in, w);
 		buf_put(out, outcap, &len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
 	} else if (!mask_assignment(in, inlen, out, outcap, &len)) {
 		mask_tokens(in, inlen, out, outcap, &len);
 	}
 
-	if (len > (size_t)INT_MAX)
-		die("line too long");
 	buf_need(out, outcap, len + 1);
 	(*out)[len] = '\0';
-	return (int)len;
+	*outlen = len;
+	return 1;
 }

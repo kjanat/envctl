@@ -22,6 +22,8 @@ typedef struct {
 	size_t of, on, nf, nn;
 } Diff;
 
+static int same_line_object(const char *a, const char *b) { return a == b; }
+
 static int ptr_cmp(const void *a, const void *b) {
 	uintptr_t x = (uintptr_t)*(char *const *)a;
 	uintptr_t y = (uintptr_t)*(char *const *)b;
@@ -43,17 +45,18 @@ static void mark_present(char *const *hay, size_t hn, char *const *needle, size_
 	free(sorted);
 }
 
-static void render_range(FILE *out, const Lines *L, size_t first, size_t n, const char *prefix,
-                         int redact) {
-	size_t end = first + n;
+static size_t render_range(FILE *out, const Lines *L, size_t first, size_t n, const char *prefix,
+                           int redact) {
+	size_t end = first + n, emitted = 0;
 
 	for (size_t k = first; k < end;) {
 		size_t span = logical_span(L, k, NULL);
 		if (k + span > end)
 			span = end - k;
-		render_span(out, L, k, span, prefix, redact);
+		emitted += render_span(out, L, k, span, prefix, redact);
 		k += span;
 	}
+	return emitted;
 }
 
 static void flush_hunk(Diff *d) {
@@ -66,8 +69,11 @@ static void flush_hunk(Diff *d) {
 		d->headers = 1;
 	}
 
-	fprintf(d->out, "@@ -%lu,%lu +%lu,%lu @@\n", (unsigned long)(d->of + (d->on != 0)),
-	        (unsigned long)d->on, (unsigned long)(d->nf + (d->nn != 0)), (unsigned long)d->nn);
+	size_t oe = render_range(NULL, d->before, d->of, d->on, "-", d->redact);
+	size_t ne = render_range(NULL, d->after, d->nf, d->nn, "+", d->redact);
+
+	fprintf(d->out, "@@ -%lu,%lu +%lu,%lu @@\n", (unsigned long)(d->of + (oe != 0)),
+	        (unsigned long)oe, (unsigned long)(d->nf + (ne != 0)), (unsigned long)ne);
 	render_range(d->out, d->before, d->of, d->on, "-", d->redact);
 	render_range(d->out, d->after, d->nf, d->nn, "+", d->redact);
 
@@ -99,7 +105,7 @@ int emit_diff(FILE *out, const Lines *before, const Lines *after, const char *fi
 	size_t i = 0, j = 0;
 
 	while (i < bn || j < an) {
-		if (i < bn && j < an && before->v[i] == after->v[j]) {
+		if (i < bn && j < an && same_line_object(before->v[i], after->v[j])) {
 			flush_hunk(&d);
 			i++;
 			j++;

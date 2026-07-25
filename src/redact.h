@@ -11,8 +11,8 @@ const char *redact_token(const char *key, const char *val);
 const char *redact_token_n(const char *b, size_t bn);
 int literal_maskable(const char *key, const char *val);
 int should_mask_token(const char *s, size_t n);
-int scan_text_line(const char *in, size_t inlen, char **out, size_t *outcap, int *pem_open,
-                   char *pem_label, size_t pem_label_cap);
+int scan_text_line(const char *in, size_t inlen, char **out, size_t *outcap, size_t *outlen,
+                   int *pem_open, char *pem_label, size_t pem_label_cap);
 int is_pem_private(const char *v);
 void print_value(const char *key, const char *val, int redact);
 

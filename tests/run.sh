@@ -83,6 +83,8 @@ group 'help'
 ck 'short help lists the redact command' "${bin} -h | grep -q 'redact'"
 ck 'long help documents --no-env' "${bin} --help | grep -q -- '--no-env'"
 ck 'long help documents the diff format' "${bin} --help | grep -q 'unified diff'"
+ck 'short help does not force KEY onto every command' "${bin} -h | grep -q '^usage: envctl <cmd> \[file\] \[args'"
+ck 'long help notes redact rejects --raw' "${bin} --help | grep -q 'redact rejects it'"
 
 group 'basic get and redact flags'
 printf 'FOO=one\nAPI_TOKEN=abcdefghij\nPASSWORD=short\n' >dotenv.test
@@ -248,7 +250,8 @@ nk 'padded body line absent' "grep -q 'Zm9vYmFy' l1.test"
 nk 'unpadded body line absent' "grep -q 'MIIBIjAN' l1.test"
 ck 'key after the span still listed' "grep -q '^AFTER=ok\$' l1.test"
 eq 'list --values yields 3 lines' '3' "grep -c '' l1.test"
-eq 'list --values --raw yields 3 lines' '3' "${bin} --raw list ml.test --values | grep -c ''"
+eq 'list --values --raw prints the whole span' '6' "${bin} --raw list ml.test --values | grep -c ''"
+ck 'list --values --raw shows the body' "${bin} --raw list ml.test --values | grep -q 'Zm9vYmFy'"
 eq 'list without values yields 3 lines' '3' "${bin} list ml.test | grep -c ''"
 nk 'body absent from plain list' "${bin} list ml.test | grep -q 'Zm9vYmFy'"
 eq 'get masks the whole span' '<redacted:private-key>' "${bin} --redact get ml.test PK"
@@ -506,6 +509,9 @@ printf 'no trailing newline' >f7.test
 ck 'missing trailing newline preserved' "${bin} redact --no-env < f7.test | cmp -s - f7.test"
 printf 'a\r\nb\r\n' >f8.test
 ck 'crlf preserved' "${bin} redact --no-env < f8.test | cmp -s - f8.test"
+printf 'API_TOKEN=ghp_0123456789abcdefghijklmnopqrstuvwxyzAB\r\n' >f8s.test
+printf 'API_TOKEN=<redacted>\r\n' >f8s.want
+ck 'crlf preserved while masking' "${bin} redact --no-env < f8s.test | cmp -s - f8s.want"
 
 group 'command word collisions'
 eq 'plain key after filter fixtures' 'one' "${bin} get f1.test FOO"

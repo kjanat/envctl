@@ -84,6 +84,9 @@ int read_stream_line(FILE *f, StreamLine *sl) {
 		push_char(&sl->buf, &sl->cap, &sl->len, (char)c);
 	}
 
+	if (ferror(f))
+		die("read error on input");
+
 	if (!sl->eol && sl->len == 0)
 		return 0;
 
@@ -116,9 +119,10 @@ int key_at(const char *s, const char *key, size_t kl) {
 }
 
 int is_active_def(const char *line, const char *key, size_t kl) {
-	if (*skip_ws(line) == '#')
+	const char *p = skip_ws(line);
+	if (*p == '#')
 		return 0;
-	return key_at(skip_export(line), key, kl);
+	return key_at(skip_export(p), key, kl);
 }
 
 int is_comment_def(const char *line, const char *key, size_t kl) {
@@ -467,7 +471,7 @@ static void list_span(const Lines *L, size_t i, size_t span, int values, int all
 		commented = 1;
 		s = skip_ws(p + 1);
 	} else {
-		s = orig;
+		s = p;
 	}
 
 	s = skip_export(s);
@@ -493,7 +497,7 @@ static void list_span(const Lines *L, size_t i, size_t span, int values, int all
 	if (redact && should_mask(kbuf, joined))
 		printf("%.*s=%s%s\n", (int)kl, s, redact_token(kbuf, joined), tag);
 	else
-		printf("%.*s=%s%s\n", (int)kl, s, eq + 1, tag);
+		printf("%.*s=%s%s\n", (int)kl, s, joined, tag);
 	free(joined);
 	free(kbuf);
 }

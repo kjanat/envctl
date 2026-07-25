@@ -16,21 +16,24 @@
 #include <unistd.h>
 #endif
 
-static void put_span(FILE *out, const Lines *L, size_t i, size_t span, const char *prefix) {
-	for (size_t j = 0; j < span && i + j < L->n; j++) {
+static size_t put_span(FILE *out, const Lines *L, size_t i, size_t span, const char *prefix) {
+	size_t k = 0;
+	for (size_t j = 0; j < span && i + j < L->n; j++, k++) {
+		if (!out)
+			continue;
 		fputs(prefix, out);
 		fputs(L->v[i + j], out);
 		fputc('\n', out);
 	}
+	return k;
 }
 
-void render_span(FILE *out, const Lines *L, size_t i, size_t span, const char *prefix, int redact) {
+size_t render_span(FILE *out, const Lines *L, size_t i, size_t span, const char *prefix,
+                   int redact) {
 	const char *line = L->v[i];
 
-	if (!redact) {
-		put_span(out, L, i, span, prefix);
-		return;
-	}
+	if (!redact)
+		return put_span(out, L, i, span, prefix);
 
 	const char *p = skip_ws(line);
 	if (*p == '#')
@@ -40,12 +43,13 @@ void render_span(FILE *out, const Lines *L, size_t i, size_t span, const char *p
 	const char *eq = strchr(p, '=');
 	if (!eq || !valid_keychars(p, (size_t)(eq - p))) {
 		if (is_pem_private(line)) {
-			fputs(prefix, out);
-			fputs("# <redacted:private-key>\n", out);
-			return;
+			if (out) {
+				fputs(prefix, out);
+				fputs("# <redacted:private-key>\n", out);
+			}
+			return 1;
 		}
-		put_span(out, L, i, span, prefix);
-		return;
+		return put_span(out, L, i, span, prefix);
 	}
 
 	size_t kl = (size_t)(eq - p);
@@ -54,16 +58,21 @@ void render_span(FILE *out, const Lines *L, size_t i, size_t span, const char *p
 	kbuf[kl] = '\0';
 
 	char *val = join_span(L, i, span);
+	size_t n;
 	if (should_mask(kbuf, val)) {
-		fputs(prefix, out);
-		fwrite(line, 1, (size_t)(eq - line) + 1, out);
-		fputs(redact_token(kbuf, val), out);
-		fputc('\n', out);
+		if (out) {
+			fputs(prefix, out);
+			fwrite(line, 1, (size_t)(eq - line) + 1, out);
+			fputs(redact_token(kbuf, val), out);
+			fputc('\n', out);
+		}
+		n = 1;
 	} else {
-		put_span(out, L, i, span, prefix);
+		n = put_span(out, L, i, span, prefix);
 	}
 	free(val);
 	free(kbuf);
+	return n;
 }
 
 void emit(FILE *out, const Lines *L) {

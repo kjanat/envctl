@@ -6,7 +6,8 @@
 #include <stdlib.h>
 
 static const char *SHORT_USAGE =
-    "usage: envctl [<cmd>] [file] <KEY> [VALUE]\n"
+    "usage: envctl <cmd> [file] [args...]\n"
+    "       envctl [file] <KEY> [VALUE]\n"
     "  commands: set get disable enable delete|rm list|ls redact\n"
     "  file:     optional when ./.env exists\n"
     "  bare:     envctl [file] <KEY>          == get\n"
@@ -46,8 +47,9 @@ static const char *LONG_USAGE =
     "  --values    list: show values (secret-looking ones follow redact rules)\n"
     "  --all       list: include disabled keys tagged (disabled)\n"
     "  --no-env    redact: skip the env file's literal values, use heuristics only\n"
+    "              (redact takes a file or --no-env, never both)\n"
     "  --redact    mask secret-looking values on get / list --values / dry-run\n"
-    "  --raw       never mask (overrides auto-redact and --redact)\n"
+    "  --raw       never mask (overrides auto-redact and --redact; redact rejects it)\n"
     "\n"
     "Redaction (presentation only; pipes and scripts stay raw so get stays composable):\n"
     "  mask as <redacted> / <redacted:private-key> / <redacted:credentials> when on.\n"

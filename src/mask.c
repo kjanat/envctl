@@ -8,6 +8,7 @@
 #include <string.h>
 
 #define MASK_MIN 8
+#define MASK_MIN_LITERAL 6
 
 static const char B64STD[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 static const char B64URL[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
@@ -44,6 +45,18 @@ char *enc_b64(const char *s, size_t n, int urlsafe, int pad) {
 static int is_unreserved(unsigned char c) {
 	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' ||
 	       c == '.' || c == '_' || c == '~';
+}
+
+char *enc_hex(const char *s, size_t n, int upper) {
+	const char *tab = upper ? HEXU : HEXL;
+	char *o = xmalloc(n * 2 + 1);
+	for (size_t i = 0; i < n; i++) {
+		unsigned char c = (unsigned char)s[i];
+		o[i * 2] = tab[c >> 4];
+		o[i * 2 + 1] = tab[c & 15];
+	}
+	o[n * 2] = '\0';
+	return o;
 }
 
 char *enc_urlenc(const char *s, size_t n) {
@@ -127,8 +140,8 @@ void maskset_init(MaskSet *M) {
 		M->bucket[i] = -1;
 }
 
-static void add_pat(MaskSet *M, const char *p, size_t n, const char *tok) {
-	if (n < MASK_MIN)
+static void add_pat_min(MaskSet *M, const char *p, size_t n, const char *tok, size_t min) {
+	if (n < min)
 		return;
 
 	for (size_t i = 0; i < M->n; i++) {
@@ -148,6 +161,10 @@ static void add_pat(MaskSet *M, const char *p, size_t n, const char *tok) {
 	M->v[M->n].tok = tok;
 	M->v[M->n].next = -1;
 	M->n++;
+}
+
+static void add_pat(MaskSet *M, const char *p, size_t n, const char *tok) {
+	add_pat_min(M, p, n, tok, MASK_MIN);
 }
 
 static void add_b64_phase(MaskSet *M, const char *b, size_t bn, size_t phase, const char *tok) {
@@ -175,7 +192,7 @@ static void add_b64_phase(MaskSet *M, const char *b, size_t bn, size_t phase, co
 static void add_body(MaskSet *M, const char *b, size_t bn, const char *tok) {
 	char *e;
 
-	add_pat(M, b, bn, tok);
+	add_pat_min(M, b, bn, tok, MASK_MIN_LITERAL);
 
 	for (size_t phase = 0; phase <= 2; phase++)
 		add_b64_phase(M, b, bn, phase, tok);
@@ -192,6 +209,14 @@ static void add_body(MaskSet *M, const char *b, size_t bn, const char *tok) {
 	free(e);
 
 	e = enc_jsonesc(b, bn);
+	add_pat(M, e, strlen(e), tok);
+	free(e);
+
+	e = enc_hex(b, bn, 0);
+	add_pat(M, e, strlen(e), tok);
+	free(e);
+
+	e = enc_hex(b, bn, 1);
 	add_pat(M, e, strlen(e), tok);
 	free(e);
 }

@@ -41,10 +41,10 @@ int act_redact(const char *file) {
 
 	while (read_stream_line(stdin, &sl)) {
 		size_t n = maskset_apply(&M, sl.buf, sl.len, &lit, &lit_cap);
-		int k = scan_text_line(lit, n, &scan, &scan_cap, &pem_open, label, sizeof(label));
-		if (k < 0)
+		size_t k = 0;
+		if (!scan_text_line(lit, n, &scan, &scan_cap, &k, &pem_open, label, sizeof(label)))
 			continue;
-		fwrite(scan, 1, (size_t)k, stdout);
+		fwrite(scan, 1, k, stdout);
 		if (sl.eol) {
 			if (sl.crlf)
 				fputc('\r', stdout);

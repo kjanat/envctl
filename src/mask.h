@@ -27,6 +27,7 @@ size_t maskset_apply(const MaskSet *M, const char *in, size_t inlen, char **out,
 void maskset_free(MaskSet *M);
 
 char *enc_b64(const char *s, size_t n, int urlsafe, int pad);
+char *enc_hex(const char *s, size_t n, int upper);
 char *enc_urlenc(const char *s, size_t n);
 char *enc_jsonesc(const char *s, size_t n);
 
