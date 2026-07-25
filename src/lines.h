@@ -2,6 +2,9 @@
 #define ENVCTL_LINES_H
 
 #include <stddef.h>
+#include <stdio.h>
+
+#define SPAN_MAX 512
 
 typedef struct {
 	char **v;
@@ -9,8 +12,22 @@ typedef struct {
 	size_t cap;
 } Lines;
 
+typedef struct {
+	char *buf;
+	size_t cap;
+	size_t len;
+	int eol;
+	int crlf;
+} StreamLine;
+
 void lpush(Lines *L, char *s);
 Lines read_file(const char *file);
+
+int read_stream_line(FILE *f, StreamLine *sl);
+void streamline_free(StreamLine *sl);
+
+size_t logical_span(const Lines *L, size_t i, int *unterminated);
+char *join_span(const Lines *L, size_t i, size_t span);
 
 const char *skip_ws(const char *s);
 const char *skip_export(const char *s);

@@ -4,7 +4,9 @@
  * Build: make  (see Makefile; sources under src/)
  */
 #define _GNU_SOURCE
+#include "diff.h"
 #include "fileio.h"
+#include "filter.h"
 #include "help.h"
 #include "lines.h"
 #include "redact.h"
@@ -16,13 +18,13 @@
 
 #ifdef _WIN32
 #ifndef S_ISREG
-#define S_ISREG(m) (((m)&_S_IFMT) == _S_IFREG)
+#define S_ISREG(m) (((m) & _S_IFMT) == _S_IFREG)
 #endif
 #endif
 
 static int is_command(const char *a) {
 	static const char *const cmds[] = {
-	    "set", "get", "disable", "enable", "delete", "list", "ls", "rm", NULL,
+	    "set", "get", "disable", "enable", "delete", "list", "ls", "rm", "redact", NULL,
 	};
 	for (int i = 0; cmds[i]; i++) {
 		if (!strcmp(a, cmds[i]))
@@ -77,7 +79,7 @@ static void resolve_file_args(const char **rest, int nr, const char **file, cons
 }
 
 int main(int argc, char **argv) {
-	int dry = 0, values = 0, all = 0, flag_redact = 0, flag_raw = 0, np = 0;
+	int dry = 0, values = 0, all = 0, flag_redact = 0, flag_raw = 0, no_env = 0, np = 0;
 	const char *pos[16];
 
 	for (int i = 1; i < argc; i++) {
@@ -93,6 +95,8 @@ int main(int argc, char **argv) {
 			flag_redact = 1;
 		else if (!strcmp(a, "--raw"))
 			flag_raw = 1;
+		else if (!strcmp(a, "--no-env"))
+			no_env = 1;
 		else if (!strcmp(a, "-h"))
 			print_help(0);
 		else if (!strcmp(a, "--help"))
@@ -136,6 +140,24 @@ int main(int argc, char **argv) {
 		if (!strcmp(cmd, "rm"))
 			cmd = "delete";
 
+		if (!strcmp(cmd, "redact")) {
+			if (flag_raw)
+				die("redact cannot be --raw");
+			if (no_env) {
+				if (nr > 0)
+					die("too many arguments");
+			} else if (nr > 1) {
+				die("too many arguments");
+			} else if (nr == 1 && is_reg_file(rest[0])) {
+				file = rest[0];
+			} else if (nr == 1) {
+				die("no such file: %s", rest[0]);
+			} else if (is_reg_file(".env")) {
+				file = ".env";
+			}
+			return act_redact(file);
+		}
+
 		if (!strcmp(cmd, "list")) {
 			if (nr == 0) {
 				if (!is_reg_file(".env"))
@@ -152,6 +174,9 @@ int main(int argc, char **argv) {
 			resolve_file_args(rest, nr, &file, &key, &val);
 		}
 	}
+
+	if (no_env)
+		die("--no-env is only valid for redact");
 
 	if (!is_reg_file(file))
 		die("no such file: %s", file);
@@ -188,10 +213,12 @@ int main(int argc, char **argv) {
 	else
 		out = act_delete(&L, key, kl);
 
-	if (dry)
-		emit(stdout, &out, redact);
-	else
+	if (dry) {
+		if (!emit_diff(stdout, &L, &out, file, redact))
+			fprintf(stderr, "%s: no changes\n", PROG);
+	} else {
 		commit_file(file, &out);
+	}
 
 	return 0;
 }

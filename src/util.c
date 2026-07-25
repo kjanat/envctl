@@ -55,3 +55,23 @@ char *xstrdup(const char *s) {
 		die("out of memory");
 	return p;
 }
+
+void buf_need(char **buf, size_t *cap, size_t need) {
+	if (need <= *cap)
+		return;
+	size_t c = *cap ? *cap : 256;
+	while (c < need) {
+		if (c > (size_t)-1 / 2)
+			die("out of memory");
+		c *= 2;
+	}
+	*buf = xrealloc(*buf, c);
+	*cap = c;
+}
+
+void buf_put(char **buf, size_t *cap, size_t *len, const char *s, size_t n) {
+	buf_need(buf, cap, *len + n + 1);
+	memcpy(*buf + *len, s, n);
+	*len += n;
+	(*buf)[*len] = '\0';
+}
