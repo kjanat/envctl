@@ -11,8 +11,20 @@ const char *redact_token(const char *key, const char *val);
 const char *redact_token_n(const char *b, size_t bn);
 int literal_maskable(const char *key, const char *val);
 int should_mask_token(const char *s, size_t n);
+
+typedef struct {
+	int pem_open;
+	char pem_label[64];
+	int putty_watch;
+	int putty_lines;
+	int putty_emit;
+	char quote_ch;
+	int quote_n;
+} ScanState;
+
+void scan_state_init(ScanState *st);
 int scan_text_line(const char *in, size_t inlen, char **out, size_t *outcap, size_t *outlen,
-                   int *pem_open, char *pem_label, size_t pem_label_cap);
+                   ScanState *st);
 int is_pem_private(const char *v);
 void print_value(const char *key, const char *val, int redact);
 

@@ -75,3 +75,8 @@ void buf_put(char **buf, size_t *cap, size_t *len, const char *s, size_t n) {
 	*len += n;
 	(*buf)[*len] = '\0';
 }
+
+void stdout_flush_check(void) {
+	if (fflush(stdout) != 0 || ferror(stdout))
+		die("write failed");
+}

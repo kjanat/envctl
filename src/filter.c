@@ -4,6 +4,7 @@
 #include "lines.h"
 #include "mask.h"
 #include "redact.h"
+#include "util.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,16 +14,14 @@
 #include <io.h>
 #endif
 
-#define FILTER_LABEL_MAX 64
-
 int act_redact(const char *file) {
 	MaskSet M;
 	StreamLine sl = {0};
+	ScanState sst;
 	char *lit = NULL, *scan = NULL;
 	size_t lit_cap = 0, scan_cap = 0;
-	char label[FILTER_LABEL_MAX] = {0};
-	int pem_open = 0;
 
+	scan_state_init(&sst);
 	maskset_init(&M);
 	if (file) {
 		Lines L = read_file(file);
@@ -42,7 +41,7 @@ int act_redact(const char *file) {
 	while (read_stream_line(stdin, &sl)) {
 		size_t n = maskset_apply(&M, sl.buf, sl.len, &lit, &lit_cap);
 		size_t k = 0;
-		if (!scan_text_line(lit, n, &scan, &scan_cap, &k, &pem_open, label, sizeof(label)))
+		if (!scan_text_line(lit, n, &scan, &scan_cap, &k, &sst))
 			continue;
 		fwrite(scan, 1, k, stdout);
 		if (sl.eol) {
@@ -56,5 +55,6 @@ int act_redact(const char *file) {
 	maskset_free(&M);
 	free(lit);
 	free(scan);
+	stdout_flush_check();
 	return 0;
 }

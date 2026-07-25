@@ -137,9 +137,10 @@ static int digestish_key_name(const char *k) {
 
 static int is_trivial_value(const char *v, size_t n) {
 	static const char *const trivial[] = {
-	    "",          "0",         "1",          "true",        "false", "yes",     "no",   "on",
-	    "off",       "debug",     "info",       "warn",        "error", "trace",   "null", "none",
-	    "localhost", "127.0.0.1", "production", "development", "test",  "staging", NULL,
+	    "",           "0",           "1",    "true",    "false",     "yes",
+	    "no",         "on",          "off",  "debug",   "info",      "warn",
+	    "error",      "trace",       "null", "none",    "localhost", "127.0.0.1",
+	    "production", "development", "test", "staging", "changeme",  NULL,
 	};
 	for (int i = 0; trivial[i]; i++) {
 		const char *t = trivial[i];
@@ -174,10 +175,29 @@ static int is_pem_private_n(const char *b, size_t bn) {
 
 int is_pem_private(const char *v) { return is_pem_private_n(v, strlen(v)); }
 
-static int is_pem_public_material(const char *b, size_t bn) {
-	return mem_find(b, bn, "BEGIN CERTIFICATE") || mem_find(b, bn, "BEGIN CERTIFICATE REQUEST") ||
-	       mem_find(b, bn, "BEGIN PUBLIC KEY") || mem_find(b, bn, "BEGIN RSA PUBLIC KEY") ||
-	       mem_find(b, bn, "BEGIN EC PUBLIC KEY");
+static size_t lead_ws_n(const char *in, size_t n);
+
+static int standalone_public_pem(const char *b, size_t bn) {
+	static const char *const pub[] = {
+	    "CERTIFICATE REQUEST", "CERTIFICATE", "PUBLIC KEY", "RSA PUBLIC KEY", "EC PUBLIC KEY", NULL,
+	};
+	size_t i = lead_ws_n(b, bn);
+	if (!mem_prefix(b + i, bn - i, "-----BEGIN "))
+		return 0;
+	const char *s = b + i + 11;
+	size_t left = bn - i - 11;
+	const char *e = mem_find(s, left, "-----");
+	if (!e)
+		return 0;
+	size_t ln = (size_t)(e - s);
+	for (int k = 0; pub[k]; k++) {
+		if (strlen(pub[k]) != ln || memcmp(s, pub[k], ln) != 0)
+			continue;
+		char end[64];
+		int m = snprintf(end, sizeof(end), "-----END %s-----", pub[k]);
+		return m > 0 && (size_t)m < sizeof(end) && mem_find(e, (size_t)(b + bn - e), end) != NULL;
+	}
+	return 0;
 }
 
 static int is_credentialed_url(const char *b, size_t bn) {
@@ -525,12 +545,12 @@ static int should_mask_body(const char *key, const char *b, size_t bn, int deep)
 		return 1;
 	if (is_jwt_shape(b, bn))
 		return 1;
-	if (is_pem_public_material(b, bn))
-		return 0;
 	if (digestish_key_name(key))
 		return 0;
 	if (webhook_key_name(key) || (strong_secret_key_name(key) && !pathish_key_suffix(key)))
 		return !(is_trivial_value(b, bn) || is_plain_path(b, bn));
+	if (standalone_public_pem(b, bn))
+		return 0;
 	if (deep && (assigned_secret(b, bn) || embedded_secret_token(b, bn)))
 		return 1;
 	if (!suspicious_key_name(key))
@@ -602,7 +622,7 @@ int literal_maskable(const char *key, const char *val) {
 		return 0;
 	if (is_trivial_value(b, bn) || is_plain_path(b, bn))
 		return 0;
-	if (bn < 16 && all_lower_alpha(b, bn))
+	if (bn < 16 && all_lower_alpha(b, bn) && !strong_secret_key_name(key))
 		return 0;
 	return should_mask(key, val);
 }
@@ -655,15 +675,6 @@ static int pem_begin_label(const char *in, size_t n, char *label, size_t cap, si
 	}
 	memcpy(label, s, ln);
 	label[ln] = '\0';
-	return 1;
-}
-
-/* RFC 7468 section 3: a pre-encapsulation boundary ends its line. */
-static int pem_begin_ends_line(const char *in, size_t n, size_t begin_end) {
-	for (size_t i = begin_end; i < n; i++) {
-		if (!isspace((unsigned char)in[i]))
-			return 0;
-	}
 	return 1;
 }
 
@@ -724,8 +735,8 @@ static int eq_ci_n(const char *s, size_t n, const char *lit) {
 	return 1;
 }
 
-static int authz_run(const char *s, size_t n) {
-	if (n < 20)
+static int authz_run(const char *s, size_t n, size_t min) {
+	if (n < min)
 		return 0;
 	for (size_t i = 0; i < n; i++) {
 		if (!is_authz_char((unsigned char)s[i]))
@@ -749,7 +760,8 @@ static int unbalanced_closer(const char *v, size_t n) {
 	return curly < 0 || square < 0;
 }
 
-static int mask_assignment(const char *in, size_t inlen, char **out, size_t *outcap, size_t *len) {
+static int mask_assignment(const char *in, size_t inlen, char **out, size_t *outcap, size_t *len,
+                           ScanState *st) {
 	size_t i = lead_ws_n(in, inlen);
 	int quoted_key = 0;
 	if (i < inlen && in[i] == '"') {
@@ -820,10 +832,19 @@ static int mask_assignment(const char *in, size_t inlen, char **out, size_t *out
 	vbuf[vl] = '\0';
 
 	int q = vl >= 2 && (vbuf[0] == '"' || vbuf[0] == '\'') && vbuf[vl - 1] == vbuf[0];
+	int uq = !q && (vbuf[0] == '"' || vbuf[0] == '\'') &&
+	         (vl < 2 || memchr(vbuf + 1, vbuf[0], vl - 1) == NULL);
 	int spaced = memchr(vbuf, ' ', vl) != NULL || memchr(vbuf, '\t', vl) != NULL;
 	int masked = (spaced && !q) ? authorization_value(vbuf, vl) : should_mask(kbuf, vbuf);
 
-	if (masked) {
+	if (masked && uq && st) {
+		buf_put(out, outcap, len, in, vs + 1);
+		const char *tok = redact_token(kbuf, vbuf);
+		buf_put(out, outcap, len, tok, strlen(tok));
+		buf_put(out, outcap, len, vbuf, 1);
+		st->quote_ch = vbuf[0];
+		st->quote_n = 0;
+	} else if (masked) {
 		buf_put(out, outcap, len, in, vs);
 		if (q)
 			buf_put(out, outcap, len, vbuf, 1);
@@ -864,13 +885,51 @@ static int keyed_mask(const char *key, const char *v, size_t vn) {
 	return hit;
 }
 
-static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap, size_t *len) {
+static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap, size_t *len,
+                        ScanState *st) {
 	size_t p = 0;
 	int scheme = 0;
 	char *pend = NULL;
 
 	while (p < inlen) {
 		if (is_text_delim((unsigned char)in[p])) {
+			if (pend && (in[p] == '"' || in[p] == '\'')) {
+				char qc = in[p];
+				const char *cl = p + 1 < inlen ? memchr(in + p + 1, qc, inlen - p - 1) : NULL;
+				if (cl) {
+					size_t is = p + 1, ie = (size_t)(cl - in);
+					if (ie > is && keyed_mask(pend, in + is, ie - is)) {
+						const char *tok = redact_token_n(in + is, ie - is);
+						buf_put(out, outcap, len, &qc, 1);
+						buf_put(out, outcap, len, tok, strlen(tok));
+						buf_put(out, outcap, len, &qc, 1);
+						p = ie + 1;
+						free(pend);
+						pend = NULL;
+						scheme = 0;
+						continue;
+					}
+				} else {
+					size_t is = p + 1;
+					int hot = is < inlen ? keyed_mask(pend, in + is, inlen - is)
+					                     : strong_secret_key_name(pend);
+					if (hot) {
+						const char *tok =
+						    is < inlen ? redact_token_n(in + is, inlen - is) : "<redacted>";
+						buf_put(out, outcap, len, &qc, 1);
+						buf_put(out, outcap, len, tok, strlen(tok));
+						buf_put(out, outcap, len, &qc, 1);
+						if (st) {
+							st->quote_ch = qc;
+							st->quote_n = 0;
+						}
+						free(pend);
+						pend = NULL;
+						p = inlen;
+						continue;
+					}
+				}
+			}
 			buf_put(out, outcap, len, in + p, 1);
 			p++;
 			continue;
@@ -895,8 +954,8 @@ static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap
 		int hit = kn && te > ms && keyed_mask(kn, in + ms, te - ms);
 		if (!hit) {
 			ms = s;
-			hit = te > s &&
-			      (should_mask_token(in + s, te - s) || (scheme && authz_run(in + s, te - s)));
+			hit = te > s && (should_mask_token(in + s, te - s) ||
+			                 (scheme && authz_run(in + s, te - s, scheme >= 2 ? 8 : 20)));
 		}
 		if (!hit && !key && te > s) {
 			char *tail;
@@ -918,12 +977,16 @@ static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap
 			buf_put(out, outcap, len, in + s, e - s);
 		}
 
-		scheme = !hit && (eq_ci_n(in + s, te - s, "Bearer") || eq_ci_n(in + s, te - s, "Basic"));
+		int authz_ctx = pend && eq_ci_n(pend, strlen(pend), "Authorization");
+		int is_scheme = eq_ci_n(in + s, te - s, "Bearer") || eq_ci_n(in + s, te - s, "Basic");
+		scheme = !hit && is_scheme ? (authz_ctx ? 2 : 1) : 0;
 		free(pend);
 		pend = NULL;
 		if (!hit && bare) {
 			pend = key;
 			key = NULL;
+		} else if (!hit && !key && e == te + 1 && in[te] == ':') {
+			pend = key_run(in + s, te - s);
 		}
 		free(key);
 	}
@@ -931,51 +994,173 @@ static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap
 	free(pend);
 }
 
+static int find_private_begin(const char *in, size_t n, char *label, size_t cap, size_t *boff,
+                              size_t *bend) {
+	size_t from = 0;
+	while (from < n) {
+		size_t o = 0, e = 0;
+		int lab = pem_begin_label(in + from, n - from, label, cap, &o, &e);
+		if (!lab)
+			return 0;
+		if (lab == 2 || strstr(label, "PRIVATE KEY") != NULL) {
+			*boff = from + o;
+			*bend = from + e;
+			return 1;
+		}
+		from += o + 1;
+	}
+	return 0;
+}
+
+static size_t jwk_object_end(const char *in, size_t n, size_t start) {
+	long depth = 0;
+	for (size_t i = start; i < n; i++) {
+		if (in[i] == '{')
+			depth++;
+		else if (in[i] == '}' && --depth == 0)
+			return i + 1;
+	}
+	return 0;
+}
+
+static void scan_plain(const char *in, size_t inlen, char **out, size_t *outcap, size_t *len,
+                       ScanState *st) {
+	if (mask_assignment(in, inlen, out, outcap, len, st))
+		return;
+	size_t pos = 0, from = 0;
+	while (from < inlen) {
+		const char *ob = memchr(in + from, '{', inlen - from);
+		if (!ob)
+			break;
+		size_t os = (size_t)(ob - in);
+		size_t oe = jwk_object_end(in, inlen, os);
+		if (oe && is_private_jwk(in + os, oe - os)) {
+			mask_tokens(in + pos, os - pos, out, outcap, len, NULL);
+			buf_put(out, outcap, len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
+			pos = from = oe;
+		} else {
+			from = os + 1;
+		}
+	}
+	mask_tokens(in + pos, inlen - pos, out, outcap, len, pos == 0 ? st : NULL);
+}
+
+static void scan_segments(const char *in, size_t inlen, char **out, size_t *outcap, size_t *len,
+                          ScanState *st) {
+	size_t pos = 0;
+	while (pos < inlen) {
+		size_t boff = 0, bend = 0;
+		if (!find_private_begin(in + pos, inlen - pos, st->pem_label, sizeof(st->pem_label), &boff,
+		                        &bend))
+			break;
+		boff += pos;
+		bend += pos;
+		scan_plain(in + pos, boff - pos, out, outcap, len, pos == 0 ? st : NULL);
+		buf_put(out, outcap, len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
+		const char *tail = pem_end_at(in + bend, inlen - bend, st->pem_label);
+		if (tail) {
+			pos = (size_t)(tail - in);
+			continue;
+		}
+		size_t r = bend + lead_ws_n(in + bend, inlen - bend);
+		if (r >= inlen || pem_body_line(in + bend, inlen - bend)) {
+			st->pem_open = 1;
+			return;
+		}
+		pos = bend;
+	}
+	if (pos < inlen)
+		scan_plain(in + pos, inlen - pos, out, outcap, len, pos == 0 ? st : NULL);
+}
+
+void scan_state_init(ScanState *st) { memset(st, 0, sizeof(*st)); }
+
 int scan_text_line(const char *in, size_t inlen, char **out, size_t *outcap, size_t *outlen,
-                   int *pem_open, char *pem_label, size_t pem_label_cap) {
+                   ScanState *st) {
 	size_t len = 0;
 	*outlen = 0;
 
-	if (*pem_open) {
-		if (*pem_open <= PEM_CARRY_MAX)
-			++(*pem_open);
-		const char *tail = pem_end_at(in, inlen, pem_label);
+	if (st->pem_open) {
+		if (st->pem_open <= PEM_CARRY_MAX)
+			st->pem_open++;
+		const char *tail = pem_end_at(in, inlen, st->pem_label);
 		if (tail) {
-			*pem_open = 0;
+			st->pem_open = 0;
 			size_t tn = (size_t)(in + inlen - tail);
 			if (tn == 0)
 				return 0;
-			buf_put(out, outcap, &len, tail, tn);
-			buf_need(out, outcap, len + 1);
-			(*out)[len] = '\0';
-			*outlen = len;
-			return 1;
+			scan_segments(tail, tn, out, outcap, &len, st);
+			goto done;
 		}
-		if (*pem_open > PEM_CARRY_MAX && !pem_body_line(in, inlen))
-			*pem_open = 0;
-		return 0;
+		if (st->pem_open > PEM_CARRY_MAX && !pem_body_line(in, inlen))
+			st->pem_open = 0;
+		else
+			return 0;
+	}
+
+	if (st->quote_ch) {
+		st->quote_n++;
+		const char *cl = inlen ? memchr(in, st->quote_ch, inlen) : NULL;
+		if (cl) {
+			st->quote_ch = 0;
+			size_t after = (size_t)(cl - in) + 1;
+			if (after >= inlen)
+				return 0;
+			scan_segments(in + after, inlen - after, out, outcap, &len, st);
+			goto done;
+		}
+		if (st->quote_n > PEM_CARRY_MAX)
+			st->quote_ch = 0;
+		else
+			return 0;
+	}
+
+	if (st->putty_lines > 0) {
+		st->putty_lines--;
+		if (!st->putty_emit)
+			return 0;
+		st->putty_emit = 0;
+		buf_put(out, outcap, &len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
+		goto done;
 	}
 
 	size_t w = lead_ws_n(in, inlen);
-	size_t boff = 0, bend = 0;
-	int lab = pem_begin_label(in, inlen, pem_label, pem_label_cap, &boff, &bend);
-	int begins = lab == 2 || (lab == 1 && strstr(pem_label, "PRIVATE KEY") != NULL);
 
-	if (begins) {
-		const char *tail = pem_end_at(in + bend, inlen - bend, pem_label);
-		if (!tail && pem_begin_ends_line(in, inlen, bend))
-			*pem_open = 1;
-		buf_put(out, outcap, &len, in, boff);
-		buf_put(out, outcap, &len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
-		if (tail)
-			buf_put(out, outcap, &len, tail, (size_t)(in + inlen - tail));
-	} else if (mem_prefix(in + w, inlen - w, "PuTTY-User-Key-File")) {
-		buf_put(out, outcap, &len, in, w);
-		buf_put(out, outcap, &len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
-	} else if (!mask_assignment(in, inlen, out, outcap, &len)) {
-		mask_tokens(in, inlen, out, outcap, &len);
+	if (st->putty_watch > 0) {
+		st->putty_watch--;
+		if (mem_prefix_ci(in + w, inlen - w, "Private-Lines:")) {
+			size_t j = w + strlen("Private-Lines:");
+			long m = 0;
+			while (j < inlen && (in[j] == ' ' || in[j] == '\t'))
+				j++;
+			while (j < inlen && isdigit((unsigned char)in[j]) && m < PEM_CARRY_MAX)
+				m = m * 10 + (in[j++] - '0');
+			buf_put(out, outcap, &len, in, inlen);
+			st->putty_lines = (int)m;
+			st->putty_emit = m > 0;
+			goto done;
+		}
+		if (mem_prefix_ci(in + w, inlen - w, "Private-MAC:") ||
+		    mem_prefix_ci(in + w, inlen - w, "Private-Hash:")) {
+			const char *c = memchr(in + w, ':', inlen - w);
+			size_t h = (size_t)(c - in) + 1;
+			buf_put(out, outcap, &len, in, h);
+			buf_put(out, outcap, &len, " <redacted>", strlen(" <redacted>"));
+			st->putty_watch = 0;
+			goto done;
+		}
 	}
 
+	if (mem_prefix(in + w, inlen - w, "PuTTY-User-Key-File")) {
+		buf_put(out, outcap, &len, in, w);
+		buf_put(out, outcap, &len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
+		st->putty_watch = 64;
+		goto done;
+	}
+
+	scan_segments(in, inlen, out, outcap, &len, st);
+
+done:
 	buf_need(out, outcap, len + 1);
 	(*out)[len] = '\0';
 	*outlen = len;

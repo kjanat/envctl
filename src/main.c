@@ -186,6 +186,7 @@ int main(int argc, char **argv) {
 	if (!strcmp(cmd, "list")) {
 		Lines L = read_file(file);
 		act_list(&L, values, all, redact);
+		stdout_flush_check();
 		return 0;
 	}
 
@@ -200,8 +201,11 @@ int main(int argc, char **argv) {
 	Lines L = read_file(file);
 	size_t kl = strlen(key);
 
-	if (!strcmp(cmd, "get"))
-		return act_get(&L, key, kl, redact);
+	if (!strcmp(cmd, "get")) {
+		int rc = act_get(&L, key, kl, redact);
+		stdout_flush_check();
+		return rc;
+	}
 
 	Lines out;
 	if (!strcmp(cmd, "set"))
@@ -216,6 +220,7 @@ int main(int argc, char **argv) {
 	if (dry) {
 		if (!emit_diff(stdout, &L, &out, file, redact))
 			fprintf(stderr, "%s: no changes\n", PROG);
+		stdout_flush_check();
 	} else {
 		commit_file(file, &out);
 	}

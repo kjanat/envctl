@@ -212,7 +212,7 @@ npm run build 2>&1 | envctl redact   # mask secrets in tool output
 
 | Kind      | Shape                                            |
 | --------- | ------------------------------------------------ |
-| Active    | optional `export`, then `KEY=...`                |
+| Active    | optional whitespace and `export`, then `KEY=...` |
 | Commented | leading `#` (optional whitespace), then the same |
 
 A value that opens a quote (`"`, `'`, `` ` ``) or a `-----BEGIN` block runs until

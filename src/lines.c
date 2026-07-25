@@ -497,7 +497,7 @@ static void list_span(const Lines *L, size_t i, size_t span, int values, int all
 	if (redact && should_mask(kbuf, joined))
 		printf("%.*s=%s%s\n", (int)kl, s, redact_token(kbuf, joined), tag);
 	else
-		printf("%.*s=%s%s\n", (int)kl, s, joined, tag);
+		printf("%.*s=%s%s\n", (int)kl, s, eq + 1, tag);
 	free(joined);
 	free(kbuf);
 }

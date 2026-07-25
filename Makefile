@@ -54,7 +54,7 @@ src/%.o: src/%.c
 # ---------------------------------------------------------------------------
 
 test: $(BIN)
-	@bash tests/run.sh $(CURDIR)/$(BIN)
+	@bash tests/run.sh "$(CURDIR)/$(BIN)"
 
 # ---------------------------------------------------------------------------
 # release artifacts — one compile of all sources per platform triple
