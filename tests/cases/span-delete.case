@@ -1,0 +1,12 @@
+%% args
+--raw
+delete
+multiline-pem.env
+PK
+
+%% env
+env/multiline-pem.env
+
+%% file
+FOO=bar
+AFTER=ok

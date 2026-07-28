@@ -1,0 +1,19 @@
+%% args
+set
+runaway-quote.env
+A
+x
+
+%% env
+env/runaway-quote.env
+
+%% exit
+2
+
+%% file
+A="
+B=2
+C=3
+
+%% stderr
+envctl: unterminated value for A

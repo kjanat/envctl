@@ -1,0 +1,19 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/heuristics.txt
+
+%% stdout
+tok <redacted>
+aws <redacted> here
+jwt <redacted> end
+DATABASE_URL=<redacted:credentials>
+Authorization: <redacted>
+sha da39a3ee5e6b4b0d3255bfef95601890afd80709 kept
+uuid 550e8400-e29b-41d4-a716-446655440000 kept
+prefix ghp_ named in prose
+<redacted:private-key>
+INFO jwk=<redacted:private-key>
+{"kty":"EC","crv":"P-256","x":"aa","y":"bb"}

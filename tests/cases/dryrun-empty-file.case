@@ -1,0 +1,15 @@
+%% args
+--dry-run
+set
+empty.env
+A
+1
+
+%% env
+env/empty.env
+
+%% stdout
+--- empty.env
++++ empty.env
+@@ -0,0 +1,1 @@
++A=1

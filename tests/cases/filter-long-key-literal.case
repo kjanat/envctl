@@ -1,0 +1,12 @@
+%% args
+redact
+long-key.env
+
+%% env
+env/long-key.env
+
+%% stdin-file
+text/long-key-leak.txt
+
+%% stdout
+x <redacted> y

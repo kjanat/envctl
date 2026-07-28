@@ -1,0 +1,11 @@
+%% args
+--raw
+get
+quoted-trailing.env
+MSG
+
+%% env
+env/quoted-trailing.env
+
+%% stdout
+"hello" world

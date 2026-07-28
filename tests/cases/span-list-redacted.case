@@ -1,0 +1,13 @@
+%% args
+--redact
+list
+multiline-pem.env
+--values
+
+%% env
+env/multiline-pem.env
+
+%% stdout
+FOO=bar
+PK=<redacted:private-key>
+AFTER=ok

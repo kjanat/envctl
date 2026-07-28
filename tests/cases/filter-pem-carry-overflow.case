@@ -1,0 +1,12 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/pem-carry-overflow.txt
+
+%% stdout
+x
+<redacted:private-key>
+FIRSTSAFE=1
+SECONDSAFE=2

@@ -1,0 +1,15 @@
+%% args
+set
+spacing.env
+C
+4
+
+%% env
+env/spacing.env
+
+%% file
+A=1
+
+#  spaced   comment	
+B =  2  
+C=4

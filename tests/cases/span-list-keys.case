@@ -1,0 +1,11 @@
+%% args
+list
+multiline-pem.env
+
+%% env
+env/multiline-pem.env
+
+%% stdout
+FOO
+PK
+AFTER

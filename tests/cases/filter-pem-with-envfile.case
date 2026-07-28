@@ -1,0 +1,14 @@
+%% args
+redact
+multiline-pem.env
+
+%% env
+env/multiline-pem.env
+
+%% stdin-file
+text/pem-in-text-a.txt
+
+%% stdout
+x
+<redacted:private-key>
+y

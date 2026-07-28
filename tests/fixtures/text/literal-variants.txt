@@ -1,0 +1,7 @@
+leaked s3cr3t-value-abcdefghij here
+b64 czNjcjN0LXZhbHVlLWFiY2RlZmdoaWo=
+emb WFhYczNjcjN0LXZhbHVlLWFiY2RlZmdoaWpZWVk=
+url p%40ss%2Fw0rd%2Bx%3Dy
+json {"pw": "p@ss\"w0rd-1234"}
+port 3000 stays
+plain one FOO API_TOKEN

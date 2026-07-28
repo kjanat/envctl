@@ -1,0 +1,11 @@
+%% args
+--redact
+list
+lenient-digit.env
+--values
+
+%% env
+env/lenient-digit.env
+
+%% stdout
+TAIL=ok

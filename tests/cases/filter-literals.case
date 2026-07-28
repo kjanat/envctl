@@ -1,0 +1,18 @@
+%% args
+redact
+filter-literals.env
+
+%% env
+env/filter-literals.env
+
+%% stdin-file
+text/literal-variants.txt
+
+%% stdout
+leaked <redacted> here
+b64 <redacted>
+emb WFhY<redacted>aWpZWVk=
+url <redacted>
+json {"pw": "<redacted>"}
+port 3000 stays
+plain one FOO API_TOKEN

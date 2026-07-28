@@ -24,7 +24,7 @@
 	"markdown": {
 		"textWrap": "always",
 	},
-	"excludes": ["envctl"],
+	"excludes": ["envctl", "tests/{cases,fixtures}/**"],
 	"plugins": [
 		"https://plugins.dprint.dev/kjanat/shfmt-1.0.0.wasm",
 		"https://plugins.dprint.dev/json-0.23.0.wasm",

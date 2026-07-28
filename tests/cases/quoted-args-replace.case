@@ -1,0 +1,13 @@
+%% args
+set
+quoted-args.env
+ARGS
+-y
+
+%% env
+env/quoted-args.env
+
+%% file
+ARGS=-y
+DEBUG=true
+SECRET=abc

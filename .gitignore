@@ -6,3 +6,7 @@
 *.d
 src/*.o
 src/*.d
+.*cache*
+!/tests/cases/*
+!/tests/fixtures/*
+!/.env.test

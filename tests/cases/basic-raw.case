@@ -1,0 +1,13 @@
+%% args
+--raw
+list
+basic.env
+--values
+
+%% env
+env/basic.env
+
+%% stdout
+FOO=one
+API_TOKEN=abcdefghij
+PASSWORD=short

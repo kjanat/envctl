@@ -1,0 +1,10 @@
+%% args
+--redact
+list
+lenient-space.env
+
+%% env
+env/lenient-space.env
+
+%% stdout
+TAIL

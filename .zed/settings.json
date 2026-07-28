@@ -2,5 +2,6 @@
 // see the documentation: https://zed.dev/docs/configuring-zed#settings-files
 {
 	"formatter": [{ "external": { "command": "dprint", "arguments": ["fmt", "--stdin", "{buffer_path}"] } }],
-	"prettier": { "allowed": false }
+	"prettier": { "allowed": false },
+	"format_on_save": "off"
 }

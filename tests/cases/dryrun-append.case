@@ -1,0 +1,15 @@
+%% args
+--dry-run
+set
+basic.env
+NEWKEY
+v
+
+%% env
+env/basic.env
+
+%% stdout
+--- basic.env
++++ basic.env
+@@ -3,0 +4,1 @@
++NEWKEY=v

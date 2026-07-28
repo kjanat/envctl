@@ -1,0 +1,11 @@
+%% args
+--redact
+get
+long-value.env
+LONG_AUTH
+
+%% env
+env/long-value.env
+
+%% stdout
+<redacted>

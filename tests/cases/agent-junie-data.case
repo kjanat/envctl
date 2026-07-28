@@ -1,0 +1,8 @@
+%% args
+--help
+
+%% setenv
+JUNIE_DATA=1
+
+%% stdout-file
+expected/help-agent.out

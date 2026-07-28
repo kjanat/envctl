@@ -1,0 +1,8 @@
+%% args
+--help
+
+%% setenv
+CODEX_THREAD_ID=t1
+
+%% stdout-file
+expected/help-agent.out

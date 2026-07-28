@@ -1,0 +1,9 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/no-trailing-newline.txt
+
+%% stdout-file
+expected/no-trailing-newline.out

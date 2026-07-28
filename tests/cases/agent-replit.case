@@ -1,0 +1,8 @@
+%% args
+--help
+
+%% setenv
+REPL_ID=abc
+
+%% stdout-file
+expected/help-agent.out

@@ -1,0 +1,12 @@
+%% args
+--redact
+list
+bare-pem.env
+--values
+
+%% env
+env/bare-pem.env
+
+%% stdout
+FOO=1
+SAFE=1

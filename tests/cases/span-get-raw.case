@@ -1,0 +1,14 @@
+%% args
+--raw
+get
+multiline-pem.env
+PK
+
+%% env
+env/multiline-pem.env
+
+%% stdout
+"-----BEGIN PRIVATE KEY-----
+Zm9vYmFyYmF6cXV4c2VjcmV0ZGF0YQ==
+MIIBIjANBgkq
+-----END PRIVATE KEY-----"

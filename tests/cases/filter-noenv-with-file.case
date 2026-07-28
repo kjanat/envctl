@@ -1,0 +1,18 @@
+%% args
+redact
+--no-env
+basic.env
+
+%% env
+env/basic.env
+
+%% stdin-file
+text/two-lines.txt
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: too many arguments

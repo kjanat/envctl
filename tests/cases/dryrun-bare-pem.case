@@ -1,0 +1,17 @@
+%% args
+--redact
+--dry-run
+set
+bare-pem.env
+SAFE
+2
+
+%% env
+env/bare-pem.env
+
+%% stdout
+--- bare-pem.env
++++ bare-pem.env (redacted)
+@@ -5,1 +5,1 @@
+-SAFE=1
++SAFE=2

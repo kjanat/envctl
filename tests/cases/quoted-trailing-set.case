@@ -1,0 +1,15 @@
+%% args
+--raw
+set
+quoted-trailing.env
+B
+9
+
+%% env
+env/quoted-trailing.env
+
+%% file
+A=1
+MSG="hello" world
+B=9
+C=3

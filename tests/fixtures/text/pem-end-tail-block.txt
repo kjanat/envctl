@@ -1,0 +1,3 @@
+-----BEGIN PRIVATE KEY-----
+QUJDREVGR0hJSktMTU5PUA==
+-----END PRIVATE KEY----- API_TOKEN=ghp_0123456789abcdefghijklmnopqrstuvwxyzAB

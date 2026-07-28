@@ -1,0 +1,17 @@
+%% args
+--dry-run
+--redact
+set
+basic.env
+API_TOKEN
+x
+
+%% env
+env/basic.env
+
+%% stdout
+--- basic.env
++++ basic.env (redacted)
+@@ -2,1 +2,1 @@
+-API_TOKEN=<redacted>
++API_TOKEN=<redacted>

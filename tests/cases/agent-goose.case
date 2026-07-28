@@ -1,0 +1,8 @@
+%% args
+--help
+
+%% setenv
+GOOSE_PROVIDER=x
+
+%% stdout-file
+expected/help-agent.out

@@ -1,0 +1,16 @@
+%% args
+--no-env
+get
+basic.env
+FOO
+
+%% env
+env/basic.env
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: --no-env is only valid for redact

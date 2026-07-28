@@ -1,0 +1,15 @@
+%% args
+--raw
+set
+lenient-space.env
+TAIL
+new
+
+%% env
+env/lenient-space.env
+
+%% file
+KEY ="-----BEGIN PRIVATE KEY-----
+Zm9vYmFyYmF6cXV4
+-----END PRIVATE KEY-----"
+TAIL=new

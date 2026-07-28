@@ -1,0 +1,11 @@
+%% args
+delete
+runaway-quote.env
+C
+
+%% env
+env/runaway-quote.env
+
+%% file
+A="
+B=2

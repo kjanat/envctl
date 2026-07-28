@@ -1,0 +1,8 @@
+%% args
+--help
+
+%% setenv
+EDITOR=/usr/bin/devin
+
+%% stdout-file
+expected/help-agent.out

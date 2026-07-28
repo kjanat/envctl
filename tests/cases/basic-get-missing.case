@@ -1,0 +1,12 @@
+%% args
+get
+basic.env
+NOPE
+
+%% env
+env/basic.env
+
+%% exit
+1
+
+%% stdout

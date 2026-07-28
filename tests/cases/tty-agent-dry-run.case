@@ -1,0 +1,22 @@
+%% args
+--dry-run
+set
+basic.env
+API_TOKEN
+x
+
+%% mode
+pty
+
+%% env
+env/basic.env
+
+%% setenv
+AI_AGENT=1
+
+%% stdout
+--- basic.env
++++ basic.env (redacted)
+@@ -2,1 +2,1 @@
+-API_TOKEN=<redacted>
++API_TOKEN=<redacted>

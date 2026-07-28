@@ -1,0 +1,12 @@
+%% args
+--redact
+list
+prose-quote.env
+--values
+--all
+
+%% env
+env/prose-quote.env
+
+%% stdout
+REAL=1

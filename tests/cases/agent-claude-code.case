@@ -1,0 +1,8 @@
+%% args
+--help
+
+%% setenv
+CLAUDE_CODE=1
+
+%% stdout-file
+expected/help-agent.out

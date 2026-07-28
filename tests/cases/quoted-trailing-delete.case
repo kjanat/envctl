@@ -1,0 +1,13 @@
+%% args
+--raw
+delete
+quoted-trailing.env
+C
+
+%% env
+env/quoted-trailing.env
+
+%% file
+A=1
+MSG="hello" world
+B=2

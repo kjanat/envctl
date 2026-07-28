@@ -1,9 +1,12 @@
 # Sources and config: normalize to LF.
 *.c            text eol=lf
 *.h            text eol=lf
-Makefile       text eol=lf
 *.jsonc        text eol=lf
+Makefile       text eol=lf
 .clang-format  text eol=lf
 .shellcheckrc  text eol=lf
 tests/run.sh   text eol=lf  -linguist-detectable
 install.sh     text eol=lf  -linguist-detectable
+
+tests/fixtures/**  -text
+tests/cases/**     -text

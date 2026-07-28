@@ -1,0 +1,18 @@
+%% args
+list
+many-keys.env
+
+%% mode
+nosigpipe
+
+%% env
+env/many-keys.env
+
+%% exit
+2
+
+%% stdout
+K0
+
+%% stderr
+envctl: write failed

@@ -1,0 +1,18 @@
+%% args
+redact
+--raw
+basic.env
+
+%% env
+env/basic.env
+
+%% stdin-file
+text/two-lines.txt
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: redact cannot be --raw

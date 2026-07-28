@@ -1,0 +1,8 @@
+%% args
+--help
+
+%% setenv
+TERM_PROGRAM=kiro
+
+%% stdout-file
+expected/help-agent.out

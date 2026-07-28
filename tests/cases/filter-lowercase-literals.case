@@ -1,0 +1,13 @@
+%% args
+redact
+lowercase-literals.env
+
+%% env
+env/lowercase-literals.env
+
+%% stdin-file
+text/lowercase-leaks.txt
+
+%% stdout
+login password <redacted> rejected
+token <redacted> leaked

@@ -1,0 +1,19 @@
+%% args
+--raw
+list
+basic.env
+--values
+
+%% mode
+pty
+
+%% env
+env/basic.env
+
+%% setenv
+AI_AGENT=1
+
+%% stdout
+FOO=one
+API_TOKEN=abcdefghij
+PASSWORD=short

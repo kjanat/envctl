@@ -1,0 +1,57 @@
+%% args
+--redact
+list
+detectors.env
+--values
+
+%% env
+env/detectors.env
+
+%% stdout
+FOO_AUTH=<redacted>
+AUTH_TOK=<redacted>
+GH=<redacted>
+JW=<redacted>
+AUTHZ=<redacted>
+BASICH=<redacted>
+SCHEME=Bearer
+CB=<redacted:credentials>
+S3=<redacted:credentials>
+PLAINURL=https://api.example.com/v1/health
+WEBHOOK_URL=<redacted>
+JWK=<redacted:private-key>
+PUBJWK={"kty":"EC","crv":"P-256","x":"aa","y":"bb"}
+CONN=<redacted:credentials>
+AWSK=<redacted>
+PUTTY=<redacted:private-key>
+SESSION_ID=abcdef0123456789abcdef0123456789
+GIT_AUTH_SHA=da39a3ee5e6b4b0d3255bfef95601890afd80709
+API_KEY_SHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+BUILD_UUID=550e8400-e29b-41d4-a716-446655440000
+AUTH_URL=https://example.com/some/long/path/to/a/resource/index.html
+CRED_PATH=/run/secrets/gcp-service-account-key.json
+CONFIG_JSON=<redacted>
+PG_CONN=<redacted>
+CLI_ARGS=--verbose --out /tmp/build.log --retries 3
+JAVA_OPTS=<redacted>
+NPM_CONFIG=<redacted>
+EXTRA_ARGS=<redacted>
+OPTS_ARGS=--output=report.txt --retries 3
+SLACK_WEBHOOK_ENDPOINT=<redacted>
+DISCORD_WEBHOOK=<redacted>
+WEBHOOK_ID=123456789012345678
+PASSWORD_ID=<redacted>
+SECRET_ID=<redacted>
+VAULT_SECRET_ID=<redacted>
+API_TOKEN_NAME=<redacted>
+CLIENT_SECRET_VERSION=<redacted>
+APP_SECRET_VERSION=3
+OAUTH_CLIENT_ID=1234567890-abcdefghijklmnop.apps.googleusercontent.com
+GPG_PASSPHRASE_FILE=/run/secrets/gpg.txt
+GPG_PASSPHRASE=<redacted>
+BACKUP_PASSPHRASE_FILE=<redacted>
+LICENSE_KEY=<redacted>
+IDEMPOTENCY_KEY=<redacted>
+KEYBOARD_LAYOUT=us
+MONKEY_NAME=george
+API_VERSION=v2

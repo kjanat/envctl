@@ -1,0 +1,10 @@
+%% args
+get
+command-word-key.env
+redact
+
+%% env
+env/command-word-key.env
+
+%% stdout
+kept

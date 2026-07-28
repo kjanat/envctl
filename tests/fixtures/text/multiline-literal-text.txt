@@ -1,0 +1,2 @@
+a line1secretvalueAAA b
+c line2secretvalueBBB d

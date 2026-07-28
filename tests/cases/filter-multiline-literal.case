@@ -1,0 +1,13 @@
+%% args
+redact
+multiline-literal.env
+
+%% env
+env/multiline-literal.env
+
+%% stdin-file
+text/multiline-literal-text.txt
+
+%% stdout
+a <redacted> b
+c <redacted> d
