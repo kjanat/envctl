@@ -1,6 +1,4 @@
-# envctl
-
-envctl — manage keys in env files
+# envctl — manage keys in env files
 
 Edits a single key in place without disturbing order, comments, spacing, or any
 other line. Writes are atomic (temp file + rename) and preserve the target’s
