@@ -21,6 +21,9 @@
 		"preferSingleLine": true,
 		"proseWrap": "always",
 	},
+	"markdown": {
+		"textWrap": "always",
+	},
 	"excludes": ["envctl"],
 	"plugins": [
 		"https://plugins.dprint.dev/kjanat/shfmt-1.0.0.wasm",

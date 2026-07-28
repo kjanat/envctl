@@ -8,14 +8,34 @@ mode, so a crash mid-write never leaves a half-written env file.
 
 ### Prebuilt binaries
 
-Download from [GitHub Releases](https://github.com/kjanat/envctl/releases)
-(`linux-amd64`, `linux-arm64`, `darwin-amd64`, `darwin-arm64`,
-`windows-amd64`, `windows-arm64`).
+```sh
+curl -fsSL https://raw.githubusercontent.com/kjanat/envctl/master/install.sh | bash
+```
+
+[`install.sh`] picks the release asset for your OS and architecture, verifies it
+against `SHA256SUMS`, and installs it to `~/.local/bin`. Override with
+`ENVCTL_INSTALL_DIR` and `ENVCTL_VERSION`:
+
+```sh
+ENVCTL_INSTALL_DIR=/usr/local/bin ENVCTL_VERSION=v0.1.0 bash install.sh
+```
+
+To pick an asset yourself, download from [GitHub Releases] (`linux-amd64`,
+`linux-arm64`, `darwin-amd64`, `darwin-arm64`, `windows-amd64`,
+`windows-arm64`):
 
 ```sh
 # Example: Linux x86_64 → ~/.local/bin
 curl -fsSL -o ~/.local/bin/envctl \
   https://github.com/kjanat/envctl/releases/latest/download/envctl-linux-amd64
+chmod +x ~/.local/bin/envctl
+```
+
+With the `gh` CLI:
+
+```sh
+gh release download -R kjanat/envctl \
+  --pattern envctl-linux-amd64 --output ~/.local/bin/envctl
 chmod +x ~/.local/bin/envctl
 ```
 
@@ -39,18 +59,8 @@ git clone https://github.com/kjanat/envctl.git && cd envctl && make && make inst
 Needs a C11 compiler (`cc` by default). Override with `CC=` / `CFLAGS=` /
 `PREFIX=` as usual. `make test` runs the assertion suite.
 
-Sources live under [`src/`](src/) (`util`, `agent`, `help`, `lines`, `entropy`,
-`redact`, `mask`, `filter`, `diff`, `fileio`, `main`).
-
-### Releasing
-
-Push a version tag; CI builds the five artifacts, writes `SHA256SUMS`, and
-publishes a GitHub Release:
-
-```sh
-git tag v0.1.0
-git push origin v0.1.0
-```
+Development, testing, and release workflow: [CONTRIBUTING.md].\
+Threat model and vulnerability reporting: [SECURITY.md].
 
 ## Usage
 
@@ -86,8 +96,8 @@ envctl [file] <KEY>            # get
 envctl [file] <KEY> <VALUE>    # set
 ```
 
-A command name always wins over a same-named file, so
-`envctl .env get API_KEY` is a get.
+A command name always wins over a same-named file, so `envctl .env get API_KEY`
+is a get.
 
 ### Flags
 
@@ -139,15 +149,15 @@ heuristics then run over the rest of the text, and entropy applies only on lines
 that carry a key name. `--no-env` skips the env file. Filter mode always
 redacts, so agent detection and the TTY check do not apply.
 
-A PEM private key prints as one `<redacted:private-key>` line and its body
-lines are dropped. When the `-----END-----` marker never arrives, up to 512
-following lines are dropped with it.
+A PEM private key prints as one `<redacted:private-key>` line and its body lines
+are dropped. When the `-----END-----` marker never arrives, up to 512 following
+lines are dropped with it.
 
 ### Redaction
 
-Presentation hygiene only (not a security boundary against `cat .env`). When
-redaction is on, values become `<redacted>`, `<redacted:private-key>`, or
-`<redacted:credentials>` — never partial suffixes.
+Presentation hygiene only, not a security boundary; see [SECURITY.md] for what
+that means. When redaction is on, values become `<redacted>`,
+`<redacted:private-key>`, or `<redacted:credentials>`, never partial suffixes.
 
 **When redaction is on**
 
@@ -157,9 +167,8 @@ redaction is on, values become `<redacted>`, `<redacted:private-key>`, or
 | Coding agent detected **and** stdout is a TTY | Yes (unless `--raw`)   |
 | Piped / redirected / scripts                  | No (unless `--redact`) |
 
-`get` stays raw on pipes so scripts and command substitution keep working.
-Agent detection follows [unjs/std-env](https://github.com/unjs/std-env) signals
-(plus `AI_AGENT`).
+`get` stays raw on pipes so scripts and command substitution keep working. Agent
+detection follows [unjs/std-env] signals (plus `AI_AGENT`).
 
 **What counts as secret**
 
@@ -213,8 +222,8 @@ npm run build 2>&1 | envctl redact   # mask secrets in tool output
 | Active    | optional whitespace and `export`, then `KEY=...` |
 | Commented | leading `#` (optional whitespace), then the same |
 
-A value that opens a quote (`"`, `'`, `` ` ``) or a `-----BEGIN` block runs until
-its terminator, up to 512 lines. Those lines belong to the key, so `set`,
+A value that opens a quote (`"`, `'`, `` ` ``) or a `-----BEGIN` block runs
+until its terminator, up to 512 lines. Those lines belong to the key, so `set`,
 `disable`, `enable`, and `delete` move all of them. Mutating a key whose value
 never terminates exits non-zero and writes nothing.
 
@@ -240,4 +249,11 @@ Keys must match `[A-Za-z_][A-Za-z0-9_]*`.
 
 ## License
 
-[MIT](LICENSE)
+[MIT][LICENSE]
+
+[CONTRIBUTING.md]: CONTRIBUTING.md
+[LICENSE]: LICENSE
+[SECURITY.md]: SECURITY.md
+[`install.sh`]: install.sh
+[GitHub Releases]: https://github.com/kjanat/envctl/releases
+[unjs/std-env]: https://github.com/unjs/std-env

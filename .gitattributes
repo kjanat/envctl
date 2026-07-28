@@ -6,3 +6,4 @@ Makefile       text eol=lf
 .clang-format  text eol=lf
 .shellcheckrc  text eol=lf
 tests/run.sh   text eol=lf  -linguist-detectable
+install.sh     text eol=lf  -linguist-detectable

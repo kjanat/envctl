@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://www.schemastore.org/actionlint.json
+---
+# github-hosted-runners: https://docs.github.com/actions/reference/runners/github-hosted-runners
+# available-images: https://github.com/actions/runner-images#available-images
+self-hosted-runner: { labels: [ubuntu-26.04, ubuntu-26.04-arm, windows-11-vs2026-arm] }
