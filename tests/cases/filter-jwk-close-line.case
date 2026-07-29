@@ -1,0 +1,13 @@
+%% args
+redact
+--no-env
+
+%% stdin
+{
+  "kty": "EC",
+  "d": "private-material"}
+after=ok
+
+%% stdout
+<redacted:private-key>
+after=ok
