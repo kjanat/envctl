@@ -3,7 +3,7 @@ redact
 --no-env
 
 %% stdin
-Authorization: Basic dXNlcjpw
+Authorization: Basic dTpw
 
 %% stdout
 Authorization: Basic <redacted>

@@ -22,6 +22,8 @@ typedef struct {
 
 void lpush(Lines *L, char *s);
 Lines read_file(const char *file);
+void lines_free(Lines *L);
+void lines_free_borrowing(Lines *L, const Lines *borrowed);
 
 int read_stream_line(FILE *f, StreamLine *sl);
 void streamline_free(StreamLine *sl);

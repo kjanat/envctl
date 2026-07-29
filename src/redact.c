@@ -310,10 +310,10 @@ static int is_authz_char(unsigned char c) {
 	return isalnum(c) || c == '+' || c == '/' || c == '=' || c == '.' || c == '_' || c == '-';
 }
 
-static int authorization_value(const char *b, size_t bn) {
+static int authorization_value(const char *b, size_t bn, int explicit_key) {
 	static const char *const scheme[] = {"Bearer", "Basic", NULL};
 	size_t i = 0;
-	int explicit = 0;
+	int explicit = explicit_key;
 	if (mem_prefix_ci(b, bn, "Authorization:")) {
 		explicit = 1;
 		i = strlen("Authorization:");
@@ -331,7 +331,7 @@ static int authorization_value(const char *b, size_t bn) {
 		size_t k = j;
 		while (k < bn && is_authz_char((unsigned char)b[k]))
 			k++;
-		size_t min = explicit && s == 1 ? 4u : 8u;
+		size_t min = explicit ? (s == 1 ? 4u : 1u) : 8u;
 		if (k - j >= min)
 			return 1;
 	}
@@ -412,28 +412,9 @@ static int conn_string_secret(const char *b, size_t bn) {
 	return 0;
 }
 
-static int json_has_key(const char *b, size_t bn, const char *name) {
-	size_t nn = strlen(name);
-	for (size_t i = 0; i + nn + 2 <= bn; i++) {
-		if (b[i] != '"' || b[i + nn + 1] != '"' || memcmp(b + i + 1, name, nn) != 0)
-			continue;
-		size_t j = i;
-		while (j > 0 && isspace((unsigned char)b[j - 1]))
-			j--;
-		if (j == 0 || (b[j - 1] != '{' && b[j - 1] != ','))
-			continue;
-		size_t k = i + nn + 2;
-		while (k < bn && isspace((unsigned char)b[k]))
-			k++;
-		if (k < bn && b[k] == ':')
-			return 1;
-	}
-	return 0;
-}
+static int json_private_object(const char *in, size_t n);
 
-static int is_private_jwk(const char *b, size_t bn) {
-	return json_has_key(b, bn, "kty") && (json_has_key(b, bn, "d") || json_has_key(b, bn, "k"));
-}
+static int is_private_jwk(const char *b, size_t bn) { return json_private_object(b, bn); }
 
 static int private_key_material(const char *b, size_t bn) {
 	return is_pem_private_n(b, bn) || mem_find(b, bn, "PuTTY-User-Key-File") != NULL ||
@@ -540,7 +521,8 @@ static int should_mask_body(const char *key, const char *b, size_t bn, int deep)
 		return 1;
 	if (url_sensitive_param(b, bn))
 		return 1;
-	if (authorization_value(b, bn))
+	int authz_key = strlen(key) == strlen("Authorization") && ends_with_ci(key, "Authorization");
+	if (authorization_value(b, bn, authz_key))
 		return 1;
 	if (conn_string_secret(b, bn))
 		return 1;
@@ -632,7 +614,7 @@ int should_mask_token(const char *s, size_t n) {
 	if (n < TOKEN_MIN)
 		return 0;
 	return private_key_material(s, n) || known_token_prefix(s, n) || aws_access_key_shape(s, n) ||
-	       is_credentialed_url(s, n) || url_sensitive_param(s, n) || authorization_value(s, n) ||
+	       is_credentialed_url(s, n) || url_sensitive_param(s, n) || authorization_value(s, n, 0) ||
 	       conn_string_secret(s, n) || is_jwt_shape(s, n);
 }
 
@@ -796,6 +778,7 @@ static int mask_assignment(const char *in, size_t inlen, char **out, size_t *out
                            ScanState *st) {
 	size_t i = lead_ws_n(in, inlen);
 	int quoted_key = 0;
+	int colon_separator = 0;
 	if (i < inlen && in[i] == '"') {
 		quoted_key = 1;
 		i++;
@@ -822,6 +805,7 @@ static int mask_assignment(const char *in, size_t inlen, char **out, size_t *out
 	} else if (in[i] == ':') {
 		if (!quoted_key && !(i + 1 < inlen && (in[i + 1] == ' ' || in[i + 1] == '\t')))
 			return 0;
+		colon_separator = 1;
 		i++;
 	} else {
 		return 0;
@@ -857,7 +841,8 @@ static int mask_assignment(const char *in, size_t inlen, char **out, size_t *out
 	for (size_t j = 0; j < kl; j++)
 		kbuf[j] = in[ks + j] == '-' ? '_' : in[ks + j];
 	kbuf[kl] = '\0';
-	if (eq_ci_n(kbuf, kl, "Authorization") && mem_prefix_ci(in + vs, ve - vs, "Basic ")) {
+	if (colon_separator && !quoted_key && eq_ci_n(kbuf, kl, "Authorization") &&
+	    mem_prefix_ci(in + vs, ve - vs, "Basic ")) {
 		free(kbuf);
 		return 0;
 	}
@@ -926,6 +911,89 @@ static int keyed_mask(const char *key, const char *v, size_t vn) {
 	return hit;
 }
 
+static int hex_value(unsigned char c) {
+	if (c >= '0' && c <= '9')
+		return c - '0';
+	if (c >= 'a' && c <= 'f')
+		return c - 'a' + 10;
+	if (c >= 'A' && c <= 'F')
+		return c - 'A' + 10;
+	return -1;
+}
+
+static char *json_key_decode(const char *s, size_t n, size_t *decoded_len) {
+	char *decoded = xmalloc(n + 1);
+	size_t out = 0;
+	for (size_t i = 0; i < n;) {
+		unsigned char c = (unsigned char)s[i++];
+		if (c > 0x7f || c < 0x20) {
+			free(decoded);
+			return NULL;
+		}
+		if (c == '\\') {
+			if (i >= n) {
+				free(decoded);
+				return NULL;
+			}
+			c = (unsigned char)s[i++];
+			switch (c) {
+			case '"':
+			case '\\':
+			case '/':
+				break;
+			case 'b':
+				c = '\b';
+				break;
+			case 'f':
+				c = '\f';
+				break;
+			case 'n':
+				c = '\n';
+				break;
+			case 'r':
+				c = '\r';
+				break;
+			case 't':
+				c = '\t';
+				break;
+			case 'u': {
+				if (i + 4 > n) {
+					free(decoded);
+					return NULL;
+				}
+				unsigned value = 0;
+				for (size_t j = 0; j < 4; j++) {
+					int digit = hex_value((unsigned char)s[i + j]);
+					if (digit < 0) {
+						free(decoded);
+						return NULL;
+					}
+					value = value * 16u + (unsigned)digit;
+				}
+				if (value > 0x7fu) {
+					free(decoded);
+					return NULL;
+				}
+				c = (unsigned char)value;
+				i += 4;
+				break;
+			}
+			default:
+				free(decoded);
+				return NULL;
+			}
+		}
+		decoded[out++] = (char)c;
+	}
+	decoded[out] = '\0';
+	*decoded_len = out;
+	return decoded;
+}
+
+static int json_whitespace(unsigned char c) {
+	return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
 static int mask_json_pair(const char *in, size_t inlen, size_t *p, char **out, size_t *outcap,
                           size_t *len) {
 	if (in[*p] != '"')
@@ -936,17 +1004,22 @@ static int mask_json_pair(const char *in, size_t inlen, size_t *p, char **out, s
 		return 0;
 	size_t ke = (size_t)(key_end - in);
 	size_t colon = ke + 1;
-	while (colon < inlen && (in[colon] == ' ' || in[colon] == '\t'))
+	while (colon < inlen && json_whitespace((unsigned char)in[colon]))
 		colon++;
 	if (colon >= inlen || in[colon] != ':')
 		return 0;
 	size_t quote = colon + 1;
-	while (quote < inlen && (in[quote] == ' ' || in[quote] == '\t'))
+	while (quote < inlen && json_whitespace((unsigned char)in[quote]))
 		quote++;
 	if (quote >= inlen || in[quote] != '"')
 		return 0;
 
-	char *key = key_run(in + *p + 1, ke - *p - 1);
+	size_t decoded_len = 0;
+	char *decoded = json_key_decode(in + *p + 1, ke - *p - 1, &decoded_len);
+	if (!decoded)
+		return 0;
+	char *key = key_run(decoded, decoded_len);
+	free(decoded);
 	if (!key)
 		return 0;
 	parity = 0;
@@ -1113,6 +1186,7 @@ enum {
 	PUTTY_PUBLIC_BODY,
 	PUTTY_EXPECT_PRIVATE,
 	PUTTY_PRIVATE,
+	PUTTY_EXPECT_MAC,
 };
 
 static size_t json_object_end(const char *in, size_t n, size_t start) {
@@ -1139,32 +1213,14 @@ static size_t json_object_end(const char *in, size_t n, size_t start) {
 }
 
 static int json_string_eq(const char *s, size_t n, const char *name) {
-	size_t i = 0, j = 0, nn = strlen(name);
-	while (i < n && j < nn) {
-		unsigned char c = (unsigned char)s[i++];
-		if (c == '\\') {
-			if (i >= n)
-				return 0;
-			c = (unsigned char)s[i++];
-			if (c == 'u') {
-				if (i + 4 > n || s[i] != '0' || s[i + 1] != '0')
-					return 0;
-				int hi = isdigit((unsigned char)s[i + 2])
-				             ? s[i + 2] - '0'
-				             : 10 + tolower((unsigned char)s[i + 2]) - 'a';
-				int lo = isdigit((unsigned char)s[i + 3])
-				             ? s[i + 3] - '0'
-				             : 10 + tolower((unsigned char)s[i + 3]) - 'a';
-				if (hi < 0 || hi > 15 || lo < 0 || lo > 15)
-					return 0;
-				c = (unsigned char)(hi * 16 + lo);
-				i += 4;
-			}
-		}
-		if (c != (unsigned char)name[j++])
-			return 0;
-	}
-	return i == n && j == nn;
+	size_t decoded_len = 0;
+	char *decoded = json_key_decode(s, n, &decoded_len);
+	if (!decoded)
+		return 0;
+	size_t name_len = strlen(name);
+	int equal = decoded_len == name_len && memcmp(decoded, name, name_len) == 0;
+	free(decoded);
+	return equal;
 }
 
 static int json_private_object(const char *in, size_t n) {
@@ -1191,9 +1247,9 @@ static int json_private_object(const char *in, size_t n) {
 			break;
 		size_t e = (size_t)(end - in);
 		size_t colon = e + 1;
-		while (colon < n && isspace((unsigned char)in[colon]))
+		while (colon < n && json_whitespace((unsigned char)in[colon]))
 			colon++;
-		if (depth == 1 && colon < n && in[colon] == ':') {
+		if (depth >= 1 && colon < n && in[colon] == ':') {
 			if (json_string_eq(in + i + 1, e - i - 1, "kty"))
 				kty = 1;
 			else if (json_string_eq(in + i + 1, e - i - 1, "d") ||
@@ -1207,7 +1263,7 @@ static int json_private_object(const char *in, size_t n) {
 
 static int json_candidate(const char *in, size_t n, size_t start) {
 	size_t i = start + 1;
-	while (i < n && isspace((unsigned char)in[i]))
+	while (i < n && json_whitespace((unsigned char)in[i]))
 		i++;
 	return i == n || in[i] == '"' || in[i] == '}';
 }
@@ -1384,6 +1440,7 @@ static void putty_mac(const char *in, size_t inlen, size_t w, char **out, size_t
 	st->putty_lines = 0;
 	st->putty_recovery = 0;
 	st->putty_emit = 0;
+	st->putty_declared = 0;
 }
 
 void scan_state_init(ScanState *st) { memset(st, 0, sizeof(*st)); }
@@ -1468,6 +1525,20 @@ int scan_text_line(const char *in, size_t inlen, const char *eol, size_t eollen,
 	                  mem_prefix_ci(in + w, inlen - w, "Private-Hash:");
 	int private_lines = mem_prefix_ci(in + w, inlen - w, "Private-Lines:");
 
+	if (st->putty_phase == PUTTY_EXPECT_MAC) {
+		if (private_mac) {
+			putty_mac(in, inlen, w, out, outcap, &len, st);
+			goto done;
+		}
+		if (pem_body_line(in, inlen))
+			return 0;
+		st->putty_phase = PUTTY_NONE;
+		st->putty_lines = 0;
+		st->putty_recovery = 0;
+		st->putty_emit = 0;
+		st->putty_declared = 0;
+	}
+
 	if (st->putty_phase != PUTTY_NONE && st->putty_phase != PUTTY_PRIVATE && private_mac) {
 		putty_mac(in, inlen, w, out, outcap, &len, st);
 		goto done;
@@ -1476,9 +1547,10 @@ int scan_text_line(const char *in, size_t inlen, const char *eol, size_t eollen,
 	if (st->putty_phase != PUTTY_NONE && st->putty_phase != PUTTY_PRIVATE && private_lines) {
 		int valid = 0;
 		st->putty_lines = putty_count(in, inlen, w + strlen("Private-Lines:"), &valid);
-		st->putty_phase = PUTTY_PRIVATE;
+		st->putty_phase = valid && !st->putty_lines ? PUTTY_EXPECT_MAC : PUTTY_PRIVATE;
 		st->putty_emit = !valid || st->putty_lines > 0;
 		st->putty_recovery = 0;
+		st->putty_declared = valid;
 		buf_put(out, outcap, &len, in, inlen);
 		goto done;
 	}
@@ -1517,7 +1589,10 @@ int scan_text_line(const char *in, size_t inlen, const char *eol, size_t eollen,
 		if (pem_body_line(in, inlen)) {
 			if (st->putty_lines > 0)
 				st->putty_lines--;
-			st->putty_recovery++;
+			if (st->putty_recovery < PUTTY_RECOVERY_MAX)
+				st->putty_recovery++;
+			if (st->putty_declared && !st->putty_lines)
+				st->putty_phase = PUTTY_EXPECT_MAC;
 			if (st->putty_emit) {
 				st->putty_emit = 0;
 				buf_put(out, outcap, &len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
@@ -1525,12 +1600,21 @@ int scan_text_line(const char *in, size_t inlen, const char *eol, size_t eollen,
 			}
 			return 0;
 		}
-		st->putty_recovery++;
-		if (st->putty_recovery <= PUTTY_RECOVERY_MAX)
-			return 0;
-		st->putty_phase = PUTTY_NONE;
-		st->putty_lines = 0;
-		st->putty_emit = 0;
+		if (!st->putty_declared) {
+			st->putty_phase = PUTTY_NONE;
+			st->putty_lines = 0;
+			st->putty_recovery = 0;
+			st->putty_emit = 0;
+			st->putty_declared = 0;
+		} else {
+			st->putty_recovery++;
+			if (st->putty_recovery <= PUTTY_RECOVERY_MAX)
+				return 0;
+			st->putty_phase = PUTTY_NONE;
+			st->putty_lines = 0;
+			st->putty_emit = 0;
+			st->putty_declared = 0;
+		}
 	}
 
 	if (mem_prefix(in + w, inlen - w, "PuTTY-User-Key-File")) {
@@ -1569,7 +1653,7 @@ int scan_text_finish(char **out, size_t *outcap, size_t *outlen, ScanState *st) 
 		if (json_private_object(st->json_buf, st->json_len))
 			buf_put(out, outcap, &len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
 		else
-			buf_put(out, outcap, &len, st->json_buf, st->json_len);
+			scan_plain(st->json_buf, st->json_len, out, outcap, &len, st, 0);
 	}
 	json_reset(st);
 	buf_need(out, outcap, len + 1);

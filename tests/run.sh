@@ -39,6 +39,13 @@ if env --ignore-signal=PIPE true >/dev/null 2>&1; then
 fi
 readonly nosigpipe
 
+epipe_open=no
+if command -v mkfifo >/dev/null 2>&1 \
+	&& mkfifo "${work}/.epipe-open-probe" >/dev/null 2>&1; then
+	epipe_open=yes
+fi
+readonly epipe_open
+
 declare -i passed=0
 declare -a failures=()
 declare -a skipped=()
@@ -199,6 +206,28 @@ run_case() {
 		skipped+=("${name} (no env --ignore-signal)")
 		return
 	fi
+	if [[ ${mode} == epipe-open && ${epipe_open} == no ]]; then
+		skipped+=("${name} (no fifo support)")
+		return
+	fi
+	local first='' second='' third=''
+	local -i epipe_input_ok=1
+	if [[ ${mode} == epipe-open ]]; then
+		{
+			IFS= read -r first || epipe_input_ok=0
+			if ((epipe_input_ok)); then
+				IFS= read -r second || epipe_input_ok=0
+			fi
+			if ((epipe_input_ok)) && { IFS= read -r third || [[ -n ${third} ]]; }; then
+				epipe_input_ok=0
+			fi
+		} <"${stdin}"
+		if ((!epipe_input_ok)); then
+			fail_case "${name}"
+			printf '        epipe-open stdin needs exactly two newline-terminated lines\n'
+			return
+		fi
+	fi
 
 	# Agent detection reads the environment, so cases run from a clean one and
 	# opt into agent behaviour through setenv.
@@ -244,6 +273,57 @@ run_case() {
 			)
 			rc=$?
 			;;
+		epipe-open)
+			# Keep stdin open after the second line. A per-write EPIPE check exits;
+			# an EOF-only check blocks until the watchdog kills the producer.
+			(
+				cd "${dir}" || exit 2
+				mkfifo .stdin-fifo .stdout-fifo || exit 2
+				(
+					trap '' PIPE
+					exec "${launch[@]}"
+				) <.stdin-fifo >.stdout-fifo 2>.stderr &
+				producer=$!
+				exec 3>.stdin-fifo
+				(
+					sleeper=
+					trap '
+						trap - TERM INT
+						if [[ -n ${sleeper} ]]; then
+							kill "${sleeper}" 2>/dev/null || true
+							wait "${sleeper}" 2>/dev/null || true
+						fi
+						exit 0
+					' TERM INT
+					sleep 5 &
+					sleeper=$!
+					wait "${sleeper}" || exit 0
+					sleeper=
+					if kill -0 "${producer}" 2>/dev/null; then
+						: >.watchdog-fired
+						kill -TERM "${producer}" 2>/dev/null || true
+						sleep 1 &
+						sleeper=$!
+						wait "${sleeper}" || exit 0
+						sleeper=
+						kill -KILL "${producer}" 2>/dev/null || true
+					fi
+				) 3>&- &
+				watchdog=$!
+				printf '%s\n' "${first}" >&3 || true
+				head -n 1 <.stdout-fifo >.stdout || true
+				printf '%s\n' "${second}" >&3 2>/dev/null || true
+				wait "${producer}"
+				producer_rc=$?
+				exec 3>&-
+				kill -TERM "${watchdog}" 2>/dev/null || true
+				wait "${watchdog}" 2>/dev/null || true
+				printf '%s\n' "${producer_rc}" >.producer-status
+				[[ ! -e .watchdog-fired ]] || exit 124
+				exit "${producer_rc}"
+			)
+			rc=$?
+			;;
 		*)
 			fail_case "${name}"
 			printf '        unknown mode: %s\n' "${mode}"
@@ -252,20 +332,28 @@ run_case() {
 	esac
 
 	local ok=1
+	if [[ -e ${dir}/.watchdog-fired ]]; then
+		fail_case "${name}"
+		printf '        epipe-open watchdog killed blocked producer (status %s)\n' \
+			"$(<"${dir}/.producer-status")"
+		ok=0
+	fi
 	if [[ ${rc} != "${want_rc}" ]]; then
 		fail_case "${name}"
 		printf '        exit want %s got %s\n' "${want_rc}" "${rc}"
 		ok=0
 	fi
 
+	local want_stdout=${dir}/.want
+	: >"${want_stdout}"
 	if has_section "${file}" stdout; then
 		section "${file}" stdout >"${dir}/.want"
-		compare "${name}" stdout "${dir}/.want" "${dir}/.stdout" || ok=0
 	elif has_section "${file}" stdout-file; then
 		local wf
 		wf=$(section "${file}" stdout-file)
-		compare "${name}" stdout "${fx}/${wf}" "${dir}/.stdout" || ok=0
+		want_stdout=${fx}/${wf}
 	fi
+	compare "${name}" stdout "${want_stdout}" "${dir}/.stdout" || ok=0
 	: >"${dir}/.want-err"
 	if has_section "${file}" stderr; then
 		section "${file}" stderr >"${dir}/.want-err"

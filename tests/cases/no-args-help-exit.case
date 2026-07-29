@@ -2,3 +2,6 @@
 
 %% exit
 0
+
+%% stdout-file
+expected/help-long.out

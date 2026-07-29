@@ -189,6 +189,7 @@ int main(int argc, char **argv) {
 	if (!strcmp(cmd, "list")) {
 		Lines L = read_file(file);
 		act_list(&L, values, all, redact);
+		lines_free(&L);
 		stdout_flush_check();
 		return 0;
 	}
@@ -206,6 +207,7 @@ int main(int argc, char **argv) {
 
 	if (!strcmp(cmd, "get")) {
 		int rc = act_get(&L, key, kl, redact);
+		lines_free(&L);
 		stdout_flush_check();
 		return rc;
 	}
@@ -223,10 +225,13 @@ int main(int argc, char **argv) {
 	if (dry) {
 		if (!emit_diff(stdout, &L, &out, file, redact))
 			fprintf(stderr, "%s: no changes\n", PROG);
-		stdout_flush_check();
 	} else {
 		commit_file(file, &out);
 	}
+	lines_free_borrowing(&out, &L);
+	lines_free(&L);
+	if (dry)
+		stdout_flush_check();
 
 	return 0;
 }

@@ -5,6 +5,7 @@
 #include "util.h"
 
 #include <ctype.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +18,38 @@ void lpush(Lines *L, char *s) {
 		L->v = xrealloc(L->v, L->cap * sizeof(char *));
 	}
 	L->v[L->n++] = s;
+}
+
+void lines_free(Lines *L) {
+	for (size_t i = 0; i < L->n; i++)
+		free(L->v[i]);
+	free(L->v);
+	*L = (Lines){0};
+}
+
+static int line_ptr_cmp(const void *a, const void *b) {
+	uintptr_t x = (uintptr_t)*(char *const *)a;
+	uintptr_t y = (uintptr_t)*(char *const *)b;
+	if (x < y)
+		return -1;
+	return x > y;
+}
+
+void lines_free_borrowing(Lines *L, const Lines *borrowed) {
+	if (borrowed->n > SIZE_MAX / sizeof(char *))
+		die("out of memory");
+	char **shared = xmalloc((borrowed->n ? borrowed->n : 1) * sizeof(char *));
+	if (borrowed->n) {
+		memcpy(shared, borrowed->v, borrowed->n * sizeof(char *));
+		qsort(shared, borrowed->n, sizeof(char *), line_ptr_cmp);
+	}
+	for (size_t i = 0; i < L->n; i++) {
+		if (!bsearch(&L->v[i], shared, borrowed->n, sizeof(char *), line_ptr_cmp))
+			free(L->v[i]);
+	}
+	free(shared);
+	free(L->v);
+	*L = (Lines){0};
 }
 
 static void push_char(char **buf, size_t *cap, size_t *len, char c) {

@@ -19,6 +19,7 @@ typedef struct {
 	size_t putty_lines;
 	size_t putty_recovery;
 	int putty_emit;
+	int putty_declared;
 	char quote_ch;
 	size_t quote_n;
 	int quote_backslash;
