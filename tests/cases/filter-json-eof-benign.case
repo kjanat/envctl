@@ -1,0 +1,9 @@
+%% args
+redact
+--no-env
+
+%% stdin
+{"message":"still loading"
+
+%% stdout
+{"message":"still loading"

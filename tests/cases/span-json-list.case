@@ -1,0 +1,12 @@
+%% args
+--redact
+list
+json-span.env
+--values
+
+%% env
+env/json-span.env
+
+%% stdout
+CRED_TOKEN=<redacted>
+TAIL=ok

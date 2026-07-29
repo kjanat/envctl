@@ -1,0 +1,9 @@
+%% args
+list
+
+%% env
+env/.env
+
+%% stdout
+FOO
+API_TOKEN

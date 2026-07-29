@@ -1,0 +1,4 @@
+a
+error: expected -----BEGIN OPENSSH PRIVATE KEY----- header
+b
+c

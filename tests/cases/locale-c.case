@@ -1,0 +1,15 @@
+%% args
+--redact
+list
+unicode.env
+--values
+
+%% env
+env/unicode.env
+
+%% setenv
+LC_ALL=C
+
+%% stdout
+API_KEY=<redacted>
+PLAIN=ok

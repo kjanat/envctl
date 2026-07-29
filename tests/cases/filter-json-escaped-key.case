@@ -1,0 +1,9 @@
+%% args
+redact
+--no-env
+
+%% stdin
+{"api\u005fkey":"AbC123XyZ987QrStUvWxYz456789012345"}
+
+%% stdout
+{"api\u005fkey":"<redacted>"}

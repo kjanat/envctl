@@ -5,7 +5,9 @@
 
 #include <stdio.h>
 
-void emit(FILE *out, Lines *L, int redact);
+size_t render_span(FILE *out, const Lines *L, size_t i, size_t span, const char *prefix,
+                   int redact);
+void emit(FILE *out, const Lines *L);
 void commit_file(const char *file, Lines *out);
 
 #endif

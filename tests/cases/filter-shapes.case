@@ -1,0 +1,23 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/assignment-shapes.txt
+
+%% stdout
+export DB_PASSWORD=<redacted>
++ DB_PASSWORD=<redacted>
+- DB_PASSWORD=<redacted>
+env DB_PASSWORD=<redacted> ./run.sh
+docker run -e DB_PASSWORD=<redacted> img
+declare -x DB_PASSWORD="<redacted>"
+export KEY_PATH=/etc/ssl/private/server.pem
+export APP_NAME=checkout
+NODE_ENV=production npm run build
+make CFLAGS=-O2 all
+int max_retries = 5;
+JAVA_OPTS=<redacted>
+a --output=report.txt b
+git log --format=%H
+curl "https://x/y?page=2&sort=asc"

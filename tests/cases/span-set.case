@@ -1,0 +1,14 @@
+%% args
+--raw
+set
+multiline-pem.env
+PK
+newval
+
+%% env
+env/multiline-pem.env
+
+%% file
+FOO=bar
+PK=newval
+AFTER=ok

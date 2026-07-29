@@ -1,0 +1,14 @@
+%% args
+--raw
+list
+quoted-trailing.env
+--values
+
+%% env
+env/quoted-trailing.env
+
+%% stdout
+A=1
+MSG="hello" world
+B=2
+C=3

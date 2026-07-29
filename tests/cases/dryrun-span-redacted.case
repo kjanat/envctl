@@ -1,0 +1,17 @@
+%% args
+--redact
+--dry-run
+set
+multiline-pem.env
+PK
+new
+
+%% env
+env/multiline-pem.env
+
+%% stdout
+--- multiline-pem.env
++++ multiline-pem.env (redacted)
+@@ -2,1 +2,1 @@
+-PK=<redacted:private-key>
++PK=new

@@ -1,0 +1,5 @@
+%% args
+--help
+
+%% stdout-file
+expected/help-long.out

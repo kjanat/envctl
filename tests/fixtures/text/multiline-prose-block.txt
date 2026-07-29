@@ -1,0 +1,3 @@
+NOTES="just a note
+more prose"
+TAIL=ok

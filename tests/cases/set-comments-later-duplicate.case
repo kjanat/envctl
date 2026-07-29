@@ -1,0 +1,14 @@
+%% args
+set
+duplicates.env
+TOKEN
+updated
+
+%% env
+env/duplicates.env
+
+%% file
+TOKEN=updated
+PLAIN=ok
+# TOKEN=two
+# TOKEN=three

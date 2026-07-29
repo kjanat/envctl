@@ -1,0 +1,12 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/pem-prose-block.txt
+
+%% stdout
+a
+error: expected <redacted:private-key> header
+b
+c

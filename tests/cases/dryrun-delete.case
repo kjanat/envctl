@@ -1,0 +1,14 @@
+%% args
+--dry-run
+delete
+basic.env
+PASSWORD
+
+%% env
+env/basic.env
+
+%% stdout
+--- basic.env
++++ basic.env
+@@ -3,1 +2,0 @@
+-PASSWORD=short

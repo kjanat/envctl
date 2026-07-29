@@ -1,0 +1,11 @@
+tok ghp_0123456789abcdefghijklmnopqrstuvwxyzAB
+aws AKIAIOSFODNN7EXAMPLE here
+jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefghijklmnop end
+DATABASE_URL=postgres://u:p@h/db
+Authorization: Bearer abcdefghijklmnopqrstuvwxyz012345
+sha da39a3ee5e6b4b0d3255bfef95601890afd80709 kept
+uuid 550e8400-e29b-41d4-a716-446655440000 kept
+prefix ghp_ named in prose
+{"kty":"oct","k":"c3VwZXJzZWNyZXRrZXltYXRlcmlhbA"}
+INFO jwk={"kty":"EC","crv":"P-256","x":"aa","d":"cHJpdmF0ZXNjYWxhcg"}
+{"kty":"EC","crv":"P-256","x":"aa","y":"bb"}

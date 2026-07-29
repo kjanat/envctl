@@ -1,11 +1,13 @@
-# The compiled `envctl` binary is gitignored (see .gitignore), not tracked.
-# The shell implementation lives here; let linguist detect it as Shell.
-/envctl.sh     text eol=lf  -linguist-detectable
-
 # Sources and config: normalize to LF.
 *.c            text eol=lf
 *.h            text eol=lf
-Makefile       text eol=lf
 *.jsonc        text eol=lf
+Makefile       text eol=lf
 .clang-format  text eol=lf
 .shellcheckrc  text eol=lf
+tests/run.sh   text eol=lf  -linguist-detectable
+install.sh     text eol=lf  -linguist-detectable
+.zed/*.json                  linguist-language=JSON-With-Comments
+
+tests/fixtures/**  -text
+tests/cases/**     -text

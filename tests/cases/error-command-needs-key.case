@@ -1,0 +1,14 @@
+%% args
+get
+basic.env
+
+%% env
+env/basic.env
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: get needs KEY

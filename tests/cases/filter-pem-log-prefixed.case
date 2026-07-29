@@ -1,0 +1,10 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/pem-log-prefixed.txt
+
+%% stdout
+ts | <redacted:private-key>
+after

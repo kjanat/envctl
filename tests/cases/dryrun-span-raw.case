@@ -1,0 +1,20 @@
+%% args
+--raw
+--dry-run
+set
+multiline-pem.env
+PK
+new
+
+%% env
+env/multiline-pem.env
+
+%% stdout
+--- multiline-pem.env
++++ multiline-pem.env
+@@ -2,4 +2,1 @@
+-PK="-----BEGIN PRIVATE KEY-----
+-Zm9vYmFyYmF6cXV4c2VjcmV0ZGF0YQ==
+-MIIBIjANBgkq
+------END PRIVATE KEY-----"
++PK=new

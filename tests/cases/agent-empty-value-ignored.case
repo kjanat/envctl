@@ -1,0 +1,8 @@
+%% args
+--help
+
+%% setenv
+CLAUDECODE=
+
+%% stdout-file
+expected/help-long.out

@@ -1,0 +1,9 @@
+%% args
+redact
+--no-env
+
+%% stdin
+Authorization: Basic dTpw
+
+%% stdout
+Authorization: Basic <redacted>

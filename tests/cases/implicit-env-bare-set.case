@@ -1,0 +1,11 @@
+%% args
+NEWKEY
+two
+
+%% env
+env/.env
+
+%% file
+FOO=one
+API_TOKEN=abcdefghij
+NEWKEY=two

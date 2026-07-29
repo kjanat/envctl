@@ -1,0 +1,12 @@
+%% args
+--redact
+list
+mismatched-end.env
+--values
+
+%% env
+env/mismatched-end.env
+
+%% stdout
+PK2=<redacted:private-key>
+TAIL2=ok

@@ -1,0 +1,11 @@
+%% args
+--redact
+get
+public-pem-substring.env
+DB_PASSWORD
+
+%% env
+env/public-pem-substring.env
+
+%% stdout
+<redacted>

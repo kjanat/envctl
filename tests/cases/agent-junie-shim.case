@@ -1,0 +1,8 @@
+%% args
+--help
+
+%% setenv
+JUNIE_SHIM_PATH=/x
+
+%% stdout-file
+expected/help-agent.out

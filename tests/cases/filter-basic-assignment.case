@@ -1,0 +1,11 @@
+%% args
+redact
+--no-env
+
+%% stdin
+Authorization=Basic dTpw
+Authorization=Bearer x
+
+%% stdout
+Authorization=<redacted>
+Authorization=<redacted>

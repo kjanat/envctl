@@ -1,0 +1,15 @@
+%% args
+get
+basic.env
+BAD-KEY
+
+%% env
+env/basic.env
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: invalid key: 'BAD-KEY'

@@ -1,0 +1,12 @@
+%% args
+redact
+pem-collision.env
+
+%% env
+env/pem-collision.env
+
+%% stdin
+leak hunter2-----BEGIN PUBLIC KEY----- tail
+
+%% stdout
+leak <redacted> tail

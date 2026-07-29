@@ -1,0 +1,9 @@
+%% args
+--raw
+FOO
+
+%% env
+env/.env
+
+%% stdout
+one

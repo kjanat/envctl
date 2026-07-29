@@ -1,0 +1,11 @@
+%% args
+list
+runaway-quote.env
+
+%% env
+env/runaway-quote.env
+
+%% stdout
+A
+B
+C

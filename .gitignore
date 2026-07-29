@@ -2,8 +2,10 @@
 /envctl
 /envctl.exe
 /dist/
-*.o
-*.d
-src/*.o
-src/*.d
-dotenv.test
+**/*.o
+**/*.d
+.*cache*
+!/tests/cases/*
+!/tests/fixtures/*
+!/tests/fixtures/env/.env
+!/.env.test

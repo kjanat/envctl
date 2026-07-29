@@ -1,0 +1,16 @@
+%% args
+get
+basic.env
+FOO
+extra
+
+%% env
+env/basic.env
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: too many arguments

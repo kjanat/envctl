@@ -1,0 +1,12 @@
+%% args
+--redact
+list
+nested-jwk.env
+--values
+
+%% env
+env/nested-jwk.env
+
+%% stdout
+MY_JWKS=<redacted:private-key>
+PUB_JWKS={"keys":[{"kty":"EC","crv":"P-256","x":"aa","y":"bb"}]}

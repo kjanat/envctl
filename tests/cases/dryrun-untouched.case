@@ -1,0 +1,21 @@
+%% args
+--dry-run
+set
+basic.env
+FOO
+two
+
+%% env
+env/basic.env
+
+%% stdout
+--- basic.env
++++ basic.env
+@@ -1,1 +1,1 @@
+-FOO=one
++FOO=two
+
+%% file
+FOO=one
+API_TOKEN=abcdefghij
+PASSWORD=short

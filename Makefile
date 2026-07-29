@@ -1,11 +1,12 @@
 CC       ?= cc
-CFLAGS   ?= -O2 -Wall -Wextra -std=c11 -Isrc
+CFLAGS   ?= -O2 -Wall -Wextra -Werror -Wpedantic -Wshadow -std=c11 -Isrc
 # -MMD -MP: emit .d dependency files so .h edits rebuild the right .o files.
 DEPFLAGS ?= -MMD -MP
 PREFIX   ?= $(HOME)/.local
 DIST     ?= dist
 
-SRCS := src/util.c src/agent.c src/help.c src/lines.c src/redact.c src/fileio.c src/main.c
+SRCS := src/util.c src/agent.c src/help.c src/lines.c src/entropy.c \
+        src/redact.c src/mask.c src/filter.c src/diff.c src/fileio.c src/main.c
 OBJS := $(SRCS:.c=.o)
 DEPS := $(OBJS:.o=.d)
 
@@ -53,21 +54,7 @@ src/%.o: src/%.c
 # ---------------------------------------------------------------------------
 
 test: $(BIN)
-	@bin=./$(BIN); \
-	set -e; \
-	$$bin -h >/dev/null; \
-	printf 'FOO=one\nAPI_TOKEN=abcdefghij\nPASSWORD=short\n' > dotenv.test; \
-	test "$$($$bin get dotenv.test FOO)" = "one"; \
-	test "$$($$bin --redact get dotenv.test API_TOKEN)" = "<redacted>"; \
-	test "$$($$bin --redact get dotenv.test PASSWORD)" = "<redacted>"; \
-	test "$$($$bin --raw get dotenv.test API_TOKEN)" = "abcdefghij"; \
-	test "$$($$bin --redact get dotenv.test FOO)" = "one"; \
-	$$bin --dry-run set dotenv.test FOO two | grep -q '^FOO=two$$'; \
-	$$bin --dry-run --redact set dotenv.test API_TOKEN x | grep -q 'API_TOKEN=<redacted>'; \
-	$$bin set dotenv.test FOO two; \
-	test "$$($$bin get dotenv.test FOO)" = "two"; \
-	rm -f dotenv.test; \
-	echo "test ok: $$bin"
+	@bash tests/run.sh "$(CURDIR)/$(BIN)"
 
 # ---------------------------------------------------------------------------
 # release artifacts — one compile of all sources per platform triple
@@ -111,5 +98,5 @@ fmt format:
 	dprint fmt
 
 clean:
-	rm -f envctl envctl.exe dotenv.test $(OBJS) $(DEPS)
+	rm -f envctl envctl.exe $(OBJS) $(DEPS)
 	rm -rf $(DIST)

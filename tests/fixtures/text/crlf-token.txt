@@ -1,0 +1,2 @@
+API_TOKEN=ghp_0123456789abcdefghijklmnopqrstuvwxyzAB
+PLAIN=ok

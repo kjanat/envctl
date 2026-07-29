@@ -1,0 +1,7 @@
+export DB_PASSWORD="correct horse battery staple"
+docker run -e DB_PASSWORD="correct horse battery staple" image
+INFO DB_PASSWORD: CorrectHorse7
+INFO X-API-Key: CorrectHorse7
+INFO Authorization: Basic dXNlcjpwYXNz
+Basic knowledge is required here
+env APP_NAME="my cool app" ./run

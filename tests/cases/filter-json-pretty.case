@@ -1,0 +1,14 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/json-pretty.txt
+
+%% stdout
+{
+  "api_key": "<redacted>",
+  "nested": {
+    "client_secret": "<redacted>"
+  }
+}

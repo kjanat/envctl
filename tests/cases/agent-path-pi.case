@@ -1,0 +1,8 @@
+%% args
+--help
+
+%% setenv
+PATH=/home/x/.pi/agent/bin:/usr/bin:/bin
+
+%% stdout-file
+expected/help-agent.out

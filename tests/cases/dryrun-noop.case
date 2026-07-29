@@ -1,0 +1,14 @@
+%% args
+--dry-run
+set
+basic.env
+FOO
+one
+
+%% env
+env/basic.env
+
+%% stdout
+
+%% stderr
+envctl: no changes

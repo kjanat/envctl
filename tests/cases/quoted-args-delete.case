@@ -1,0 +1,11 @@
+%% args
+delete
+quoted-args.env
+SECRET
+
+%% env
+env/quoted-args.env
+
+%% file
+ARGS="-x" --flag
+DEBUG=true

@@ -1,0 +1,20 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/putty-missing-mac.txt
+
+%% stdout
+<redacted:private-key>
+Private-Lines: 1
+<redacted:private-key>
+after=ok
+<redacted:private-key>
+Private-Lines: 1
+<redacted:private-key>
+Private-MAC: <redacted>
+<redacted:private-key>
+Private-Lines: 1
+<redacted:private-key>
+API_TOKEN=<redacted>

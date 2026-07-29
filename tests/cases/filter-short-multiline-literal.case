@@ -1,0 +1,15 @@
+%% args
+redact
+short-multiline.env
+
+%% env
+env/short-multiline.env
+
+%% stdin
+physical aB3
+xY9 here
+escaped aB3\nxY9 here
+
+%% stdout
+physical <redacted> here
+escaped <redacted> here

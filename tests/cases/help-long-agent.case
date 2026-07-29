@@ -1,0 +1,8 @@
+%% args
+--help
+
+%% setenv
+AI_AGENT=1
+
+%% stdout-file
+expected/help-agent.out

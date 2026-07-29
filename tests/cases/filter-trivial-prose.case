@@ -1,0 +1,12 @@
+%% args
+redact
+filter-literals.env
+
+%% env
+env/filter-literals.env
+
+%% stdin-file
+text/trivial-prose.txt
+
+%% stdout
+debug true for checkout, changeme in staging, one more

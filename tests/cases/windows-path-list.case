@@ -1,0 +1,13 @@
+%% args
+--raw
+list
+windows-path.env
+--values
+
+%% env
+env/windows-path.env
+
+%% stdout
+W="C:\Users\me\"
+JSON={"a":1}
+LAST=1

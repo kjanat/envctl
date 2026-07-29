@@ -1,0 +1,10 @@
+%% args
+list
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: list needs a file (no .env in cwd)

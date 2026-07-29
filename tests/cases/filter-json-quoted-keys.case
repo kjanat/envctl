@@ -1,0 +1,11 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/json-filter.txt
+
+%% stdout
+{"api_key":"<redacted>"}
+HTTP 200 {"access_token":"<redacted>","expires_in":3600}
+resp={"data":{"client_secret":"<redacted>"}}

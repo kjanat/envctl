@@ -1,0 +1,15 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/prefixed-assignments.txt
+
+%% stdout
+export DB_PASSWORD="<redacted>"
+docker run -e DB_PASSWORD="<redacted>" image
+INFO DB_PASSWORD: <redacted>
+INFO X-API-Key: <redacted>
+INFO Authorization: Basic <redacted>
+Basic knowledge is required here
+env APP_NAME="my cool app" ./run

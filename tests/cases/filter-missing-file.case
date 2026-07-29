@@ -1,0 +1,14 @@
+%% args
+redact
+NOSUCHFILE
+
+%% stdin-file
+text/two-lines.txt
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: no such file: NOSUCHFILE

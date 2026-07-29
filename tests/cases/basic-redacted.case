@@ -1,0 +1,13 @@
+%% args
+--redact
+list
+basic.env
+--values
+
+%% env
+env/basic.env
+
+%% stdout
+FOO=one
+API_TOKEN=<redacted>
+PASSWORD=<redacted>

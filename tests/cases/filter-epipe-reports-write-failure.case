@@ -1,0 +1,19 @@
+%% args
+redact
+--no-env
+
+%% mode
+epipe-open
+
+%% stdin
+API_TOKEN=Sup3rS3cretHunter2Value
+API_TOKEN=An0therS3cretHunter2Value
+
+%% exit
+2
+
+%% stdout
+API_TOKEN=<redacted>
+
+%% stderr
+envctl: write failed

@@ -1,0 +1,17 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/putty.ppk
+
+%% stdout
+<redacted:private-key>
+Encryption: none
+Comment: demo
+Public-Lines: 1
+AAAAB3NzaC1yc2EAAAADAQABAAABAQ
+Private-Lines: 2
+<redacted:private-key>
+Private-MAC: <redacted>
+after=1

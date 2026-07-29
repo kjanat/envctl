@@ -1,0 +1,12 @@
+%% args
+set
+commented.env
+API_TOKEN
+new
+
+%% env
+env/commented.env
+
+%% file
+API_TOKEN=new
+PLAIN=ok
