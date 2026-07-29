@@ -244,9 +244,11 @@ run_case() {
 			rc=$?
 			;;
 		pty)
-			# The line discipline appends CR to every line. Strip it before
-			# comparing; byte-exact line endings are covered by filter-crlf.
-			# Keep child and script diagnostics outside the pseudo-terminal.
+			# The line discipline appends CR to every line, and BSD script
+			# echoes the EOF it reads from /dev/null as caret-D plus two
+			# erasing backspaces. Strip all of it before comparing;
+			# byte-exact line endings are covered by filter-crlf. Keep child
+			# and script diagnostics outside the pseudo-terminal.
 			: >"${dir}/.stderr"
 			if [[ ${pty_kind} == gnu ]]; then
 				cmdstr=$(printf '%q ' "${launch[@]}")
@@ -259,7 +261,8 @@ run_case() {
 					<"${stdin}" >"${dir}/.raw" 2>>"${dir}/.stderr"
 			fi
 			rc=$?
-			tr -d '\r' <"${dir}/.raw" >"${dir}/.stdout"
+			tr -d '\r\b' <"${dir}/.raw" \
+				| sed -e '1s/^\^D//' -e $'1s/^\x04//' >"${dir}/.stdout"
 			;;
 		nosigpipe)
 			# A reader that closes early, with SIGPIPE ignored, so the write
