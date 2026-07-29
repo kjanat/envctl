@@ -44,6 +44,10 @@ if command -v mkfifo >/dev/null 2>&1 \
 	&& mkfifo "${work}/.epipe-open-probe" >/dev/null 2>&1; then
 	epipe_open=yes
 fi
+# MSYS fifos cannot feed a native binary's stdin.
+case $(uname -s) in
+	MINGW* | MSYS* | CYGWIN*) epipe_open=no ;;
+esac
 readonly epipe_open
 
 declare -i passed=0
@@ -207,7 +211,7 @@ run_case() {
 		return
 	fi
 	if [[ ${mode} == epipe-open && ${epipe_open} == no ]]; then
-		skipped+=("${name} (no fifo support)")
+		skipped+=("${name} (no usable fifo)")
 		return
 	fi
 	local first='' second='' third=''
