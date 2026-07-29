@@ -21,10 +21,23 @@ DARWIN_CC        ?= $(CC)
 
 ifeq ($(OS),Windows_NT)
 EXE := .exe
+# Windows has no unprivileged symlinks, so `install` copies the binary; Unix
+# links it so rebuilds propagate without re-installing.
+INSTALL_LINK := cp -f
 else
 EXE :=
+INSTALL_LINK := ln -sf
 endif
 BIN := envctl$(EXE)
+
+# The housekeeping recipes below shell out to coreutils (mkdir/cp/rm). GNU make
+# finds an sh.exe on PATH even when launched from PowerShell/cmd, but only routes
+# a recipe through it when the line holds a shell metacharacter — otherwise it
+# tries a bare CreateProcess, which can't run mkdir/cp/rm (they aren't .exe
+# files). So quote every path (the quote forces the shell) and normalise make's
+# backslashy $(HOME) to forward slashes (a bare '\' is an escape to sh). No-op
+# on Unix, where paths already use '/'.
+slash = $(subst \,/,$1)
 
 ART_LINUX_AMD64   := $(DIST)/envctl-linux-amd64
 ART_LINUX_ARM64   := $(DIST)/envctl-linux-arm64
@@ -63,7 +76,7 @@ test: $(BIN)
 # ---------------------------------------------------------------------------
 
 $(DIST):
-	mkdir -p $(DIST)
+	mkdir -p "$(call slash,$(DIST))"
 
 dist-linux-amd64: $(ART_LINUX_AMD64)
 $(ART_LINUX_AMD64): $(SRCS) | $(DIST)
@@ -93,12 +106,12 @@ checksums:
 	@cd $(DIST) && sha256sum envctl-* > SHA256SUMS && cat SHA256SUMS
 
 install: $(BIN)
-	mkdir -p $(PREFIX)/bin
-	ln -sf $(CURDIR)/$(BIN) $(PREFIX)/bin/envctl
+	mkdir -p "$(call slash,$(PREFIX))/bin"
+	$(INSTALL_LINK) "$(call slash,$(CURDIR))/$(BIN)" "$(call slash,$(PREFIX))/bin/$(BIN)"
 
 fmt format:
 	dprint fmt
 
 clean:
-	rm -f envctl envctl.exe $(OBJS) $(DEPS)
-	rm -rf $(DIST)
+	rm -f "envctl" "envctl.exe" $(OBJS) $(DEPS)
+	rm -rf "$(call slash,$(DIST))"
