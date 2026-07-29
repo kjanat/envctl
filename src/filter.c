@@ -9,11 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef _WIN32
-#include <fcntl.h>
-#include <io.h>
-#endif
-
 int act_redact(const char *file) {
 	MaskSet M;
 	MaskStream ms;
@@ -33,10 +28,6 @@ int act_redact(const char *file) {
 	}
 	maskset_build(&M);
 
-#ifdef _WIN32
-	_setmode(_fileno(stdin), _O_BINARY);
-	_setmode(_fileno(stdout), _O_BINARY);
-#endif
 	setvbuf(stdout, NULL, _IOLBF, 0);
 
 	while (read_stream_line(stdin, &sl)) {

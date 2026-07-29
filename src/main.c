@@ -17,6 +17,8 @@
 #include <sys/stat.h>
 
 #ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
 #ifndef S_ISREG
 #define S_ISREG(m) (((m) & _S_IFMT) == _S_IFREG)
 #endif
@@ -79,6 +81,11 @@ static void resolve_file_args(const char **rest, int nr, const char **file, cons
 }
 
 int main(int argc, char **argv) {
+#ifdef _WIN32
+	_setmode(_fileno(stdin), _O_BINARY);
+	_setmode(_fileno(stdout), _O_BINARY);
+	_setmode(_fileno(stderr), _O_BINARY);
+#endif
 	int dry = 0, values = 0, all = 0, flag_redact = 0, flag_raw = 0, no_env = 0, np = 0;
 	int options = 1;
 	const char *pos[16];
