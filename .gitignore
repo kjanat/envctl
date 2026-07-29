@@ -9,4 +9,3 @@
 !/tests/fixtures/*
 !/tests/fixtures/env/.env
 !/.env.test
-/ISSUES.md
