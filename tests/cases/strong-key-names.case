@@ -1,0 +1,14 @@
+%% args
+--redact
+list
+strong-key-names.env
+--values
+
+%% env
+env/strong-key-names.env
+
+%% stdout
+DATABASE_URL=<redacted>
+DB_URL=<redacted>
+CONNECTION_STRING=<redacted>
+WEBHOOK=<redacted>

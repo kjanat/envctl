@@ -5,6 +5,5 @@ redact
 %% stdin-file
 text/crlf.txt
 
-%% stdout
-a
-b
+%% stdout-file
+expected/crlf.out

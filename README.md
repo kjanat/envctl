@@ -150,8 +150,8 @@ that carry a key name. `--no-env` skips the env file. Filter mode always
 redacts, so agent detection and the TTY check do not apply.
 
 A PEM private key prints as one `<redacted:private-key>` line and its body lines
-are dropped. When the `-----END-----` marker never arrives, up to 512 following
-lines are dropped with it.
+are dropped. When the `-----END-----` marker never arrives, the span is capped
+at 512 lines total: the begin line plus up to 511 following lines.
 
 ### Redaction
 

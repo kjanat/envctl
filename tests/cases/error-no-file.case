@@ -1,0 +1,10 @@
+%% args
+get
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: no file given and no .env in cwd

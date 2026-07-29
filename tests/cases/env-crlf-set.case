@@ -1,0 +1,12 @@
+%% args
+set
+crlf-token.txt
+PLAIN
+two
+
+%% env
+text/crlf-token.txt
+
+%% file
+API_TOKEN=ghp_0123456789abcdefghijklmnopqrstuvwxyzAB
+PLAIN=two

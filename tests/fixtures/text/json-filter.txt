@@ -1,0 +1,3 @@
+{"api_key":"AbC123XyZ987QrStUvWxYz456789012345"}
+HTTP 200 {"access_token":"QrStUvWxYz456789012345AbC123XyZ987","expires_in":3600}
+resp={"data":{"client_secret":"XyZ987QrStUvWxYz456789012345AbC123"}}

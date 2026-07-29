@@ -1,0 +1,16 @@
+%% args
+redact
+short-literals.env
+
+%% env
+env/short-literals.env
+
+%% stdin
+six aB3xY9
+seven aB3xY9!
+lower abcdefg
+
+%% stdout
+six <redacted>
+seven <redacted>
+lower abcdefg

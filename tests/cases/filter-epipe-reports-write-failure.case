@@ -1,0 +1,15 @@
+%% args
+redact
+--no-env
+
+%% mode
+nosigpipe
+
+%% stdin-file
+env/many-keys.env
+
+%% exit
+2
+
+%% stderr
+envctl: write failed

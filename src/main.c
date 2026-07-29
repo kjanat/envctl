@@ -80,26 +80,29 @@ static void resolve_file_args(const char **rest, int nr, const char **file, cons
 
 int main(int argc, char **argv) {
 	int dry = 0, values = 0, all = 0, flag_redact = 0, flag_raw = 0, no_env = 0, np = 0;
+	int options = 1;
 	const char *pos[16];
 
 	for (int i = 1; i < argc; i++) {
 		const char *a = argv[i];
 
-		if (!strcmp(a, "--dry-run"))
+		if (options && !strcmp(a, "--"))
+			options = 0;
+		else if (options && !strcmp(a, "--dry-run"))
 			dry = 1;
-		else if (!strcmp(a, "--values"))
+		else if (options && !strcmp(a, "--values"))
 			values = 1;
-		else if (!strcmp(a, "--all"))
+		else if (options && !strcmp(a, "--all"))
 			all = 1;
-		else if (!strcmp(a, "--redact"))
+		else if (options && !strcmp(a, "--redact"))
 			flag_redact = 1;
-		else if (!strcmp(a, "--raw"))
+		else if (options && !strcmp(a, "--raw"))
 			flag_raw = 1;
-		else if (!strcmp(a, "--no-env"))
+		else if (options && !strcmp(a, "--no-env"))
 			no_env = 1;
-		else if (!strcmp(a, "-h"))
+		else if (options && !strcmp(a, "-h"))
 			print_help(0);
-		else if (!strcmp(a, "--help"))
+		else if (options && !strcmp(a, "--help"))
 			print_help(1);
 		else if (np < (int)(sizeof(pos) / sizeof(*pos)))
 			pos[np++] = a;

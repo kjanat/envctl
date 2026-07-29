@@ -42,6 +42,34 @@ readonly nosigpipe
 declare -i passed=0
 declare -a failures=()
 declare -a skipped=()
+declare -A failed_cases=()
+
+fail_case() {
+	local name=$1
+	if [[ ${failed_cases[${name}]:-} != 1 ]]; then
+		failed_cases[${name}]=1
+		failures+=("${name}")
+		printf '  FAIL  %s\n' "${name}"
+	fi
+}
+
+validate_sections() {
+	local file=$1 name=$2 line marker
+	local -i bad=0
+	while IFS= read -r line || [[ -n ${line} ]]; do
+		[[ ${line} == '%% '* ]] || continue
+		marker=${line#'%% '}
+		case ${marker} in
+			args | stdout | env | stdin-file | stdin | setenv | stdout-file | file | stderr | exit | mode) ;;
+			*)
+				fail_case "${name}"
+				printf '        unknown section: %s\n' "${marker}"
+				bad=1
+				;;
+		esac
+	done <"${file}"
+	return "${bad}"
+}
 
 # A section runs to the next "%% " marker.
 #
@@ -70,36 +98,44 @@ has_section() {
 # blank lines or trailing CR is off limits here; -a keeps a readable diff when a
 # fixture looks binary, and -T keeps tab stops honest against the +/- column.
 readonly -a diff_opts=(
-	--text
-	--initial-tab
-	--suppress-blank-empty
-	--unified
-	--label want
-	--label got
-	--color=auto
+	-a
+	-T
+	-u
+	-L want
+	-L got
 )
 
 compare() {
 	local name=$1 what=$2 want=$3 got=$4 shown total
 	if [[ ! -e ${want} ]]; then
-		failures+=("${name}")
-		printf '  FAIL  %s\n' "${name}"
-		printf '        missing expectation: %s\n' "${want}"
+		fail_case "${name}"
+		printf '        missing %s expectation\n' "${what}"
+		return 1
+	fi
+	if [[ ! -e ${got} ]]; then
+		fail_case "${name}"
+		printf '        missing %s result\n' "${what}"
 		return 1
 	fi
 	if cmp -s "${want}" "${got}"; then
 		return 0
 	fi
-	failures+=("${name}")
-	printf '  FAIL  %s\n' "${name}"
+	fail_case "${name}"
 	printf '        %s differs\n' "${what}"
 	cmp "${want}" "${got}" >"${got}.cmp" 2>&1 || true
-	sed 's/^.*differ: /        first difference at /' "${got}.cmp"
-	diff "${diff_opts[@]}" "${want}" "${got}" >"${got}.diff" || true
-	total=$(grep -c '' "${got}.diff") || true
-	head -14 "${got}.diff" >"${got}.head" || true
+	sed \
+		-e 's/^.*differ: /first difference at /' \
+		-e 's/^cmp: EOF on .* which is empty$/EOF on one input which is empty/' \
+		-e 's/^cmp: EOF on .* after byte /EOF after byte /' \
+		-e 's/^cmp: EOF on .*$/EOF on one input/' \
+		-e 's/^cmp: .*/comparison failed/' \
+		-e 's/^/        /' \
+		"${got}.cmp"
+	diff "${diff_opts[@]}" "${want}" "${got}" >"${got}.diff" 2>&1 || true
+	total=$(wc -l <"${got}.diff")
+	head -n 14 "${got}.diff" >"${got}.head" || true
 	sed 's/^/        /' "${got}.head"
-	shown=$(grep -c '' "${got}.head") || true
+	shown=$(wc -l <"${got}.head")
 	if ((total > shown)); then
 		printf '        ... %d more diff lines\n' "$((total - shown))"
 	fi
@@ -109,6 +145,7 @@ compare() {
 run_case() {
 	local file=$1 name dir rc want_rc target
 	name=$(basename "${file}" .case) || return
+	validate_sections "${file}" "${name}" || return
 	dir=${work}/${name}
 	mkdir -p "${dir}" || return
 
@@ -139,9 +176,23 @@ run_case() {
 	if has_section "${file}" mode; then
 		mode=$(section "${file}" mode)
 	fi
+	want_rc=0
+	if has_section "${file}" exit; then
+		want_rc=$(section "${file}" exit)
+	fi
 
 	if [[ ${mode} == pty && ${pty_kind} == none ]]; then
 		skipped+=("${name} (no pty available)")
+		return
+	fi
+	if [[ ${mode} == pty ]] && { has_section "${file}" stdin || has_section "${file}" stdin-file; }; then
+		fail_case "${name}"
+		printf '        pty mode does not support configured stdin\n'
+		return
+	fi
+	if [[ ${mode} == pty && ${want_rc} =~ ^[0-9]+$ ]] && ((want_rc >= 128)); then
+		fail_case "${name}"
+		printf '        pty signal-style exit expectation is not portable: %s\n' "${want_rc}"
 		return
 	fi
 	if [[ ${mode} == nosigpipe && ${nosigpipe} == no ]]; then
@@ -162,13 +213,17 @@ run_case() {
 		pty)
 			# The line discipline appends CR to every line. Strip it before
 			# comparing; byte-exact line endings are covered by filter-crlf.
+			# Keep child and script diagnostics outside the pseudo-terminal.
+			: >"${dir}/.stderr"
 			if [[ ${pty_kind} == gnu ]]; then
 				cmdstr=$(printf '%q ' "${launch[@]}")
-				(cd "${dir}" && script -qec "${cmdstr}" /dev/null) \
-					<"${stdin}" >"${dir}/.raw" 2>"${dir}/.stderr"
+				cmdstr+='2>>.stderr'
+				(cd "${dir}" && SHELL=${BASH} script -q -e -E never -c "${cmdstr}" /dev/null) \
+					<"${stdin}" >"${dir}/.raw" 2>>"${dir}/.stderr"
 			else
-				(cd "${dir}" && script -q /dev/null "${launch[@]}") \
-					<"${stdin}" >"${dir}/.raw" 2>"${dir}/.stderr"
+				(cd "${dir}" && script -q /dev/null \
+					/bin/sh -c 'exec 2>>.stderr; exec "$@"' sh "${launch[@]}") \
+					<"${stdin}" >"${dir}/.raw" 2>>"${dir}/.stderr"
 			fi
 			rc=$?
 			tr -d '\r' <"${dir}/.raw" >"${dir}/.stdout"
@@ -179,33 +234,30 @@ run_case() {
 			(
 				cd "${dir}" || exit 2
 				mkfifo .fifo || exit 2
-				env --ignore-signal=PIPE "${launch[@]:1}" >.fifo 2>.stderr &
+				env --ignore-signal=PIPE "${launch[@]:1}" \
+					<"${stdin}" >.fifo 2>.stderr &
 				producer=$!
 				head -1 <.fifo >.stdout || true
 				wait "${producer}"
+				producer_rc=$?
+				exit "${producer_rc}"
 			)
 			rc=$?
 			;;
 		*)
-			failures+=("${name}")
-			printf '  FAIL  %s\n' "${name}"
+			fail_case "${name}"
 			printf '        unknown mode: %s\n' "${mode}"
 			return
 			;;
 	esac
 
-	want_rc=0
-	if has_section "${file}" exit; then
-		want_rc=$(section "${file}" exit)
-	fi
+	local ok=1
 	if [[ ${rc} != "${want_rc}" ]]; then
-		failures+=("${name}")
-		printf '  FAIL  %s\n' "${name}"
+		fail_case "${name}"
 		printf '        exit want %s got %s\n' "${want_rc}" "${rc}"
-		return
+		ok=0
 	fi
 
-	local ok=1
 	if has_section "${file}" stdout; then
 		section "${file}" stdout >"${dir}/.want"
 		compare "${name}" stdout "${dir}/.want" "${dir}/.stdout" || ok=0
@@ -214,11 +266,12 @@ run_case() {
 		wf=$(section "${file}" stdout-file)
 		compare "${name}" stdout "${fx}/${wf}" "${dir}/.stdout" || ok=0
 	fi
-	if ((ok)) && has_section "${file}" stderr; then
+	: >"${dir}/.want-err"
+	if has_section "${file}" stderr; then
 		section "${file}" stderr >"${dir}/.want-err"
-		compare "${name}" stderr "${dir}/.want-err" "${dir}/.stderr" || ok=0
 	fi
-	if ((ok)) && has_section "${file}" file; then
+	compare "${name}" stderr "${dir}/.want-err" "${dir}/.stderr" || ok=0
+	if has_section "${file}" file; then
 		section "${file}" file >"${dir}/.want-file"
 		compare "${name}" "edited file" "${dir}/.want-file" "${dir}/${base}" || ok=0
 	fi

@@ -1,0 +1,18 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/putty-boundaries.txt
+
+%% stdout
+<redacted:private-key>
+Private-Lines: 513
+<redacted:private-key>
+Private-MAC: <redacted>
+after-large=1
+<redacted:private-key>
+Private-Lines: nope
+<redacted:private-key>
+Private-MAC: <redacted>
+after-malformed=1

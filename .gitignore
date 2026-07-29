@@ -2,11 +2,11 @@
 /envctl
 /envctl.exe
 /dist/
-*.o
-*.d
-src/*.o
-src/*.d
+**/*.o
+**/*.d
 .*cache*
 !/tests/cases/*
 !/tests/fixtures/*
+!/tests/fixtures/env/.env
 !/.env.test
+/ISSUES.md

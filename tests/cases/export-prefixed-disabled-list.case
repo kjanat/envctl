@@ -1,0 +1,12 @@
+%% args
+--redact
+list
+formats.env
+--values
+
+%% env
+env/formats.env
+
+%% stdout
+API_TOKEN=<redacted>
+FOO=one

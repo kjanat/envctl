@@ -1,0 +1,12 @@
+%% args
+get
+missing.env
+KEY
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: no such file: missing.env

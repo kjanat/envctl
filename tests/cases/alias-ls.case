@@ -1,0 +1,11 @@
+%% args
+ls
+basic.env
+
+%% env
+env/basic.env
+
+%% stdout
+FOO
+API_TOKEN
+PASSWORD

@@ -1,0 +1,12 @@
+%% args
+--redact
+list
+escaped-multiline.env
+--values
+
+%% env
+env/escaped-multiline.env
+
+%% stdout
+ESCAPED_SECRET=<redacted>
+AFTER=ok

@@ -1,0 +1,4 @@
+API_SECRET="AbC123XyZ987QrStUvWxYz456789012345\"
+still secret \"quoted\" here
+last line"
+AFTER=ok

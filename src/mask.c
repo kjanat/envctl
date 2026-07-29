@@ -15,10 +15,18 @@ static const char B64URL[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx
 static const char HEXU[] = "0123456789ABCDEF";
 static const char HEXL[] = "0123456789abcdef";
 
+static size_t alloc_size(size_t n, size_t mul, size_t add) {
+	if (n > ((size_t)-1 - add) / mul)
+		die("out of memory");
+	return n * mul + add;
+}
+
 char *enc_b64(const char *s, size_t n, int urlsafe, int pad) {
 	const char *A = urlsafe ? B64URL : B64STD;
+	if (n > (size_t)-1 - 2)
+		die("out of memory");
 	size_t groups = (n + 2) / 3;
-	char *o = xmalloc(groups * 4 + 1);
+	char *o = xmalloc(alloc_size(groups, 4, 1));
 	size_t j = 0;
 
 	for (size_t i = 0; i < n; i += 3) {
@@ -49,7 +57,7 @@ static int is_unreserved(unsigned char c) {
 
 char *enc_hex(const char *s, size_t n, int upper) {
 	const char *tab = upper ? HEXU : HEXL;
-	char *o = xmalloc(n * 2 + 1);
+	char *o = xmalloc(alloc_size(n, 2, 1));
 	for (size_t i = 0; i < n; i++) {
 		unsigned char c = (unsigned char)s[i];
 		o[i * 2] = tab[c >> 4];
@@ -60,7 +68,7 @@ char *enc_hex(const char *s, size_t n, int upper) {
 }
 
 char *enc_urlenc(const char *s, size_t n) {
-	char *o = xmalloc(n * 3 + 1);
+	char *o = xmalloc(alloc_size(n, 3, 1));
 	size_t j = 0;
 
 	for (size_t i = 0; i < n; i++) {
@@ -79,7 +87,7 @@ char *enc_urlenc(const char *s, size_t n) {
 }
 
 char *enc_jsonesc(const char *s, size_t n) {
-	char *o = xmalloc(n * 6 + 1);
+	char *o = xmalloc(alloc_size(n, 6, 1));
 	size_t j = 0;
 
 	for (size_t i = 0; i < n; i++) {
@@ -136,6 +144,7 @@ void maskset_init(MaskSet *M) {
 	M->n = 0;
 	M->cap = 0;
 	M->minlen = 0;
+	M->maxlen = 0;
 	for (int i = 0; i < 256; i++)
 		M->bucket[i] = -1;
 }
@@ -150,6 +159,8 @@ static void add_pat_min(MaskSet *M, const char *p, size_t n, const char *tok, si
 	}
 
 	if (M->n == M->cap) {
+		if (M->cap > (size_t)-1 / 2 / sizeof(*M->v))
+			die("out of memory");
 		M->cap = M->cap ? M->cap * 2 : 32;
 		M->v = xrealloc(M->v, M->cap * sizeof(*M->v));
 	}
@@ -168,6 +179,8 @@ static void add_pat(MaskSet *M, const char *p, size_t n, const char *tok) {
 }
 
 static void add_b64_phase(MaskSet *M, const char *b, size_t bn, size_t phase, const char *tok) {
+	if (bn > (size_t)-1 - phase)
+		die("out of memory");
 	size_t tn = bn + phase;
 	char *tmp = xmalloc(tn);
 
@@ -224,7 +237,27 @@ static void add_body(MaskSet *M, const char *b, size_t bn, const char *tok) {
 static void add_value(MaskSet *M, const char *key, const char *raw) {
 	size_t bn;
 	const char *b = value_body(raw, &bn);
-	add_body(M, b, bn, redact_token(key, raw));
+	const char *tok = redact_token(key, raw);
+	add_body(M, b, bn, tok);
+
+	size_t newlines = 0;
+	for (size_t i = 0; i < bn; i++) {
+		if (b[i] == '\n')
+			newlines++;
+	}
+	if (!newlines)
+		return;
+	if (bn > (size_t)-1 - newlines)
+		die("out of memory");
+	char *crlf = xmalloc(bn + newlines);
+	size_t j = 0;
+	for (size_t i = 0; i < bn; i++) {
+		if (b[i] == '\n')
+			crlf[j++] = '\r';
+		crlf[j++] = b[i];
+	}
+	add_pat_min(M, crlf, j, tok, MASK_MIN_LITERAL);
+	free(crlf);
 }
 
 static void add_segments(MaskSet *M, const char *key, const char *raw) {
@@ -282,6 +315,7 @@ void maskset_build(MaskSet *M) {
 	for (int i = 0; i < 256; i++)
 		M->bucket[i] = -1;
 	M->minlen = 0;
+	M->maxlen = 0;
 
 	for (size_t i = 0; i < M->n; i++) {
 		int *link = &M->bucket[(unsigned char)M->v[i].pat[0]];
@@ -291,24 +325,27 @@ void maskset_build(MaskSet *M) {
 		*link = (int)i;
 		if (!M->minlen || M->v[i].len < M->minlen)
 			M->minlen = M->v[i].len;
+		if (M->v[i].len > M->maxlen)
+			M->maxlen = M->v[i].len;
 	}
+}
+
+static const MaskPat *mask_at(const MaskSet *M, const char *in, size_t inlen) {
+	if (!M->n || inlen < M->minlen)
+		return NULL;
+	for (int idx = M->bucket[(unsigned char)in[0]]; idx >= 0; idx = M->v[idx].next) {
+		const MaskPat *mp = &M->v[idx];
+		if (mp->len <= inlen && memcmp(in, mp->pat, mp->len) == 0)
+			return mp;
+	}
+	return NULL;
 }
 
 size_t maskset_apply(const MaskSet *M, const char *in, size_t inlen, char **out, size_t *outcap) {
 	size_t len = 0;
 
 	for (size_t p = 0; p < inlen;) {
-		const MaskPat *hit = NULL;
-
-		if (M->n && inlen - p >= M->minlen) {
-			for (int idx = M->bucket[(unsigned char)in[p]]; idx >= 0; idx = M->v[idx].next) {
-				const MaskPat *mp = &M->v[idx];
-				if (mp->len <= inlen - p && memcmp(in + p, mp->pat, mp->len) == 0) {
-					hit = mp;
-					break;
-				}
-			}
-		}
+		const MaskPat *hit = mask_at(M, in + p, inlen - p);
 
 		if (hit) {
 			buf_put(out, outcap, &len, hit->tok, strlen(hit->tok));
@@ -322,6 +359,46 @@ size_t maskset_apply(const MaskSet *M, const char *in, size_t inlen, char **out,
 	buf_need(out, outcap, len + 1);
 	(*out)[len] = '\0';
 	return len;
+}
+
+void maskstream_init(MaskStream *S) {
+	S->pending = NULL;
+	S->len = 0;
+	S->cap = 0;
+}
+
+size_t maskstream_apply(const MaskSet *M, MaskStream *S, const char *in, size_t inlen, int final,
+                        char **out, size_t *outcap) {
+	size_t len = 0;
+	if (inlen)
+		buf_put(&S->pending, &S->cap, &S->len, in, inlen);
+
+	size_t p = 0;
+	while (p < S->len && (final || !M->n || S->len - p >= M->maxlen)) {
+		const MaskPat *hit = mask_at(M, S->pending + p, S->len - p);
+		if (hit) {
+			buf_put(out, outcap, &len, hit->tok, strlen(hit->tok));
+			p += hit->len;
+		} else {
+			buf_put(out, outcap, &len, S->pending + p, 1);
+			p++;
+		}
+	}
+
+	if (p) {
+		S->len -= p;
+		memmove(S->pending, S->pending + p, S->len);
+		if (S->pending)
+			S->pending[S->len] = '\0';
+	}
+	buf_need(out, outcap, len + 1);
+	(*out)[len] = '\0';
+	return len;
+}
+
+void maskstream_free(MaskStream *S) {
+	free(S->pending);
+	maskstream_init(S);
 }
 
 void maskset_free(MaskSet *M) {

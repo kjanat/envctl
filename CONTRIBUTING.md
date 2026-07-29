@@ -74,7 +74,11 @@ dprint fmt                          # clang-format for C, shfmt for shell, plus 
 shellcheck tests/run.sh install.sh  # https://github.com/koalaman/shellcheck
 ```
 
-- dprint: https://dprint.dev/install/ (also requires clang-format on PATH)
+- dprint: https://dprint.dev/install/ (also requires clang-format on PATH),\
+  both configured in [`.dprint.jsonc`]. Format using `dprint fmt [files...]`, or
+  `make fmt`.
+  - clang-format specifically takes it's config from [`.clang-format`], when
+    invoked by dprint.
 - shellcheck: https://github.com/koalaman/shellcheck
 
 CI runs `make test` on Linux, macOS, and Windows.
@@ -107,6 +111,8 @@ git tag -s v0.2.0 -m "v0.2.0"
 git push origin v0.2.0
 ```
 
+[`.dprint.jsonc`]: .dprint.jsonc
+[`.clang-format`]: .clang-format
 [`tests/run.sh`]: tests/run.sh
 [`tests/cases/`]: tests/cases/
 [`tests/fixtures/`]: tests/fixtures/

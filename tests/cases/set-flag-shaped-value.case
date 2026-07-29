@@ -1,0 +1,15 @@
+%% args
+set
+basic.env
+FLAG_VALUE
+--
+--raw
+
+%% env
+env/basic.env
+
+%% file
+FOO=one
+API_TOKEN=abcdefghij
+PASSWORD=short
+FLAG_VALUE=--raw

@@ -70,6 +70,8 @@ void buf_need(char **buf, size_t *cap, size_t need) {
 }
 
 void buf_put(char **buf, size_t *cap, size_t *len, const char *s, size_t n) {
+	if (n > (size_t)-1 - *len - 1)
+		die("out of memory");
 	buf_need(buf, cap, *len + n + 1);
 	memcpy(*buf + *len, s, n);
 	*len += n;

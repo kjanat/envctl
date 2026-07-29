@@ -1,0 +1,10 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/pem-wrapped.txt
+
+%% stdout
+payload: [<redacted:private-key>
+] done

@@ -5,5 +5,5 @@ redact
 %% stdin-file
 text/crlf-token.txt
 
-%% stdout
-API_TOKEN=<redacted>
+%% stdout-file
+expected/crlf-masked.out

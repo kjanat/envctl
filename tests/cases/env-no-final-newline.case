@@ -1,0 +1,11 @@
+%% args
+set
+no-trailing-newline.txt
+FOO
+two
+
+%% env
+text/no-trailing-newline.txt
+
+%% file
+FOO=two

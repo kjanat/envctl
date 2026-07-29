@@ -1,0 +1,12 @@
+%% args
+--redact
+list
+public-private-pem.env
+--values
+
+%% env
+env/public-private-pem.env
+
+%% stdout
+PUBLIC_KEY="-----BEGIN PUBLIC KEY-----
+PRIVATE_CONTROL=<redacted:private-key>

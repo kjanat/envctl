@@ -85,5 +85,6 @@ NORETURN void print_help(int longform) {
 			fputs(AI_PREAMBLE, stdout);
 		fputs(LONG_USAGE, stdout);
 	}
+	stdout_flush_check();
 	exit(0);
 }
