@@ -1,5 +1,7 @@
 CC       ?= cc
 CFLAGS   ?= -O2 -Wall -Wextra -Werror -Wpedantic -Wshadow -std=c11 -Isrc
+VERSION  ?= $(shell git describe --tags --abbrev --dirty 2>/dev/null || echo unknown)
+override CFLAGS += -DENVCTL_VERSION='"$(VERSION)"'
 # -MMD -MP: emit .d dependency files so .h edits rebuild the right .o files.
 DEPFLAGS ?= -MMD -MP
 PREFIX   ?= $(HOME)/.local

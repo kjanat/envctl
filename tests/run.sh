@@ -70,7 +70,7 @@ validate_sections() {
 		[[ ${line} == '%% '* ]] || continue
 		marker=${line#'%% '}
 		case ${marker} in
-			args | stdout | env | stdin-file | stdin | setenv | stdout-file | file | stderr | exit | mode) ;;
+			args | stdout | env | stdin-file | stdin | setenv | stdout-file | stdout-cmd | file | stderr | exit | mode) ;;
 			*)
 				fail_case "${name}"
 				printf '        unknown section: %s\n' "${marker}"
@@ -359,6 +359,10 @@ run_case() {
 		local wf
 		wf=$(section "${file}" stdout-file)
 		want_stdout=${fx}/${wf}
+	elif has_section "${file}" stdout-cmd; then
+		# The expectation for values the build baked in, computed the same
+		# way at run time, from the repo the binary was built in.
+		(cd "${root}/.." && bash -c "$(section "${file}" stdout-cmd)") >"${dir}/.want"
 	fi
 	compare "${name}" stdout "${want_stdout}" "${dir}/.stdout" || ok=0
 	: >"${dir}/.want-err"

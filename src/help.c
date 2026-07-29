@@ -12,7 +12,8 @@ static const char *SHORT_USAGE =
     "  file:     optional when ./.env exists\n"
     "  bare:     envctl [file] <KEY>          == get\n"
     "            envctl [file] <KEY> <VALUE>  == set\n"
-    "  flags:    --values --all (list)  --no-env (redact)  --dry-run  --redact --raw\n";
+    "  flags:    --values --all (list)  --no-env (redact)  --dry-run  --redact --raw\n"
+    "  version:  -v | -V | --version\n";
 
 static const char *AI_PREAMBLE =
     "You are an AI coding agent. Use envctl to change a key in any env / .env-style file.\n"
@@ -50,6 +51,7 @@ static const char *LONG_USAGE =
     "              (redact takes a file or --no-env, never both)\n"
     "  --redact    mask secret-looking values on get / list --values / dry-run\n"
     "  --raw       never mask (overrides auto-redact and --redact; redact rejects it)\n"
+    "  -V, --version  print the version this binary was built from (also -v)\n"
     "\n"
     "Redaction (presentation only; pipes and scripts stay raw so get stays composable):\n"
     "  mask as <redacted> / <redacted:private-key> / <redacted:credentials> when on.\n"
@@ -76,6 +78,16 @@ static const char *LONG_USAGE =
     "moves with its continuation lines); re-running with the same args is a no-op;\n"
     "writes are atomic (temp + rename) and preserve file mode; VALUE is literal (no\n"
     "shell/regex reinterpretation).\n";
+
+#ifndef ENVCTL_VERSION
+#define ENVCTL_VERSION "unknown"
+#endif
+
+NORETURN void print_version(void) {
+	fputs(ENVCTL_VERSION "\n", stdout);
+	stdout_flush_check();
+	exit(0);
+}
 
 NORETURN void print_help(int longform) {
 	if (!longform) {

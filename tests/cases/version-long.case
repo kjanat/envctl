@@ -1,0 +1,5 @@
+%% args
+--version
+
+%% stdout-cmd
+git describe --tags --abbrev --dirty 2>/dev/null || echo unknown

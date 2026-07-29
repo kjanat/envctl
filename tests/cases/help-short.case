@@ -9,3 +9,4 @@ usage: envctl <cmd> [file] [args...]
   bare:     envctl [file] <KEY>          == get
             envctl [file] <KEY> <VALUE>  == set
   flags:    --values --all (list)  --no-env (redact)  --dry-run  --redact --raw
+  version:  -v | -V | --version

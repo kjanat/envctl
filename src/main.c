@@ -111,6 +111,8 @@ int main(int argc, char **argv) {
 			print_help(0);
 		else if (options && !strcmp(a, "--help"))
 			print_help(1);
+		else if (options && (!strcmp(a, "-V") || !strcmp(a, "-v") || !strcmp(a, "--version")))
+			print_version();
 		else if (np < (int)(sizeof(pos) / sizeof(*pos)))
 			pos[np++] = a;
 		else

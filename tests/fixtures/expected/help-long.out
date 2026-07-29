@@ -25,6 +25,7 @@ Flags:
               (redact takes a file or --no-env, never both)
   --redact    mask secret-looking values on get / list --values / dry-run
   --raw       never mask (overrides auto-redact and --redact; redact rejects it)
+  -V, --version  print the version this binary was built from (also -v)
 
 Redaction (presentation only; pipes and scripts stay raw so get stays composable):
   mask as <redacted> / <redacted:private-key> / <redacted:credentials> when on.

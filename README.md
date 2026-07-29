@@ -113,6 +113,7 @@ is a get.
 `redact` rejects `--raw` and exits non-zero.
 
 Help: `-h` for short usage, `--help` (or no args) for long help.
+`-V`/`--version` prints the version baked into the build.
 
 ### Dry run
 
