@@ -53,15 +53,14 @@ readonly epipe_open
 declare -i passed=0
 declare -a failures=()
 declare -a skipped=()
-declare -A failed_cases=()
 
 fail_case() {
-	local name=$1
-	if [[ ${failed_cases[${name}]:-} != 1 ]]; then
-		failed_cases[${name}]=1
-		failures+=("${name}")
-		printf '  FAIL  %s\n' "${name}"
-	fi
+	local name=$1 known
+	for known in ${failures[@]+"${failures[@]}"}; do
+		[[ ${known} == "${name}" ]] && return
+	done
+	failures+=("${name}")
+	printf '  FAIL  %s\n' "${name}"
 }
 
 validate_sections() {
@@ -161,10 +160,11 @@ run_case() {
 	mkdir -p "${dir}" || return
 
 	local -a argv=() envv=()
+	local line
 	section "${file}" args >"${dir}/.argv"
 	section "${file}" setenv >"${dir}/.setenv"
-	mapfile -t argv <"${dir}/.argv"
-	mapfile -t envv <"${dir}/.setenv"
+	while IFS= read -r line; do argv+=("${line}"); done <"${dir}/.argv"
+	while IFS= read -r line; do envv+=("${line}"); done <"${dir}/.setenv"
 
 	local base=
 	if has_section "${file}" env; then
@@ -235,7 +235,7 @@ run_case() {
 
 	# Agent detection reads the environment, so cases run from a clean one and
 	# opt into agent behaviour through setenv.
-	local -a launch=(env -i "PATH=${clean_path}" "${envv[@]}" "${bin}" "${argv[@]}")
+	local -a launch=(env -i "PATH=${clean_path}" ${envv[@]+"${envv[@]}"} "${bin}" ${argv[@]+"${argv[@]}"})
 	local cmdstr
 	case ${mode} in
 		plain)
