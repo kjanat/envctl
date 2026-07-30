@@ -114,7 +114,7 @@ static int suspicious_key_name(const char *k) {
 	return has_segment_ci(k, "KEY") || has_segment_ci(k, "API") || has_segment_ci(k, "AUTH") ||
 	       has_segment_ci(k, "BEARER") || has_segment_ci(k, "ACCESS") ||
 	       has_segment_ci(k, "CRED") || has_segment_ci(k, "PASS") || has_segment_ci(k, "JWT") ||
-	       has_segment_ci(k, "OAUTH");
+	       has_segment_ci(k, "OAUTH") || has_segment_ci(k, "SESSION");
 }
 
 static int digestish_key_name(const char *k) {
