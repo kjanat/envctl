@@ -29,6 +29,7 @@ typedef struct {
 
 void maskset_init(MaskSet *M);
 void maskset_load_lines(MaskSet *M, const Lines *L);
+void maskset_load_env(MaskSet *M, char *const *envp);
 void maskset_build(MaskSet *M);
 size_t maskset_apply(const MaskSet *M, const char *in, size_t inlen, char **out, size_t *outcap);
 void maskset_free(MaskSet *M);

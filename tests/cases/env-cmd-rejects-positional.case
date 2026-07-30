@@ -1,0 +1,11 @@
+%% args
+env
+foo
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: too many arguments

@@ -1,0 +1,14 @@
+%% args
+env
+
+%% mode
+posix-env
+
+%% setenv
+FOO=one
+API_TOKEN=abcdefghij
+
+%% stdout
+PATH=/usr/bin:/bin
+FOO=one
+API_TOKEN=<redacted>

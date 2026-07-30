@@ -1,0 +1,14 @@
+%% args
+get
+--env
+API_TOKEN
+
+%% mode
+pty
+
+%% setenv
+AI_AGENT=1
+API_TOKEN=abcdefghij
+
+%% stdout
+<redacted>

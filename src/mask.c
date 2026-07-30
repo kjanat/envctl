@@ -311,6 +311,32 @@ void maskset_load_lines(MaskSet *M, const Lines *L) {
 	}
 }
 
+/*
+ * Environ analogue of maskset_load_lines. Entries are atomic KEY=VALUE
+ * pairs, so a value containing '\n' plays the role of a span > 1 value
+ * (join_span inserts '\n' between continuation lines). No valid_keychars
+ * gate: masking more generously is the safe direction.
+ */
+void maskset_load_env(MaskSet *M, char *const *envp) {
+	for (size_t i = 0; envp && envp[i]; i++) {
+		const char *s = envp[i];
+		const char *eq = strchr(s, '=');
+		if (!eq || eq == s)
+			continue;
+		size_t kl = (size_t)(eq - s);
+		char *kbuf = xmalloc(kl + 1);
+		memcpy(kbuf, s, kl);
+		kbuf[kl] = '\0';
+		const char *val = eq + 1;
+		if (literal_maskable(kbuf, val)) {
+			add_value(M, kbuf, val);
+			if (strchr(val, '\n') && !is_pem_private(val))
+				add_segments(M, kbuf, val);
+		}
+		free(kbuf);
+	}
+}
+
 void maskset_build(MaskSet *M) {
 	for (int i = 0; i < 256; i++)
 		M->bucket[i] = -1;

@@ -39,16 +39,24 @@ if env --ignore-signal=PIPE true >/dev/null 2>&1; then
 fi
 readonly nosigpipe
 
-epipe_open=no
+fifo_ok=no
 if command -v mkfifo >/dev/null 2>&1 \
-	&& mkfifo "${work}/.epipe-open-probe" >/dev/null 2>&1; then
-	epipe_open=yes
+	&& mkfifo "${work}/.fifo-probe" >/dev/null 2>&1; then
+	fifo_ok=yes
 fi
 # MSYS fifos cannot feed a native binary's stdin.
 case $(uname -s) in
-	MINGW* | MSYS* | CYGWIN*) epipe_open=no ;;
+	MINGW* | MSYS* | CYGWIN*) fifo_ok=no ;;
 esac
-readonly epipe_open
+readonly fifo_ok
+
+# The MSYS/Cygwin runtime sorts and augments the environment block handed to
+# native children, so environ-order expectations only hold on POSIX.
+env_order=yes
+case $(uname -s) in
+	MINGW* | MSYS* | CYGWIN*) env_order=no ;;
+esac
+readonly env_order
 
 declare -i passed=0
 declare -a failures=()
@@ -70,7 +78,7 @@ validate_sections() {
 		[[ ${line} == '%% '* ]] || continue
 		marker=${line#'%% '}
 		case ${marker} in
-			args | stdout | env | stdin-file | stdin | setenv | stdout-file | stdout-cmd | file | stderr | exit | mode) ;;
+			args | stdout | env | stdin-file | stdin | setenv | stdout-file | stdout-cmd | file | stderr | exit | mode | fifo-file) ;;
 			*)
 				fail_case "${name}"
 				printf '        unknown section: %s\n' "${marker}"
@@ -210,8 +218,12 @@ run_case() {
 		skipped+=("${name} (no env --ignore-signal)")
 		return
 	fi
-	if [[ ${mode} == epipe-open && ${epipe_open} == no ]]; then
+	if [[ ${mode} == epipe-open && ${fifo_ok} == no ]]; then
 		skipped+=("${name} (no usable fifo)")
+		return
+	fi
+	if [[ ${mode} == posix-env && ${env_order} == no ]]; then
+		skipped+=("${name} (environment order not preserved)")
 		return
 	fi
 	local first='' second='' third=''
@@ -233,12 +245,37 @@ run_case() {
 		fi
 	fi
 
+	# A fifo-file section serves the named fixture through a FIFO, standing in
+	# for shell process substitution. {FIFO} in args expands to its relative
+	# path, so stderr expectations stay byte-stable.
+	local fifo_writer=
+	if has_section "${file}" fifo-file; then
+		if [[ ${fifo_ok} == no ]]; then
+			skipped+=("${name} (no usable fifo)")
+			return
+		fi
+		if [[ ${mode} != plain ]]; then
+			fail_case "${name}"
+			printf '        fifo-file requires plain mode\n'
+			return
+		fi
+		local frel
+		frel=$(section "${file}" fifo-file)
+		mkfifo "${dir}/fifo" || return
+		cat "${fx}/${frel}" >"${dir}/fifo" &
+		fifo_writer=$!
+		local -i ai
+		for ((ai = 0; ai < ${#argv[@]}; ai++)); do
+			argv[ai]=${argv[ai]//'{FIFO}'/fifo}
+		done
+	fi
+
 	# Agent detection reads the environment, so cases run from a clean one and
 	# opt into agent behaviour through setenv.
 	local -a launch=(env -i "PATH=${clean_path}" ${envv[@]+"${envv[@]}"} "${bin}" ${argv[@]+"${argv[@]}"})
 	local cmdstr
 	case ${mode} in
-		plain)
+		plain | posix-env)
 			(cd "${dir}" && "${launch[@]}") \
 				<"${stdin}" >"${dir}/.stdout" 2>"${dir}/.stderr"
 			rc=$?
@@ -337,6 +374,13 @@ run_case() {
 			return
 			;;
 	esac
+
+	# A case that never opens the FIFO leaves the writer blocked in open(2);
+	# reap it unconditionally so the suite cannot hang.
+	if [[ -n ${fifo_writer} ]]; then
+		kill "${fifo_writer}" 2>/dev/null || true
+		wait "${fifo_writer}" 2>/dev/null || true
+	fi
 
 	local ok=1
 	if [[ -e ${dir}/.watchdog-fired ]]; then

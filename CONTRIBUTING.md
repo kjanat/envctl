@@ -20,6 +20,7 @@ The build must stay warning-free at `-Wall -Wextra -Wpedantic -Wshadow`.
 | `mask`    | Literal value masking with encoding variants |
 | `entropy` | Fixed-point Shannon entropy                  |
 | `filter`  | `envctl redact` stream mode                  |
+| `envsrc`  | Process-environment source (`--env`, `env`)  |
 | `diff`    | Unified diff for `--dry-run`                 |
 | `fileio`  | Atomic writes and span rendering             |
 | `agent`   | Coding agent detection                       |
@@ -46,6 +47,10 @@ so a value never passes through shell word splitting. `env` names a fixture that
 is copied into a scratch directory, `stdin-file` names one to feed on stdin, and
 `stdout`, `stderr`, `file` and `exit` are the expectations. Cases run under
 `env -i` so agent detection sees a clean environment; `setenv` opts back in.
+`fifo-file` names a fixture served through a FIFO in the scratch directory,
+standing in for shell process substitution; `{FIFO}` in `args` expands to its
+relative path. Such cases require `plain` mode and are skipped where `mkfifo` is
+unusable (including MSYS).
 
 A section runs to the next `%%` marker, and the blank line separating it from
 that marker is layout rather than content, so one trailing blank is dropped.
@@ -55,14 +60,18 @@ fixture instead.
 
 `mode` selects how the command runs:
 
-| mode        | what it does                                                                        |
-| ----------- | ----------------------------------------------------------------------------------- |
-| `plain`     | default, stdout to a file                                                           |
-| `pty`       | under `script`, so `stdout_isatty()` is true and automatic redaction applies        |
-| `nosigpipe` | under `env --ignore-signal=PIPE` with an early-closing reader, for the `EPIPE` path |
+| mode         | what it does                                                                        |
+| ------------ | ----------------------------------------------------------------------------------- |
+| `plain`      | default, stdout to a file                                                           |
+| `pty`        | under `script`, so `stdout_isatty()` is true and automatic redaction applies        |
+| `nosigpipe`  | under `env --ignore-signal=PIPE` with an early-closing reader, for the `EPIPE` path |
+| `epipe-open` | stdin held open past two lines over FIFOs, for the per-write `EPIPE` check          |
+| `posix-env`  | `plain`, but skipped on Windows, where the runtime reorders the environment block   |
 
 `pty` needs `script` and `nosigpipe` needs GNU `env`; neither exists on Windows,
 where those cases report as skipped in the summary rather than passing silently.
+`posix-env` is for environ-order expectations (`envctl env`, `list --env`),
+which only hold where the environment block passes through unmodified.
 
 Every redaction fix needs a case that fails without it. Leaks and their
 regression cases belong together in one commit.

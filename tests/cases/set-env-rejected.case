@@ -1,0 +1,13 @@
+%% args
+set
+--env
+FOO
+bar
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: --env is only valid for get, list, and redact

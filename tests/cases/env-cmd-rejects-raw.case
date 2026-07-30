@@ -1,0 +1,11 @@
+%% args
+env
+--raw
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: env cannot be --raw

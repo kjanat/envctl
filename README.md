@@ -70,22 +70,30 @@ envctl get     [file] <KEY>           print active value; exit 1 if unset
 envctl disable [file] <KEY>           comment KEY out, keep its value
 envctl enable  [file] <KEY>           uncomment KEY
 envctl delete  [file] <KEY>           remove KEY entirely (active + commented)
-envctl list    [file] [--values] [--all]
-envctl redact  [file | --no-env]      filter stdin to stdout, masking secrets
+envctl list    [file | --env] [--values] [--all]
+envctl redact  [file | --env | --no-env]   filter stdin to stdout, masking secrets
+envctl env                            print the process environment, always redacted
 ```
 
 Aliases: `ls` = `list`, `rm` = `delete`.
 
 ### Default file
 
-If the first positional is an existing regular file, it is used. Otherwise, when
-`./.env` exists, it is assumed and you can omit the file argument:
+If the first positional is an existing path, it is used. Otherwise, when
+`./.env` exists (as a regular file), it is assumed and you can omit the file
+argument:
 
 ```sh
 envctl list
 envctl get DATABASE_URL
 envctl set DEBUG true
 ```
+
+Read commands (`get`, `list`, and `redact`'s env file) accept any openable path
+— FIFOs from process substitution, `/dev/fd/N`, character devices — so
+`envctl redact <(sops -d secrets.env)` works. The mutating commands (`set`,
+`disable`, `enable`, `delete`) rewrite the target atomically and therefore
+require a regular file; anything else fails with `not a regular file`.
 
 ### Bare form
 
@@ -97,7 +105,8 @@ envctl [file] <KEY> <VALUE>    # set
 ```
 
 A command name always wins over a same-named file, so `envctl .env get API_KEY`
-is a get.
+is a get. This includes `env`: `envctl env` is the environment dump command, so
+a key literally named `env` needs the explicit form `envctl get env`.
 
 ### Flags
 
@@ -106,11 +115,13 @@ is a get.
 | `--dry-run` | set, disable, enable, delete  | Print a unified diff to stdout; write nothing           |
 | `--values`  | list                          | Show values (secret-looking ones follow redact rules)   |
 | `--all`     | list                          | Include disabled (commented) keys, tagged `(disabled)`  |
+| `--env`     | get, list, redact             | Read the process environment instead of an env file     |
 | `--no-env`  | redact                        | Skip the env file's literal values, use heuristics only |
 | `--redact`  | get, list `--values`, dry-run | Force masking of secret-looking values                  |
 | `--raw`     | get, list `--values`, dry-run | Never mask (overrides auto-redact and `--redact`)       |
 
-`redact` rejects `--raw` and exits non-zero.
+`redact` and `env` reject `--raw` and exit non-zero. `redact` takes a file,
+`--env`, or `--no-env`, never two of them.
 
 Help: `-h` for short usage, `--help` (or no args) for long help.
 `-V`/`--version` prints the version baked into the build.
@@ -141,19 +152,48 @@ the diff are masked.
 some-agent-command 2>&1 | envctl redact
 envctl redact prod.env < build.log
 cat build.log | envctl redact --no-env
+npm run build 2>&1 | envctl redact --env
 ```
 
 The positional names the env file supplying literal values, defaulting to
 `./.env` when it exists. Every maskable value in that file is matched literally,
 together with its base64, URL-encoded, and JSON-escaped forms. The value-shape
 heuristics then run over the rest of the text, and entropy applies only on lines
-that carry a key name. `--no-env` skips the env file. Filter mode always
-redacts, so agent detection and the TTY check do not apply.
+that carry a key name. `--no-env` skips the env file; `--env` uses the process
+environment's values as the literal mask set instead of a file's. Filter mode
+always redacts, so agent detection and the TTY check do not apply.
 
 A PEM private key prints as one `<redacted:private-key>` line and its body lines
 are dropped. If the `-----END-----` marker never arrives, the first 511
 continuation lines are suppressed. After that, base64-looking body lines remain
 suppressed, but the first non-body line resumes normal processing.
+
+### Process environment
+
+`--env` makes `get`, `list`, and `redact` read the process environment instead
+of an env file — no `env` binary or process substitution needed:
+
+```sh
+envctl get --env DATABASE_URL     # like get: raw on pipes, exit 1 if unset
+envctl list --env                 # key names, environ order
+envctl list --env --values        # values follow the same redact rules as list
+some-command | envctl redact --env
+```
+
+`envctl env` prints the whole environment as `KEY=VALUE` lines with redaction
+always on (it rejects `--raw`, like filter mode), making it the safe one-word
+replacement for `env | envctl redact --no-env`:
+
+```console
+$ envctl env
+PATH=/usr/bin:/bin
+API_TOKEN=<redacted>
+```
+
+Entries are printed in environ order. Names that aren't `[A-Za-z_][A-Za-z0-9_]*`
+(for example bash's exported functions) are skipped, matching `list`. A masked
+multi-line value collapses to one token line; an unmasked one prints its raw
+newlines, exactly like `env(1)`.
 
 ### Redaction
 
@@ -215,6 +255,8 @@ envctl --dry-run delete OLD_KEY
 envctl --redact get API_TOKEN        # force mask
 envctl --raw list --values           # force full secrets
 npm run build 2>&1 | envctl redact   # mask secrets in tool output
+envctl env                           # print the environment, secrets masked
+envctl get --env HOME                # read an environment variable
 ```
 
 ## Matching rules

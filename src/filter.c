@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "filter.h"
 
+#include "envsrc.h"
 #include "lines.h"
 #include "mask.h"
 #include "redact.h"
@@ -9,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int act_redact(const char *file) {
+int act_redact(const char *file, int use_env) {
 	MaskSet M;
 	MaskStream ms;
 	StreamLine sl = {0};
@@ -21,7 +22,9 @@ int act_redact(const char *file) {
 	scan_state_init(&sst);
 	maskset_init(&M);
 	maskstream_init(&ms);
-	if (file) {
+	if (use_env) {
+		maskset_load_env(&M, env_entries());
+	} else if (file) {
 		Lines L = read_file(file);
 		maskset_load_lines(&M, &L);
 		lines_free(&L);

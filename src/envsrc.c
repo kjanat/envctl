@@ -1,0 +1,60 @@
+/*
+ * Process-environment source: read the environment like an env file.
+ *
+ * Each environ entry is one atomic KEY=VALUE pair; env-file span logic
+ * never applies (a value with an unclosed quote or embedded newline is
+ * still a single entry, never a continuation of the next one).
+ */
+#define _GNU_SOURCE
+#include "envsrc.h"
+
+#include "lines.h"
+#include "redact.h"
+#include "util.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#ifdef _WIN32
+char *const *env_entries(void) { return _environ; }
+#else
+extern char **environ;
+
+char *const *env_entries(void) { return environ; }
+#endif
+
+int act_env_get(const char *key, int redact) {
+	const char *val = getenv(key);
+	if (!val)
+		return 1;
+	print_value(key, val, redact);
+	return 0;
+}
+
+void act_env_list(int values, int redact) {
+	char *const *e = env_entries();
+	for (size_t i = 0; e && e[i]; i++) {
+		const char *s = e[i];
+		const char *eq = strchr(s, '=');
+		if (!eq)
+			continue;
+		size_t kl = (size_t)(eq - s);
+		if (!valid_keychars(s, kl))
+			continue;
+		if (!values) {
+			printf("%.*s\n", (int)kl, s);
+			continue;
+		}
+		char *kbuf = xmalloc(kl + 1);
+		memcpy(kbuf, s, kl);
+		kbuf[kl] = '\0';
+		if (redact && should_mask(kbuf, eq + 1))
+			printf("%.*s=%s\n", (int)kl, s, redact_token(kbuf, eq + 1));
+		else
+			printf("%.*s=%s\n", (int)kl, s, eq + 1);
+		free(kbuf);
+	}
+}
+
+void act_env_dump(void) { act_env_list(1, 1); }

@@ -8,7 +8,8 @@ PREFIX   ?= $(HOME)/.local
 DIST     ?= dist
 
 SRCS := src/util.c src/agent.c src/help.c src/lines.c src/entropy.c \
-        src/redact.c src/mask.c src/filter.c src/diff.c src/fileio.c src/main.c
+        src/redact.c src/mask.c src/filter.c src/envsrc.c src/diff.c \
+        src/fileio.c src/main.c
 OBJS := $(SRCS:.c=.o)
 DEPS := $(OBJS:.o=.d)
 

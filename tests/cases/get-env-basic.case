@@ -1,0 +1,10 @@
+%% args
+get
+--env
+API_TOKEN
+
+%% setenv
+API_TOKEN=abcdefghij
+
+%% stdout
+abcdefghij

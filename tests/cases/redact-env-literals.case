@@ -1,0 +1,16 @@
+%% args
+redact
+--env
+
+%% setenv
+API_TOKEN=s3cr3t-value-abcdefghij
+
+%% stdin
+leaked s3cr3t-value-abcdefghij here
+b64 czNjcjN0LXZhbHVlLWFiY2RlZmdoaWo=
+port 3000 stays
+
+%% stdout
+leaked <redacted> here
+b64 <redacted>
+port 3000 stays
