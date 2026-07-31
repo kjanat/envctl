@@ -9,7 +9,13 @@ row_md5crypt=$1$saltsalt$3xampleHashBody0123456
 login_bcrypt=$2b$12$R9h.cIPz0gi.URNNX3kh2OPST9.PgBkqquzi.Ss7KIUgO2t0jWMUW
 kdf_yescrypt=$y$j9T$saltsaltsaltsalt$3xampleHashBody0123456789abcdefghijklmnopqr
 kdf_argon2=$argon2id$v=19$m=65536,t=3,p=4$c2FsdHNhbHQ$3xampleHashBody0123456789abcdefghijklmnopqr
+kdf_scrypt=$scrypt$ln=16,r=8,p=1$c2FsdHNhbHQ$Emh5nrbjxzcdmBr7.t2S8FKqvHVJKzNMUkxGv0eGYWY
+kdf_pbkdf2=$pbkdf2-sha256$29000$c2FsdHNhbHQ$Y2hlY2tzdW1jaGVja3N1bWNoZWNrc3VtY2hlY2s
 shadow line $2b$12$R9h.cIPz0gi.URNNX3kh2OPST9.PgBkqquzi.Ss7KIUgO2t0jWMUW inside prose
+argon2 in prose $argon2id$v=19$m=65536,t=3,p=4$c2FsdHNhbHQ$RdescudvJCsgt3ub+b3Ez/Cs8WFyfNfm3Nn8Y5wLrsM stays whole
+scrypt in prose $scrypt$ln=16,r=8,p=1$c2FsdHNhbHQ$Emh5nrbjxzcdmBr7+t2S8FKqvHVJKzNMUk+Gv0eGYWY stays whole
+tail_at_16=$1$saltsalt$abcdefgh12345678
+tail_at_15=$1$saltsalt$abcdefgh1234567
 image_sha512=b109f3bbbc244eb82441917ed06d618b9008dd09b3befd1b5e07394c706a8bb980b1d7785e5976ec049b46df5f1326af5a2ea6d103fd07c95385ffab0cacbc86
 price is $6 and $1$2 short
 paths keep $HOME$PATH$USER visible
@@ -21,7 +27,13 @@ row_md5crypt=<redacted>
 login_bcrypt=<redacted>
 kdf_yescrypt=<redacted>
 kdf_argon2=<redacted>
+kdf_scrypt=<redacted>
+kdf_pbkdf2=<redacted>
 shadow line <redacted> inside prose
+argon2 in prose <redacted> stays whole
+scrypt in prose <redacted> stays whole
+tail_at_16=<redacted>
+tail_at_15=$1$saltsalt$abcdefgh1234567
 image_sha512=b109f3bbbc244eb82441917ed06d618b9008dd09b3befd1b5e07394c706a8bb980b1d7785e5976ec049b46df5f1326af5a2ea6d103fd07c95385ffab0cacbc86
 price is $6 and $1$2 short
 paths keep $HOME$PATH$USER visible

@@ -615,6 +615,21 @@ static int is_crypt_hash_shape(const char *b, size_t bn) {
 	return last > ide && bn - last - 1 >= 16;
 }
 
+/* A crypt hash travels as one span, but the ','-joined parameters of argon2
+ * and scrypt sit on a prose delimiter, so the token walk splits them. Given a
+ * token starting at '$', return the end of the maximal crypt span when it
+ * forms a valid hash, or 0 when it does not. Trailing commas are prose. */
+static size_t crypt_span_end(const char *b, size_t bn, size_t s) {
+	size_t ce = s;
+	while (ce < bn && (isalnum((unsigned char)b[ce]) || strchr("$./+=,-", b[ce]) != NULL))
+		ce++;
+	while (ce > s && b[ce - 1] == ',')
+		ce--;
+	if (ce > s && is_crypt_hash_shape(b + s, ce - s))
+		return ce;
+	return 0;
+}
+
 static int json_private_object(const char *in, size_t n);
 
 static int is_private_jwk(const char *b, size_t bn) { return json_private_object(b, bn); }
@@ -740,6 +755,11 @@ static int embedded_secret_token(const char *b, size_t bn) {
 		while (p < bn && is_text_delim((unsigned char)b[p]))
 			p++;
 		size_t s = p;
+		if (p < bn && b[p] == '$') {
+			size_t ce = crypt_span_end(b, bn, s);
+			if (ce && ce - s < bn)
+				return 1;
+		}
 		while (p < bn && !is_text_delim((unsigned char)b[p]))
 			p++;
 		size_t te = p;
@@ -1381,6 +1401,21 @@ static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap
 		while (p < inlen && !is_text_delim((unsigned char)in[p]))
 			p++;
 		size_t e = p, te = e;
+		/* The comma after an argon2/scrypt parameter is a delimiter, so the
+		 * token walk stops mid-hash; give a crypt-looking token one chance
+		 * to claim its full span before judging the fragment. */
+		if (in[s] == '$' && e < inlen && in[e] == ',') {
+			size_t ce = crypt_span_end(in, inlen, s);
+			if (ce > e) {
+				const char *tok = redact_token_n(in + s, ce - s);
+				buf_put(out, outcap, len, tok, strlen(tok));
+				p = ce;
+				free(pend);
+				pend = NULL;
+				scheme = 0;
+				continue;
+			}
+		}
 		while (te > s && strchr(".,;:)]}\"'", in[te - 1]))
 			te--;
 
