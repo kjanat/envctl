@@ -16,6 +16,12 @@ SIG_EMPTY=sig=&other=1
 WF_HOOK=https://hooks.slack.com/workflows/T00000000/A00000000/1234567890/abcdefghijABCDEFGHIJ12
 WF_BARE=https://hooks.slack.com/workflows/
 APPS_URL=https://api.slack.com/apps/A00000000/general
+TRIGGER=https://hooks.slack.com/triggers/T0266DTUKLA/6349843859857/abcdefghijklmnop
+TRIGGER_BARE=https://hooks.slack.com/triggers/
+LOOKALIKE=https://not-hooks.slack.com/services/T00000000000/B00000000000/xxxxxxxxxxxxxxxxxxxxxxxx
+EVILSUB=https://evil.hooks.slack.com/services/T00000000000/B00000000000/xxxxxxxxxxxxxxxxxxxxxxxx
+PREFIXED=https://myhooks.slack.com/services/T00000000000/B00000000000/xxxxxxxxxxxxxxxxxxxxxxxx
+FAKEDISCORD=https://notdiscord.com/api/webhooks/123456789012345678/aBcDeFgHiJkLmNoPqRs
 
 %% stdout
 GRAFANA_HOOK_URL=<redacted:credentials>
@@ -31,3 +37,9 @@ SIG_EMPTY=sig=&other=1
 WF_HOOK=<redacted:credentials>
 WF_BARE=https://hooks.slack.com/workflows/
 APPS_URL=https://api.slack.com/apps/A00000000/general
+TRIGGER=<redacted:credentials>
+TRIGGER_BARE=https://hooks.slack.com/triggers/
+LOOKALIKE=https://not-hooks.slack.com/services/T00000000000/B00000000000/xxxxxxxxxxxxxxxxxxxxxxxx
+EVILSUB=https://evil.hooks.slack.com/services/T00000000000/B00000000000/xxxxxxxxxxxxxxxxxxxxxxxx
+PREFIXED=https://myhooks.slack.com/services/T00000000000/B00000000000/xxxxxxxxxxxxxxxxxxxxxxxx
+FAKEDISCORD=https://notdiscord.com/api/webhooks/123456789012345678/aBcDeFgHiJkLmNoPqRs
