@@ -13,6 +13,13 @@ BUILD_DIR=/var/lib/build/output
 LOG_LEVEL=debug
 PORT=8080
 NODE_ENV=production
+GIT_COMMIT = e7a90a7ddfc7868bf90ab8be8965f236e09f2cae
+ARTIFACT_SHA = 9c7e252a1b3d4f5e6a7b8c9d0e1f2a3b4c5d6e7f
+SSH_AUTH_SOCK = /run/user/1000/keyring/ssh
+BUILD_DIR = /var/lib/build/output
+LOG_LEVEL = debug
+RANDOM_THING = mB4dPzR2vWq8LmN4tYb7JcH3fGe5AuZ1QwSxVdErTyUi
+the commit e7a90a7ddfc7868bf90ab8be8965f236e09f2cae landed cleanly
 
 %% stdout
 RANDOM_THING=<redacted>
@@ -24,3 +31,10 @@ BUILD_DIR=/var/lib/build/output
 LOG_LEVEL=debug
 PORT=8080
 NODE_ENV=production
+GIT_COMMIT = e7a90a7ddfc7868bf90ab8be8965f236e09f2cae
+ARTIFACT_SHA = 9c7e252a1b3d4f5e6a7b8c9d0e1f2a3b4c5d6e7f
+SSH_AUTH_SOCK = /run/user/1000/keyring/ssh
+BUILD_DIR = /var/lib/build/output
+LOG_LEVEL = debug
+RANDOM_THING = <redacted>
+the commit <redacted> landed cleanly

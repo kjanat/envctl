@@ -13,6 +13,9 @@ HOOK_HOST=https://hooks.slack.com/services/T00000000000
 SORT_ORDER=key=created_at&dir=desc
 PAGE_QUERY=page=2&limit=50&order=asc
 SIG_EMPTY=sig=&other=1
+WF_HOOK=https://hooks.slack.com/workflows/T00000000/A00000000/1234567890/abcdefghijABCDEFGHIJ12
+WF_BARE=https://hooks.slack.com/workflows/
+APPS_URL=https://api.slack.com/apps/A00000000/general
 
 %% stdout
 GRAFANA_HOOK_URL=<redacted:credentials>
@@ -25,3 +28,6 @@ HOOK_HOST=https://hooks.slack.com/services/T00000000000
 SORT_ORDER=key=created_at&dir=desc
 PAGE_QUERY=page=2&limit=50&order=asc
 SIG_EMPTY=sig=&other=1
+WF_HOOK=<redacted:credentials>
+WF_BARE=https://hooks.slack.com/workflows/
+APPS_URL=https://api.slack.com/apps/A00000000/general

@@ -403,6 +403,7 @@ static int authorization_value(const char *b, size_t bn, int explicit_key) {
 static int is_webhook_url_shape(const char *b, size_t bn) {
 	static const char *const hosts[] = {
 	    "hooks.slack.com/services/",
+	    "hooks.slack.com/workflows/",
 	    "discord.com/api/webhooks/",
 	    "discordapp.com/api/webhooks/",
 	    NULL,
@@ -780,12 +781,20 @@ static int assignment_shaped(const char *b, size_t bn) {
 	return shaped;
 }
 
-int should_mask_token(const char *s, size_t n) {
+/* Shape alone, with no keyless entropy floor. A caller that already asked a
+ * key about this value uses this, so paranoia cannot overrule the answer. */
+static int token_shape_secret(const char *s, size_t n) {
 	if (n < TOKEN_MIN)
 		return 0;
 	return private_key_material(s, n) || known_token_prefix(s, n) || aws_access_key_shape(s, n) ||
 	       is_credentialed_url(s, n) || url_sensitive_param(s, n) || authorization_value(s, n, 0) ||
-	       conn_string_secret(s, n) || is_jwt_shape(s, n) || is_webhook_url_shape(s, n) ||
+	       conn_string_secret(s, n) || is_jwt_shape(s, n) || is_webhook_url_shape(s, n);
+}
+
+int should_mask_token(const char *s, size_t n) {
+	if (n < TOKEN_MIN)
+		return 0;
+	return token_shape_secret(s, n) ||
 	       (paranoid && !assignment_shaped(s, n) && entropy_secret(s, n));
 }
 
@@ -1079,6 +1088,16 @@ static char *key_run(const char *s, size_t n) {
 	return k;
 }
 
+/* Whitespace then a lone '=', the separator mask_assignment already accepts. */
+static int spaced_eq_follows(const char *in, size_t inlen, size_t from) {
+	size_t i = from;
+	while (i < inlen && (in[i] == ' ' || in[i] == '\t'))
+		i++;
+	if (i == from || i >= inlen || in[i] != '=')
+		return 0;
+	return i + 1 >= inlen || in[i + 1] != '=';
+}
+
 static int keyed_mask(const char *key, const char *v, size_t vn) {
 	char *vbuf = xmalloc(vn + 1);
 	memcpy(vbuf, v, vn);
@@ -1291,7 +1310,8 @@ static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap
 		const char *kn = key ? key : pend;
 		int bare = key && te == ms;
 
-		int hit = kn && te > ms && keyed_mask(kn, in + ms, te - ms);
+		int keyed = kn && te > ms;
+		int hit = keyed && keyed_mask(kn, in + ms, te - ms);
 		/* A parsed assignment whose value is a placeholder word stays plain
 		 * prose: without this, PASSWORD=changeme re-enters the shape
 		 * detectors as one token and conn_string_secret masks it. Word
@@ -1299,8 +1319,13 @@ static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap
 		int trivial_kv = key && te > ms && is_trivial_word(in + ms, te - ms);
 		if (!hit && !trivial_kv) {
 			ms = s;
-			hit = te > s && (should_mask_token(in + s, te - s) ||
-			                 (scheme && authz_run(in + s, te - s, scheme)));
+			/* A key that has already declined this value settles it. Falling
+			 * through to the keyless floor would let --paranoid mask a value
+			 * that GIT_COMMIT or SSH_AUTH_SOCK had just spared. */
+			hit =
+			    te > s &&
+			    ((keyed ? token_shape_secret(in + s, te - s) : should_mask_token(in + s, te - s)) ||
+			     (scheme && authz_run(in + s, te - s, scheme)));
 		}
 		if (!hit && !key && te > s) {
 			char *tail;
@@ -1326,14 +1351,22 @@ static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap
 		int bearer = eq_ci_n(in + s, te - s, "Bearer");
 		int basic = eq_ci_n(in + s, te - s, "Basic");
 		scheme = !hit && (bearer || basic) ? (authz_ctx ? (basic ? 4 : 8) : 20) : 0;
-		free(pend);
-		pend = NULL;
+		char *next_pend = NULL;
 		if (!hit && bare) {
-			pend = key;
+			next_pend = key;
 			key = NULL;
 		} else if (!hit && !key && e == te + 1 && in[te] == ':') {
-			pend = key_run(in + s, te - s);
+			next_pend = key_run(in + s, te - s);
+		} else if (!hit && !key && spaced_eq_follows(in, inlen, e)) {
+			/* KEY = VALUE splits into three tokens, so the key has to outlive
+			 * the separator to reach the value it belongs to. */
+			next_pend = key_run(in + s, te - s);
+		} else if (!hit && te - s == 1 && in[s] == '=' && pend) {
+			next_pend = pend;
+			pend = NULL;
 		}
+		free(pend);
+		pend = next_pend;
 		free(key);
 	}
 

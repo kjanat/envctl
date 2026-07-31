@@ -110,16 +110,16 @@ a key literally named `env` needs the explicit form `envctl get env`.
 
 ### Flags
 
-| Flag         | Applies to                    | Effect                                                  |
-| ------------ | ----------------------------- | ------------------------------------------------------- |
-| `--dry-run`  | set, disable, enable, delete  | Print a unified diff to stdout; write nothing           |
-| `--values`   | list                          | Show values (secret-looking ones follow redact rules)   |
-| `--all`      | list                          | Include disabled (commented) keys, tagged `(disabled)`  |
-| `--env`      | get, list, redact             | Read the process environment instead of an env file     |
-| `--no-env`   | redact                        | Skip the env file's literal values, use heuristics only |
-| `--redact`   | get, list `--values`, dry-run | Force masking of secret-looking values                  |
-| `--raw`      | get, list `--values`, dry-run | Never mask (overrides auto-redact and `--redact`)       |
-| `--paranoid` | all reading commands          | Mask any high-entropy value, whatever its key is called |
+| Flag         | Applies to                    | Effect                                                                                          |
+| ------------ | ----------------------------- | ----------------------------------------------------------------------------------------------- |
+| `--dry-run`  | set, disable, enable, delete  | Print a unified diff to stdout; write nothing                                                   |
+| `--values`   | list                          | Show values (secret-looking ones follow redact rules)                                           |
+| `--all`      | list                          | Include disabled (commented) keys, tagged `(disabled)`                                          |
+| `--env`      | get, list, redact             | Read the process environment instead of an env file                                             |
+| `--no-env`   | redact                        | Skip the env file's literal values, use heuristics only                                         |
+| `--redact`   | get, list `--values`, dry-run | Force masking of secret-looking values                                                          |
+| `--raw`      | get, list `--values`, dry-run | Never mask (overrides auto-redact and `--redact`)                                               |
+| `--paranoid` | all reading commands          | Apply the entropy bar whatever the key is called; path-like and digest-like values stay visible |
 
 `redact` and `env` reject `--raw` and exit non-zero. `redact` takes a file,
 `--env`, or `--no-env`, never two of them. `--paranoid` implies `--redact` and
@@ -163,8 +163,10 @@ together with its base64, URL-encoded, and JSON-escaped forms. The value-shape
 heuristics then run over the rest of the text, and entropy applies only on lines
 that carry a key name, or on every line under `--paranoid`. An assignment is
 recognised with or without spaces around its separator, so `.aws/credentials`
-and other INI files that write `key = value` are covered. `--no-env` skips the
-env file; `--env` uses the process environment's values as the literal mask set
+and other INI files that write `key = value` are covered, and the key stays
+attached to its value either way: under `--paranoid` a spaced `GIT_COMMIT = …`
+keeps the same digest exemption its unspaced form gets. `--no-env` skips the env
+file; `--env` uses the process environment's values as the literal mask set
 instead of a file's. Filter mode always redacts, so agent detection and the TTY
 check do not apply.
 
