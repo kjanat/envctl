@@ -15,7 +15,7 @@ Commands:
   envctl delete  [file] <KEY>           remove KEY entirely (active + commented) [rm]
   envctl list    [file] [--values] [--all]  active keys; --values shows values;
                                         --all also lists disabled keys           [ls]
-  envctl redact  [file | --env]         filter stdin to stdout, masking secrets
+  envctl redact  [file | --env | --no-env]  filter stdin to stdout, masking secrets
   envctl env                            print process environment, always redacted
 
 File: optional when ./.env exists as a regular file. If the first positional is

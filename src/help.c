@@ -35,7 +35,7 @@ static const char *LONG_USAGE =
     "  envctl delete  [file] <KEY>           remove KEY entirely (active + commented) [rm]\n"
     "  envctl list    [file] [--values] [--all]  active keys; --values shows values;\n"
     "                                        --all also lists disabled keys           [ls]\n"
-    "  envctl redact  [file | --env]         filter stdin to stdout, masking secrets\n"
+    "  envctl redact  [file | --env | --no-env]  filter stdin to stdout, masking secrets\n"
     "  envctl env                            print process environment, always redacted\n"
     "\n"
     "File: optional when ./.env exists as a regular file. If the first positional is\n"
