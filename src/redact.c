@@ -398,17 +398,25 @@ static int authorization_value(const char *b, size_t bn, int explicit_key) {
 	return 0;
 }
 
-static int hostname_char(unsigned char c) { return isalnum(c) || c == '-' || c == '.'; }
+/* A byte that cannot appear inside a URL, so a URL may begin after it. */
+static int url_boundary_char(unsigned char c) {
+	return isspace(c) || strchr("\"'`<>,;()[]{}|\\=", c) != NULL;
+}
 
-/* The host must begin the authority, or not-hooks.slack.com and
- * evil.hooks.slack.com borrow the match from a plain substring search. The
- * trailing path in each pattern already anchors the right-hand side. */
+/* The host must open the authority. A plain substring search let both
+ * not-hooks.slack.com and example.com/hooks.slack.com borrow the match, the
+ * second because a path segment is free to look exactly like a hostname. So
+ * the only bytes that may precede the host are the scheme's "://", a userinfo
+ * "@", or something no URL can contain. Notably not '/'. The trailing path in
+ * each pattern already anchors the right-hand side. */
 static const char *host_at_authority(const char *b, size_t bn, const char *host) {
 	size_t hn = strlen(host);
 	for (size_t i = 0; i + hn <= bn; i++) {
 		if (memcmp(b + i, host, hn) != 0)
 			continue;
-		if (i == 0 || !hostname_char((unsigned char)b[i - 1]))
+		if (i == 0 || b[i - 1] == '@' || url_boundary_char((unsigned char)b[i - 1]))
+			return b + i;
+		if (i >= 3 && memcmp(b + i - 3, "://", 3) == 0)
 			return b + i;
 	}
 	return NULL;

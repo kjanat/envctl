@@ -22,6 +22,10 @@ LOOKALIKE=https://not-hooks.slack.com/services/T00000000000/B00000000000/xxxxxxx
 EVILSUB=https://evil.hooks.slack.com/services/T00000000000/B00000000000/xxxxxxxxxxxxxxxxxxxxxxxx
 PREFIXED=https://myhooks.slack.com/services/T00000000000/B00000000000/xxxxxxxxxxxxxxxxxxxxxxxx
 FAKEDISCORD=https://notdiscord.com/api/webhooks/123456789012345678/aBcDeFgHiJkLmNoPqRs
+PATHSEG=https://example.com/hooks.slack.com/services/T/B/tokenvalue
+PATHSEG_DISCORD=https://cdn.example.com/proxy/discord.com/api/webhooks/123456789012345678/aBcDeFgHiJkLmNoPqRs
+USERINFO=https://user@hooks.slack.com/services/T00000000000/B00000000000/xxxxxxxxxxxxxxxxxxxxxxxx
+NOSCHEME=hooks.slack.com/services/T00000000000/B00000000000/xxxxxxxxxxxxxxxxxxxxxxxx
 
 %% stdout
 GRAFANA_HOOK_URL=<redacted:credentials>
@@ -43,3 +47,7 @@ LOOKALIKE=https://not-hooks.slack.com/services/T00000000000/B00000000000/xxxxxxx
 EVILSUB=https://evil.hooks.slack.com/services/T00000000000/B00000000000/xxxxxxxxxxxxxxxxxxxxxxxx
 PREFIXED=https://myhooks.slack.com/services/T00000000000/B00000000000/xxxxxxxxxxxxxxxxxxxxxxxx
 FAKEDISCORD=https://notdiscord.com/api/webhooks/123456789012345678/aBcDeFgHiJkLmNoPqRs
+PATHSEG=https://example.com/hooks.slack.com/services/T/B/tokenvalue
+PATHSEG_DISCORD=https://cdn.example.com/proxy/discord.com/api/webhooks/123456789012345678/aBcDeFgHiJkLmNoPqRs
+USERINFO=<redacted:credentials>
+NOSCHEME=<redacted:credentials>
