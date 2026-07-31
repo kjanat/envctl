@@ -133,7 +133,7 @@ static int digestish_key_name(const char *k) {
 	return 0;
 }
 
-static int is_trivial_value(const char *v, size_t n) {
+static int is_trivial_word(const char *v, size_t n) {
 	static const char *const trivial[] = {
 	    "",           "0",           "1",    "true",    "false",     "yes",
 	    "no",         "on",          "off",  "debug",   "info",      "warn",
@@ -152,6 +152,12 @@ static int is_trivial_value(const char *v, size_t n) {
 		if (j == n)
 			return 1;
 	}
+	return 0;
+}
+
+static int is_trivial_value(const char *v, size_t n) {
+	if (is_trivial_word(v, n))
+		return 1;
 	if (n) {
 		size_t i = 0;
 		if (v[0] == '-' || v[0] == '+')
@@ -1134,10 +1140,11 @@ static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap
 		int bare = key && te == ms;
 
 		int hit = kn && te > ms && keyed_mask(kn, in + ms, te - ms);
-		/* A parsed assignment whose value is a trivial placeholder stays
-		 * plain prose: without this, PASSWORD=changeme re-enters the shape
-		 * detectors as one token and conn_string_secret masks it. */
-		int trivial_kv = key && te > ms && is_trivial_value(in + ms, te - ms);
+		/* A parsed assignment whose value is a placeholder word stays plain
+		 * prose: without this, PASSWORD=changeme re-enters the shape
+		 * detectors as one token and conn_string_secret masks it. Word
+		 * placeholders only — a short numeric may be a real PIN. */
+		int trivial_kv = key && te > ms && is_trivial_word(in + ms, te - ms);
 		if (!hit && !trivial_kv) {
 			ms = s;
 			hit = te > s && (should_mask_token(in + s, te - s) ||
