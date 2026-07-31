@@ -421,13 +421,28 @@ static int private_key_material(const char *b, size_t bn) {
 	       is_private_jwk(b, bn);
 }
 
+/* Strict padded base64: '+/' alphabet only, 4-byte alignment, and one or two
+ * '=' confined to the tail. Distinguishes encoded data from path-like values. */
+static int strict_b64_padded(const char *b, size_t bn) {
+	if (bn < 4 || bn % 4 || b[bn - 1] != '=')
+		return 0;
+	size_t body = bn - 1;
+	if (b[body - 1] == '=')
+		body--;
+	for (size_t i = 0; i < body; i++) {
+		unsigned char c = (unsigned char)b[i];
+		if (!isalnum(c) && c != '+' && c != '/')
+			return 0;
+	}
+	return 1;
+}
+
 static int entropy_secret(const char *b, size_t bn) {
 	if (bn < 16)
 		return 0;
 	if (is_uuid_shape(b, bn) || is_plain_path(b, bn) || mem_find(b, bn, "://"))
 		return 0;
 	int hex = 1, b64 = 1, tok = 1, slashes = 0;
-	int padded = b[bn - 1] == '=';
 	for (size_t i = 0; i < bn; i++) {
 		unsigned char c = (unsigned char)b[i];
 		if (isspace(c))
@@ -442,7 +457,7 @@ static int entropy_secret(const char *b, size_t bn) {
 			tok = 0;
 	}
 	/* Slashes read as a relative path unless base64 padding says encoded data. */
-	if (slashes >= 2 && !(b64 && padded))
+	if (slashes >= 2 && !strict_b64_padded(b, bn))
 		return 0;
 	uint32_t h = shannon_q16(b, bn);
 	if (hex)
