@@ -1,0 +1,23 @@
+%% args
+redact
+--no-env
+
+%% stdin
+{"x_psk":"correct-horse-battery","wifi_password":"hunter2hunter2"}
+wpa_psk=SummerHouse2024!
+pre_shared_key=s3cr3tval
+wlan_preshared_key=opensesame1
+presharedkey=opensesame1
+ipsec_shared_key=0sv3ryS3cr3tB1ts
+psk_enabled=true
+psk_file=/etc/ipsec.d/site.psk
+
+%% stdout
+{"x_psk":"<redacted>","wifi_password":"<redacted>"}
+wpa_psk=<redacted>
+pre_shared_key=<redacted>
+wlan_preshared_key=<redacted>
+presharedkey=<redacted>
+ipsec_shared_key=<redacted>
+psk_enabled=true
+psk_file=/etc/ipsec.d/site.psk
