@@ -1,0 +1,31 @@
+%% args
+redact
+--no-env
+
+%% stdin
+INFO connecting to postgres://svc:p4ssw0rd@db.internal:5432/app
+WARN retry with Authorization: Bearer Sr9vZt5KwQ8yNm3PcX6bLh2EdF7jUa4g
+found token ghp_AbC123XyZ987QrStUvWxYz45678901Ab in config
+AWS key AKIAIOSFODNN7EXAMPLE detected in environment
+git clone https://x-access-token:ghp_AbC123XyZ987QrStUvWxYz45678901Ab@github.com/kjanat/envctl.git
+Set-Cookie: session=Bt7kUz4RwN9xPc3MvY6eKh2GsD8fJa5q; Path=/
+Private-Token: glpat-Gd3hLp9XwT6zKq2N
+X-Api-Key: Wg5xJn9UtZ3yMq7PcV2eKh8FdR4kXb6L
+image digest sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08 pulled
+request finished trace=550e8400-e29b-41d4-a716-446655440000 status=200
+commit da39a3ee5e6b4b0d3255bfef95601890afd80709 deployed to staging
+bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c accepted
+
+%% stdout
+INFO connecting to <redacted:credentials>
+WARN retry with Authorization: Bearer <redacted>
+found token <redacted> in config
+AWS key <redacted> detected in environment
+git clone <redacted:credentials>
+Set-Cookie: <redacted>
+Private-Token: <redacted>
+X-Api-Key: <redacted>
+image digest sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08 pulled
+request finished trace=550e8400-e29b-41d4-a716-446655440000 status=200
+commit da39a3ee5e6b4b0d3255bfef95601890afd80709 deployed to staging
+bearer <redacted> accepted

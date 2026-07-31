@@ -1,0 +1,39 @@
+%% args
+redact
+--no-env
+
+%% stdin
+{"api_key":"Vq7mKt2XbN8pZc4RwY9eLh3DsF6gJu5A"}
+{"client_secret":"Tz5nWq8KvB3xMc7PdY2rLj9FhU4eSa6G"}
+{"access_token":"Hk9pTw3MzX6vBq2NcR8eYs5DfL7jUa4i","expires_in":3600}
+{"refresh_token":"Jm4rXt7QwZ2yKp9VcN5bLg8EhS3dFu6T"}
+{"session_token":"Pw6sYv9RtM3zXq7KbC2eNh8GdJ5fLa4u"}
+{"webhook_url":"https://hooks.example.com/T0AB12/deploy"}
+{"password":"changeme"}
+{"client_id":"1234567890-abcdefghijklmnop.apps.googleusercontent.com"}
+{"api_version":"2024-06-01"}
+{"BW_SESSION":"PZ7imp/3K1ZLKOefT2Cqb/tEeGYFXi0lQ8ZtGf9dQFatToUxJC1KGCyJXZW1FyBNRUlt43a5xhLKk4Cj+3P2jQ=="}
+export API_KEY="Zc8uWy2PvK5tXm9QbN4eRh7DsG3jFa6L"
+export DB_PASSWORD='pg-pass-2024'
+password: hunter2secret99
+api_key: Gd3hLp9XwT6zKq2Nb4Ye8RsV5tXm7Qc3
+SECRET_JWK={"kty":"oct","k":"FdR4kXb6LsA1iOmQ"}
+nested={"db":{"password":"nested-pw-99"}}
+
+%% stdout
+{"api_key":"<redacted>"}
+{"client_secret":"<redacted>"}
+{"access_token":"<redacted>","expires_in":3600}
+{"refresh_token":"<redacted>"}
+{"session_token":"<redacted>"}
+{"webhook_url":"<redacted>"}
+{"password":"changeme"}
+{"client_id":"1234567890-abcdefghijklmnop.apps.googleusercontent.com"}
+{"api_version":"2024-06-01"}
+{"BW_SESSION":"<redacted>"}
+export API_KEY="<redacted>"
+export DB_PASSWORD='<redacted>'
+password: <redacted>
+api_key: <redacted>
+SECRET_JWK=<redacted:private-key>
+nested={"db":{"password":"<redacted>"}}
