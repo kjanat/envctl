@@ -13,7 +13,7 @@ static const char *SHORT_USAGE =
     "  bare:     envctl [file] <KEY>          == get\n"
     "            envctl [file] <KEY> <VALUE>  == set\n"
     "  flags:    --values --all (list)  --env (get/list/redact)  --no-env (redact)\n"
-    "            --dry-run  --redact --raw\n"
+    "            --dry-run  --redact --raw --paranoid\n"
     "  version:  -v | -V | --version\n";
 
 static const char *AI_PREAMBLE =
@@ -58,18 +58,27 @@ static const char *LONG_USAGE =
     "              (redact takes a file, --env, or --no-env, never two of them)\n"
     "  --redact    mask secret-looking values on get / list --values / dry-run\n"
     "  --raw       never mask (overrides auto-redact and --redact; redact rejects it)\n"
-    "  -V, --version  print the version this binary was built from (also -v)\n"
+    "  --paranoid  apply the entropy bar to every value, whatever its key is named\n"
+    "              (implies --redact; rejects --raw)\n"
+    "  -V, --version  print the version this binary was built from (also -v)\n";
+
+/* C99 guarantees only 4095 bytes per string literal, so the long help is
+ * emitted in parts. */
+static const char *LONG_USAGE_REDACTION =
     "\n"
     "Redaction (presentation only; pipes and scripts stay raw so get stays composable):\n"
     "  mask as <redacted> / <redacted:private-key> / <redacted:credentials> when on.\n"
-    "  Signals: key-name segments (case-insensitive), PEM private keys, PuTTY keys,\n"
-    "  private JWKs, credentialed URLs, sensitive URL query parameters, Bearer and\n"
-    "  Basic values, connection-string password fragments, known token prefixes,\n"
-    "  JWTs, and Shannon entropy under a suspicious key name. Path-like key suffixes\n"
-    "  (*_FILE/*_PATH/*_NAME) and digest-like key names (*_SHA/*_HASH/*_COMMIT) mask\n"
-    "  only when the value itself looks secret; *_ID keys skip the entropy bar but\n"
-    "  still mask under a strong secret name. A multiline quoted or PEM value masks\n"
-    "  to one line and its continuation lines are never printed.\n"
+    "  Signals: key-name segments (case-insensitive; '_' and camelCase both split,\n"
+    "  so secretAccessKey reads as SECRET_ACCESS_KEY), PEM private keys, PuTTY keys,\n"
+    "  private JWKs, credentialed URLs (user:pass@, token@, scheme-relative, and Go\n"
+    "  tcp()/unix() DSNs), Slack and Discord webhook URLs, sensitive URL query\n"
+    "  parameters with or without a scheme, Bearer and Basic values, connection-string\n"
+    "  password fragments, known token prefixes, JWTs, and Shannon entropy under a\n"
+    "  suspicious key name. Path-like key suffixes (*_FILE/*_PATH/*_NAME) and\n"
+    "  digest-like key names (*_SHA/*_HASH/*_COMMIT) mask only when the value itself\n"
+    "  looks secret; *_ID keys skip the entropy bar but still mask under a strong\n"
+    "  secret name. A multiline quoted or PEM value masks to one line and its\n"
+    "  continuation lines are never printed.\n"
     "Default on when a coding agent is detected and stdout is a TTY; off when\n"
     "stdout is piped/redirected unless --redact. --raw always shows full secrets.\n"
     "\n"
@@ -77,7 +86,9 @@ static const char *LONG_USAGE =
     "  It always redacts and rejects --raw. Every maskable value in the env file is\n"
     "  matched literally, together with its base64, URL-encoded and JSON-escaped\n"
     "  forms; value-shape heuristics then run over the rest of the text. Entropy\n"
-    "  applies only where a key name is present. A PEM private key prints as one\n"
+    "  applies only where a key name is present, or everywhere under --paranoid.\n"
+    "  An assignment parses with or without spaces around its separator, so INI\n"
+    "  files such as .aws/credentials are covered. A PEM private key prints as one\n"
     "  <redacted:private-key> line and its body is dropped. With no END marker, 511\n"
     "  lines drop unconditionally, then only base64-shaped lines stay suppressed.\n"
     "  redact --env masks the process environment's literal values instead of a\n"
@@ -106,6 +117,7 @@ NORETURN void print_help(int longform) {
 		if (detect_agent())
 			fputs(AI_PREAMBLE, stdout);
 		fputs(LONG_USAGE, stdout);
+		fputs(LONG_USAGE_REDACTION, stdout);
 	}
 	stdout_flush_check();
 	exit(0);

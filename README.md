@@ -110,18 +110,20 @@ a key literally named `env` needs the explicit form `envctl get env`.
 
 ### Flags
 
-| Flag        | Applies to                    | Effect                                                  |
-| ----------- | ----------------------------- | ------------------------------------------------------- |
-| `--dry-run` | set, disable, enable, delete  | Print a unified diff to stdout; write nothing           |
-| `--values`  | list                          | Show values (secret-looking ones follow redact rules)   |
-| `--all`     | list                          | Include disabled (commented) keys, tagged `(disabled)`  |
-| `--env`     | get, list, redact             | Read the process environment instead of an env file     |
-| `--no-env`  | redact                        | Skip the env file's literal values, use heuristics only |
-| `--redact`  | get, list `--values`, dry-run | Force masking of secret-looking values                  |
-| `--raw`     | get, list `--values`, dry-run | Never mask (overrides auto-redact and `--redact`)       |
+| Flag         | Applies to                    | Effect                                                                                          |
+| ------------ | ----------------------------- | ----------------------------------------------------------------------------------------------- |
+| `--dry-run`  | set, disable, enable, delete  | Print a unified diff to stdout; write nothing                                                   |
+| `--values`   | list                          | Show values (secret-looking ones follow redact rules)                                           |
+| `--all`      | list                          | Include disabled (commented) keys, tagged `(disabled)`                                          |
+| `--env`      | get, list, redact             | Read the process environment instead of an env file                                             |
+| `--no-env`   | redact                        | Skip the env file's literal values, use heuristics only                                         |
+| `--redact`   | get, list `--values`, dry-run | Force masking of secret-looking values                                                          |
+| `--raw`      | get, list `--values`, dry-run | Never mask (overrides auto-redact and `--redact`)                                               |
+| `--paranoid` | all reading commands          | Apply the entropy bar whatever the key is called; path-like and digest-like values stay visible |
 
 `redact` and `env` reject `--raw` and exit non-zero. `redact` takes a file,
-`--env`, or `--no-env`, never two of them.
+`--env`, or `--no-env`, never two of them. `--paranoid` implies `--redact` and
+rejects `--raw`.
 
 Help: `-h` for short usage, `--help` (or no args) for long help.
 `-V`/`--version` prints the version baked into the build.
@@ -159,9 +161,14 @@ The positional names the env file supplying literal values, defaulting to
 `./.env` when it exists. Every maskable value in that file is matched literally,
 together with its base64, URL-encoded, and JSON-escaped forms. The value-shape
 heuristics then run over the rest of the text, and entropy applies only on lines
-that carry a key name. `--no-env` skips the env file; `--env` uses the process
-environment's values as the literal mask set instead of a file's. Filter mode
-always redacts, so agent detection and the TTY check do not apply.
+that carry a key name, or on every line under `--paranoid`. An assignment is
+recognised with or without spaces around its separator, so `.aws/credentials`
+and other INI files that write `key = value` are covered, and the key stays
+attached to its value either way: under `--paranoid` a spaced `GIT_COMMIT = …`
+keeps the same digest exemption its unspaced form gets. `--no-env` skips the env
+file; `--env` uses the process environment's values as the literal mask set
+instead of a file's. Filter mode always redacts, so agent detection and the TTY
+check do not apply.
 
 A PEM private key prints as one `<redacted:private-key>` line and its body lines
 are dropped. If the `-----END-----` marker never arrives, the first 511
@@ -214,27 +221,41 @@ detection follows [unjs/std-env] signals (plus `AI_AGENT`).
 
 **What counts as secret**
 
-- **Key names** (case-insensitive `_` segments): `PASSWORD` / `PASS` / `PWD`,
-  `SECRET`, `TOKEN`, `CREDENTIAL(S)`, `DSN`, credentialed `*_KEY` (e.g.
-  `API_KEY`, `PRIVATE_KEY`), `DATABASE_URL` / `DB_URL`, `WEBHOOK_URL`, …
-- **Not by name alone:** path-like suffixes `*_FILE`, `*_PATH`, `*_ENDPOINT`,
-  `*_NAME`, `*_VERSION`, `*_LENGTH`, `*_DIR`, `*_HOME` (webhook keys excepted),
-  and digest-like names `*_SHA`, `*_SHA256`, `*_HASH`, `*_DIGEST`, `*_CHECKSUM`,
-  `*_ETAG`, `*_COMMIT`. A path-like suffix drops the key to the entropy bar; a
-  digest-like name masks only on value shape
+- **Key names** (case-insensitive; `_` and camelCase both split into segments,
+  so `secretAccessKey` reads the same as `SECRET_ACCESS_KEY`): `PASSWORD` /
+  `PASS` / `PWD`, `SECRET`, `TOKEN`, `CREDENTIAL(S)`, `DSN`, `MNEMONIC`,
+  `SEED`+`PHRASE`, credentialed `*_KEY` (e.g. `API_KEY`, `PRIVATE_KEY`),
+  `DATABASE_URL` / `DB_URL`, `WEBHOOK_URL`, …
+- **Not by name alone:** path-like final segments `*_FILE`, `*_PATH`,
+  `*_ENDPOINT`, `*_NAME`, `*_VERSION`, `*_LENGTH`, `*_DIR`, `*_HOME` (webhook
+  keys excepted), and digest-like names `*_SHA`, `*_SHA256`, `*_HASH`,
+  `*_DIGEST`, `*_CHECKSUM`, `*_ETAG`, `*_COMMIT`. A path-like suffix drops the
+  key to the entropy bar; a digest-like name masks only on value shape
 - **Values:** PEM private keys, PuTTY private key files, private JWKs (JSON with
-  `kty` plus `d` or `k`), credentialed URLs (`scheme://user:pass@host`), URLs
-  carrying `token=`, `api_key=`, `access_token=`, `X-Amz-Signature=`, …,
-  `Authorization: Bearer` / `Basic` values, connection-string fragments
-  (`;Password=`, `;Pwd=`, `sslkey=`), known token prefixes (`ghp_`, `sk_live_`,
-  `AKIA`, `A3T…`, …), JWT compact form
+  `kty` plus `d` or `k`), credentialed URLs (`scheme://user:pass@host`,
+  `scheme://token@host`, scheme-relative `//user:pass@host`, and Go DSNs such as
+  `user:pass@tcp(host:port)/db`), Slack and Discord webhook URLs whose trailing
+  path segment is the credential, URLs carrying `token=`, `api_key=`,
+  `access_token=`, `X-Amz-Signature=`, … — including bare query strings with no
+  scheme, as Azure SAS tokens are passed around, `Authorization: Bearer` /
+  `Basic` values, connection-string fragments (`;Password=`, `;Pwd=`,
+  `sslkey=`), known token prefixes (`ghp_`, `sk_live_`, `AKIA`, `A3T…`,
+  `LS0tLS1` for a base64-wrapped PEM, …), JWT compact form
 - **Entropy:** under a key name containing `KEY`, `API`, `AUTH`, `ACCESS`,
-  `CRED`, `PASS`, `JWT`, `BEARER`, `OAUTH`, or `SESSION` (e.g. `BW_SESSION`),
-  a value clears the bar at 32+ hex
-  characters with H > 3.0, or 24+ base64 characters or 16+ opaque characters
-  with H > 3.5. UUIDs, paths, and URLs are exempt, and so is a `*_ID` key
-  (`SESSION_ID`, `OAUTH_CLIENT_ID`), which still masks under a strong secret
-  name such as `PASSWORD_ID` or `VAULT_SECRET_ID`
+  `CRED`, `PASS`, `JWT`, `BEARER`, `OAUTH`, `SESSION` (e.g. `BW_SESSION`), or
+  `COOKIE`, a value clears the bar at 32+ hex characters with H > 3.0, or 24+
+  base64 characters or 16+ opaque characters with H > 3.5. UUIDs, paths, and
+  URLs are exempt, and so is a `*_ID` key (`SESSION_ID`, `OAUTH_CLIENT_ID`),
+  which still masks under a strong secret name such as `PASSWORD_ID` or
+  `VAULT_SECRET_ID`. Two or more slashes read as a relative path, unless the
+  value is strict base64 — either `=`-padded, or unpadded with separator slashes
+  sparser than one in sixteen characters
+- **`--paranoid`:** applies the entropy bar to every value, whatever its key is
+  called, closing values like `RANDOM_THING=<44 random chars>`. Trivial values,
+  plain paths, and digest-like key names stay visible
+- **Not detected:** `.pgpass` lines (`host:port:db:user:password`). Five
+  colon-separated fields are too generic a shape to key on without masking
+  ordinary text, so mask those by key name or with `--paranoid`
 - **Quoting:** surrounding `"`, `'`, or `` ` `` is stripped before detection.
   Output keeps the original bytes
 - **Multiline:** a quoted or PEM value spanning several lines is one logical

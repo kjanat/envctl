@@ -10,7 +10,25 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Case-insensitive segment match: (^|_)seg(_|$). */
+/* Segment boundaries are '_' and the lower-to-upper transition of camelCase,
+ * so secretAccessKey and SECRET_ACCESS_KEY split the same way. */
+static int seg_break_before(const char *k, const char *p) {
+	if (p == k || p[-1] == '_')
+		return 1;
+	return isupper((unsigned char)p[0]) && !isupper((unsigned char)p[-1]);
+}
+
+static int seg_break_after(const char *p, size_t n) {
+	if (p[n] == '\0' || p[n] == '_')
+		return 1;
+	return isupper((unsigned char)p[n]) && !isupper((unsigned char)p[n - 1]);
+}
+
+static int paranoid;
+
+void redact_set_paranoid(int on) { paranoid = on; }
+
+/* Case-insensitive segment match: (^|_|camel)seg(_|camel|$). */
 static int has_segment_ci(const char *k, const char *seg) {
 	size_t n = strlen(seg);
 	if (!n)
@@ -24,12 +42,23 @@ static int has_segment_ci(const char *k, const char *seg) {
 		}
 		if (i != n)
 			continue;
-		int left = (p == k) || (p[-1] == '_');
-		int right = (p[n] == '\0') || (p[n] == '_');
-		if (left && right)
+		if (seg_break_before(k, p) && seg_break_after(p, n))
 			return 1;
 	}
 	return 0;
+}
+
+/* Trailing segment with something before it: the camelCase twin of "_SEG". */
+static int final_segment_ci(const char *k, const char *seg) {
+	size_t kn = strlen(k), n = strlen(seg);
+	if (!n || kn <= n)
+		return 0;
+	const char *p = k + kn - n;
+	for (size_t i = 0; i < n; i++) {
+		if (toupper((unsigned char)p[i]) != toupper((unsigned char)seg[i]))
+			return 0;
+	}
+	return seg_break_before(k, p);
 }
 
 static int ends_with_ci(const char *k, const char *suf) {
@@ -71,15 +100,17 @@ static int mem_prefix_ci(const char *h, size_t hn, const char *pfx) {
 }
 
 static int pathish_key_suffix(const char *k) {
-	return ends_with_ci(k, "_FILE") || ends_with_ci(k, "_PATH") || ends_with_ci(k, "_ENDPOINT") ||
-	       ends_with_ci(k, "_NAME") || ends_with_ci(k, "_VERSION") || ends_with_ci(k, "_LENGTH") ||
-	       ends_with_ci(k, "_DIR") || ends_with_ci(k, "_HOME");
+	return final_segment_ci(k, "FILE") || final_segment_ci(k, "PATH") ||
+	       final_segment_ci(k, "ENDPOINT") || final_segment_ci(k, "NAME") ||
+	       final_segment_ci(k, "VERSION") || final_segment_ci(k, "LENGTH") ||
+	       final_segment_ci(k, "DIR") || final_segment_ci(k, "HOME");
 }
 
-static int identifier_key_suffix(const char *k) { return ends_with_ci(k, "_ID"); }
+static int identifier_key_suffix(const char *k) { return final_segment_ci(k, "ID"); }
 
 static int webhook_key_name(const char *k) {
-	return has_segment_ci(k, "WEBHOOK") && !identifier_key_suffix(k) && !ends_with_ci(k, "_NAME");
+	return has_segment_ci(k, "WEBHOOK") && !identifier_key_suffix(k) &&
+	       !final_segment_ci(k, "NAME");
 }
 
 static int strong_secret_key_name(const char *k) {
@@ -90,11 +121,13 @@ static int strong_secret_key_name(const char *k) {
 	    has_segment_ci(k, "SECRET") || has_segment_ci(k, "TOKEN") ||
 	    has_segment_ci(k, "CREDENTIAL") || has_segment_ci(k, "CREDENTIALS") ||
 	    has_segment_ci(k, "DSN") || has_segment_ci(k, "KEYSTORE") || has_segment_ci(k, "PKCS12") ||
-	    has_segment_ci(k, "P12") || has_segment_ci(k, "PFX"))
+	    has_segment_ci(k, "P12") || has_segment_ci(k, "PFX") || has_segment_ci(k, "MNEMONIC"))
 		return 1;
 	if ((has_segment_ci(k, "DATABASE") || has_segment_ci(k, "DB")) && has_segment_ci(k, "URL"))
 		return 1;
 	if (has_segment_ci(k, "CONNECTION") && has_segment_ci(k, "STRING"))
+		return 1;
+	if (has_segment_ci(k, "SEED") && has_segment_ci(k, "PHRASE"))
 		return 1;
 	if (has_segment_ci(k, "KEY") &&
 	    (has_segment_ci(k, "API") || has_segment_ci(k, "ACCESS") || has_segment_ci(k, "SECRET") ||
@@ -114,7 +147,8 @@ static int suspicious_key_name(const char *k) {
 	return has_segment_ci(k, "KEY") || has_segment_ci(k, "API") || has_segment_ci(k, "AUTH") ||
 	       has_segment_ci(k, "BEARER") || has_segment_ci(k, "ACCESS") ||
 	       has_segment_ci(k, "CRED") || has_segment_ci(k, "PASS") || has_segment_ci(k, "JWT") ||
-	       has_segment_ci(k, "OAUTH") || has_segment_ci(k, "SESSION");
+	       has_segment_ci(k, "OAUTH") || has_segment_ci(k, "SESSION") ||
+	       has_segment_ci(k, "COOKIE");
 }
 
 static int digestish_key_name(const char *k) {
@@ -127,7 +161,7 @@ static int digestish_key_name(const char *k) {
 		size_t wn = strlen(words[i]);
 		if (kn < wn || !ends_with_ci(k, words[i]))
 			continue;
-		if (kn == wn || k[kn - wn - 1] == '_')
+		if (kn == wn || seg_break_before(k, k + kn - wn))
 			return 1;
 	}
 	return 0;
@@ -204,26 +238,46 @@ static int standalone_public_pem(const char *b, size_t bn) {
 	return 0;
 }
 
+/* Go's DSN grammar wraps the host in a protocol instead of a scheme:
+ * user:pass@tcp(host:port)/db. */
+static int go_dsn_host(const char *b, size_t bn, const char *at) {
+	size_t left = (size_t)(b + bn - (at + 1));
+	return mem_prefix(at + 1, left, "tcp(") || mem_prefix(at + 1, left, "unix(");
+}
+
 static int is_credentialed_url(const char *b, size_t bn) {
 	const char *scheme = mem_find(b, bn, "://");
-	if (!scheme)
-		return 0;
-	const char *userinfo = scheme + 3;
+	const char *userinfo;
+	int schemed = scheme != NULL, relative = 0;
+	if (schemed) {
+		userinfo = scheme + 3;
+	} else if (mem_prefix(b, bn, "//")) {
+		relative = 1;
+		userinfo = b + 2;
+	} else {
+		userinfo = b;
+	}
 	const char *end = b + bn;
 	const char *at = NULL;
+	int colon = 0;
 	for (const char *p = userinfo; p < end; p++) {
+		if (*p == '/')
+			break;
 		if (*p == '@') {
 			at = p;
 			break;
 		}
+		if (*p == ':')
+			colon = 1;
 	}
 	if (!at || at == userinfo)
 		return 0;
-	for (const char *p = userinfo; p < at; p++) {
-		if (*p == ':')
-			return 1;
-	}
-	return 0;
+	if (colon)
+		return schemed || relative || go_dsn_host(b, bn, at);
+	/* Token-as-username: git remotes print PAT-embedded URLs this way. A real
+	 * login name before '@' is short and rarely worth masking. */
+	size_t un = (size_t)(at - userinfo);
+	return schemed && un >= 8 && !is_trivial_value(userinfo, un);
 }
 
 static int is_plain_path(const char *b, size_t bn) {
@@ -273,7 +327,7 @@ static int known_token_prefix(const char *b, size_t bn) {
 	    "xoxb-",       "xoxp-",    "xoxa-",    "xoxr-",    "xoxs-",
 	    "npm_",        "pypi-",    "dop_v1_",  "whsec_",   "AGE-SECRET-KEY-1",
 	    "AKIA",        "ASIA",     "ABIA",     "ACCA",     "AIza",
-	    "SG.",         NULL,
+	    "SG.",         "LS0tLS1",  NULL,
 	};
 	for (int i = 0; pfx[i]; i++) {
 		if (mem_prefix(b, bn, pfx[i]))
@@ -344,32 +398,114 @@ static int authorization_value(const char *b, size_t bn, int explicit_key) {
 	return 0;
 }
 
-static int url_sensitive_param(const char *b, size_t bn) {
-	static const char *const names[] = {
-	    "token",
-	    "api_key",
-	    "apikey",
-	    "access_token",
-	    "refresh_token",
-	    "id_token",
-	    "signature",
-	    "sig",
-	    "key",
-	    "secret",
-	    "password",
-	    "x-amz-signature",
-	    "x-amz-credential",
-	    "x-amz-security-token",
-	    NULL,
+/* A byte that cannot appear inside a URL, so a URL may begin after it. */
+static int url_boundary_char(unsigned char c) {
+	return isspace(c) || strchr("\"'`<>,;()[]{}|\\=", c) != NULL;
+}
+
+/* The host must open the authority. A plain substring search let both
+ * not-hooks.slack.com and example.com/hooks.slack.com borrow the match, the
+ * second because a path segment is free to look exactly like a hostname. So
+ * the only bytes that may precede the host are the scheme's "://", a userinfo
+ * "@", or something no URL can contain. Notably not '/'. The trailing path in
+ * each pattern already anchors the right-hand side. */
+static const char *host_at_authority(const char *b, size_t bn, const char *host) {
+	size_t hn = strlen(host);
+	for (size_t i = 0; i + hn <= bn; i++) {
+		if (memcmp(b + i, host, hn) != 0)
+			continue;
+		if (i == 0 || b[i - 1] == '@' || url_boundary_char((unsigned char)b[i - 1]))
+			return b + i;
+		if (i >= 3 && memcmp(b + i - 3, "://", 3) == 0)
+			return b + i;
+	}
+	return NULL;
+}
+
+/* A webhook whose URL is itself the credential. The trailing secret segment
+ * must be present, so a bare host stays visible. */
+static int is_webhook_url_shape(const char *b, size_t bn) {
+	static const char *const hosts[] = {
+	    "hooks.slack.com/services/", "hooks.slack.com/workflows/",   "hooks.slack.com/triggers/",
+	    "discord.com/api/webhooks/", "discordapp.com/api/webhooks/", NULL,
 	};
-	if (!mem_find(b, bn, "://"))
-		return 0;
+	for (int i = 0; hosts[i]; i++) {
+		const char *p = host_at_authority(b, bn, hosts[i]);
+		if (!p)
+			continue;
+		const char *tail = p + strlen(hosts[i]);
+		const char *end = tail;
+		while (end < b + bn && *end != '?' && *end != '#')
+			end++;
+		const char *last = NULL;
+		for (const char *q = tail; q < end; q++) {
+			if (*q == '/')
+				last = q;
+		}
+		if (last && last != tail && (size_t)(end - last - 1) >= 8)
+			return 1;
+	}
+	return 0;
+}
+
+/* Query pairs with no scheme and no '?' to anchor on; Azure SAS tokens are
+ * handed around in this form. */
+static int query_string_shape(const char *b, size_t bn) {
+	size_t i = 0;
+	int pairs = 0;
+	while (i < bn) {
+		size_t ns = i;
+		while (i < bn && b[i] != '=' && b[i] != '&' && b[i] != ';')
+			i++;
+		if (i == bn || b[i] != '=' || i == ns)
+			return 0;
+		for (size_t j = ns; j < i; j++) {
+			unsigned char c = (unsigned char)b[j];
+			if (!isalnum(c) && c != '_' && c != '-' && c != '.')
+				return 0;
+		}
+		while (i < bn && b[i] != '&' && b[i] != ';')
+			i++;
+		pairs++;
+		if (i < bn)
+			i++;
+	}
+	return pairs > 0;
+}
+
+static int url_sensitive_param(const char *b, size_t bn) {
+	static const struct {
+		const char *name;
+		int bare; /* matchable with no scheme to anchor on */
+	} names[] = {
+	    {"token", 1},
+	    {"api_key", 1},
+	    {"apikey", 1},
+	    {"access_token", 1},
+	    {"refresh_token", 1},
+	    {"id_token", 1},
+	    {"signature", 1},
+	    {"sig", 1},
+	    {"key", 0},
+	    {"secret", 1},
+	    {"password", 1},
+	    {"x-amz-signature", 1},
+	    {"x-amz-credential", 1},
+	    {"x-amz-security-token", 1},
+	    {NULL, 0},
+	};
+	int schemed = mem_find(b, bn, "://") != NULL;
 	size_t start = 0;
-	while (start < bn && b[start] != '?')
+	if (schemed) {
+		while (start < bn && b[start] != '?')
+			start++;
+		if (start == bn)
+			return 0;
 		start++;
-	if (start == bn)
+	} else if (!query_string_shape(b, bn)) {
 		return 0;
-	for (start++; start < bn;) {
+	}
+	while (start < bn) {
 		size_t end = start;
 		while (end < bn && b[end] != '&' && b[end] != ';')
 			end++;
@@ -378,8 +514,10 @@ static int url_sensitive_param(const char *b, size_t bn) {
 			eq++;
 		if (eq < end) {
 			size_t nn = eq - start, vn = end - eq - 1;
-			for (int i = 0; names[i]; i++) {
-				if (strlen(names[i]) != nn || !mem_prefix_ci(b + start, nn, names[i]))
+			for (int i = 0; names[i].name; i++) {
+				if (!schemed && !names[i].bare)
+					continue;
+				if (strlen(names[i].name) != nn || !mem_prefix_ci(b + start, nn, names[i].name))
 					continue;
 				if (vn >= 8 && !is_trivial_value(b + eq + 1, vn))
 					return 1;
@@ -443,6 +581,24 @@ static int strict_b64_padded(const char *b, size_t bn) {
 	return 1;
 }
 
+/* Unpadded standard base64. Length must be one base64 can emit, and separator
+ * slashes must be too sparse to be a path: they fall at 1-in-64 by chance
+ * here, against roughly 1-in-7 in a directory path. Adjacent slashes cannot
+ * be separators, so a run counts for nothing. */
+static int strict_b64_unpadded(const char *b, size_t bn) {
+	if (bn < 24 || bn % 4 == 1)
+		return 0;
+	size_t seps = 0;
+	for (size_t i = 0; i < bn; i++) {
+		unsigned char c = (unsigned char)b[i];
+		if (!isalnum(c) && c != '+' && c != '/')
+			return 0;
+		if (c == '/' && (i == 0 || b[i - 1] != '/') && (i + 1 == bn || b[i + 1] != '/'))
+			seps++;
+	}
+	return seps * 16 <= bn;
+}
+
 static int entropy_secret(const char *b, size_t bn) {
 	if (bn < 16)
 		return 0;
@@ -462,8 +618,8 @@ static int entropy_secret(const char *b, size_t bn) {
 		if (!isprint(c) || c == ':')
 			tok = 0;
 	}
-	/* Slashes read as a relative path unless base64 padding says encoded data. */
-	if (slashes >= 2 && !strict_b64_padded(b, bn))
+	/* Slashes read as a relative path unless the value is strict base64. */
+	if (slashes >= 2 && !strict_b64_padded(b, bn) && !strict_b64_unpadded(b, bn))
 		return 0;
 	uint32_t h = shannon_q16(b, bn);
 	if (hex)
@@ -544,7 +700,7 @@ static int should_mask_body(const char *key, const char *b, size_t bn, int deep)
 		return 1;
 	if (is_credentialed_url(b, bn))
 		return 1;
-	if (url_sensitive_param(b, bn))
+	if (url_sensitive_param(b, bn) || is_webhook_url_shape(b, bn))
 		return 1;
 	int authz_key = strlen(key) == strlen("Authorization") && ends_with_ci(key, "Authorization");
 	if (authorization_value(b, bn, authz_key))
@@ -561,7 +717,7 @@ static int should_mask_body(const char *key, const char *b, size_t bn, int deep)
 		return 0;
 	if (deep && (assigned_secret(b, bn) || embedded_secret_token(b, bn)))
 		return 1;
-	if (!suspicious_key_name(key))
+	if (!suspicious_key_name(key) && !paranoid)
 		return 0;
 	return entropy_secret(b, bn);
 }
@@ -577,7 +733,8 @@ int should_mask(const char *key, const char *val) {
 const char *redact_token_n(const char *b, size_t bn) {
 	if (private_key_material(b, bn))
 		return "<redacted:private-key>";
-	if (is_credentialed_url(b, bn) || url_sensitive_param(b, bn) || conn_string_secret(b, bn))
+	if (is_credentialed_url(b, bn) || url_sensitive_param(b, bn) || conn_string_secret(b, bn) ||
+	    is_webhook_url_shape(b, bn))
 		return "<redacted:credentials>";
 	return "<redacted>";
 }
@@ -635,12 +792,31 @@ int literal_maskable(const char *key, const char *val) {
 	return should_mask(key, val);
 }
 
-int should_mask_token(const char *s, size_t n) {
+/* A KEY=VALUE token was already judged with its key in hand, so the keyless
+ * floor must not overrule the digest and path guards that spared it. */
+static int assignment_shaped(const char *b, size_t bn) {
+	char *key = NULL;
+	assign_split(b, bn, &key);
+	int shaped = key != NULL;
+	free(key);
+	return shaped;
+}
+
+/* Shape alone, with no keyless entropy floor. A caller that already asked a
+ * key about this value uses this, so paranoia cannot overrule the answer. */
+static int token_shape_secret(const char *s, size_t n) {
 	if (n < TOKEN_MIN)
 		return 0;
 	return private_key_material(s, n) || known_token_prefix(s, n) || aws_access_key_shape(s, n) ||
 	       is_credentialed_url(s, n) || url_sensitive_param(s, n) || authorization_value(s, n, 0) ||
-	       conn_string_secret(s, n) || is_jwt_shape(s, n);
+	       conn_string_secret(s, n) || is_jwt_shape(s, n) || is_webhook_url_shape(s, n);
+}
+
+int should_mask_token(const char *s, size_t n) {
+	if (n < TOKEN_MIN)
+		return 0;
+	return token_shape_secret(s, n) ||
+	       (paranoid && !assignment_shaped(s, n) && entropy_secret(s, n));
 }
 
 int want_redact(int flag_redact, int flag_raw) {
@@ -821,6 +997,12 @@ static int mask_assignment(const char *in, size_t inlen, char **out, size_t *out
 		i++;
 	}
 
+	size_t gap = i;
+	while (gap < inlen && (in[gap] == ' ' || in[gap] == '\t'))
+		gap++;
+	if (gap < inlen && in[gap] == '=')
+		i = gap;
+
 	if (i >= inlen)
 		return 0;
 	if (in[i] == '=') {
@@ -925,6 +1107,16 @@ static char *key_run(const char *s, size_t n) {
 		k[i] = s[i] == '-' ? '_' : s[i];
 	k[n] = '\0';
 	return k;
+}
+
+/* Whitespace then a lone '=', the separator mask_assignment already accepts. */
+static int spaced_eq_follows(const char *in, size_t inlen, size_t from) {
+	size_t i = from;
+	while (i < inlen && (in[i] == ' ' || in[i] == '\t'))
+		i++;
+	if (i == from || i >= inlen || in[i] != '=')
+		return 0;
+	return i + 1 >= inlen || in[i + 1] != '=';
 }
 
 static int keyed_mask(const char *key, const char *v, size_t vn) {
@@ -1139,7 +1331,8 @@ static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap
 		const char *kn = key ? key : pend;
 		int bare = key && te == ms;
 
-		int hit = kn && te > ms && keyed_mask(kn, in + ms, te - ms);
+		int keyed = kn && te > ms;
+		int hit = keyed && keyed_mask(kn, in + ms, te - ms);
 		/* A parsed assignment whose value is a placeholder word stays plain
 		 * prose: without this, PASSWORD=changeme re-enters the shape
 		 * detectors as one token and conn_string_secret masks it. Word
@@ -1147,8 +1340,13 @@ static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap
 		int trivial_kv = key && te > ms && is_trivial_word(in + ms, te - ms);
 		if (!hit && !trivial_kv) {
 			ms = s;
-			hit = te > s && (should_mask_token(in + s, te - s) ||
-			                 (scheme && authz_run(in + s, te - s, scheme)));
+			/* A key that has already declined this value settles it. Falling
+			 * through to the keyless floor would let --paranoid mask a value
+			 * that GIT_COMMIT or SSH_AUTH_SOCK had just spared. */
+			hit =
+			    te > s &&
+			    ((keyed ? token_shape_secret(in + s, te - s) : should_mask_token(in + s, te - s)) ||
+			     (scheme && authz_run(in + s, te - s, scheme)));
 		}
 		if (!hit && !key && te > s) {
 			char *tail;
@@ -1174,14 +1372,22 @@ static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap
 		int bearer = eq_ci_n(in + s, te - s, "Bearer");
 		int basic = eq_ci_n(in + s, te - s, "Basic");
 		scheme = !hit && (bearer || basic) ? (authz_ctx ? (basic ? 4 : 8) : 20) : 0;
-		free(pend);
-		pend = NULL;
+		char *next_pend = NULL;
 		if (!hit && bare) {
-			pend = key;
+			next_pend = key;
 			key = NULL;
 		} else if (!hit && !key && e == te + 1 && in[te] == ':') {
-			pend = key_run(in + s, te - s);
+			next_pend = key_run(in + s, te - s);
+		} else if (!hit && !key && spaced_eq_follows(in, inlen, e)) {
+			/* KEY = VALUE splits into three tokens, so the key has to outlive
+			 * the separator to reach the value it belongs to. */
+			next_pend = key_run(in + s, te - s);
+		} else if (!hit && te - s == 1 && in[s] == '=' && pend) {
+			next_pend = pend;
+			pend = NULL;
 		}
+		free(pend);
+		pend = next_pend;
 		free(key);
 	}
 

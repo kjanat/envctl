@@ -1,0 +1,41 @@
+%% args
+redact
+--no-env
+
+%% stdin
+{"accessKeyId": "ASIATCIYRXSX3TWXU7LB", "secretAccessKey": "f6cALqAR7TDmM8SLAUctlQIfK8Rp+z1q1Q78X8ZP"}
+{"sessionToken": "IQoJb3JpZ2luX2IQoJb3JpZ2luX2IQoJb3JpZ2luX2IQoJb3JpZ2luX2IQoJb3JpZVERYLONG"}
+apiKey=f6cALqAR7TDmM8SLAUctlQIfK8Rp+z1q1Q78X8ZP
+clientSecret=f6cALqAR7TDmM8SLAUctlQIfK8Rp+z1q1Q78X8ZP
+walletMnemonic=witch collapse practice feed shame open despair creek road again ice least
+keyName=primary
+configPath=/etc/app/conf.d
+certFile=server.pem
+userId=8f3a2b1c9d4e
+sessionId=abcdef0123456789abcdef0123456789
+commitSha=9c7e252a1b3d4f5e6a7b8c9d0e1f2a3b4c5d6e7f
+gitCommit=e7a90a7ddfc7868bf90ab8be8965f236e09f2cae
+apiVersion=2024-01-01
+keyLength=4096
+homeDir=/home/kjanat
+keyboardLayout=us-intl
+monkeyPatch=enabled
+
+%% stdout
+{"accessKeyId": "<redacted>", "secretAccessKey": "<redacted>"}
+{"sessionToken": "<redacted>"}
+apiKey=<redacted>
+clientSecret=<redacted>
+walletMnemonic=<redacted>
+keyName=primary
+configPath=/etc/app/conf.d
+certFile=server.pem
+userId=8f3a2b1c9d4e
+sessionId=abcdef0123456789abcdef0123456789
+commitSha=9c7e252a1b3d4f5e6a7b8c9d0e1f2a3b4c5d6e7f
+gitCommit=e7a90a7ddfc7868bf90ab8be8965f236e09f2cae
+apiVersion=2024-01-01
+keyLength=4096
+homeDir=/home/kjanat
+keyboardLayout=us-intl
+monkeyPatch=enabled
