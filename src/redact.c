@@ -427,12 +427,13 @@ static int entropy_secret(const char *b, size_t bn) {
 	if (is_uuid_shape(b, bn) || is_plain_path(b, bn) || mem_find(b, bn, "://"))
 		return 0;
 	int hex = 1, b64 = 1, tok = 1, slashes = 0;
+	int padded = b[bn - 1] == '=';
 	for (size_t i = 0; i < bn; i++) {
 		unsigned char c = (unsigned char)b[i];
 		if (isspace(c))
 			return 0;
-		if (c == '/' && ++slashes >= 2)
-			return 0;
+		if (c == '/')
+			slashes++;
 		if (!isxdigit(c))
 			hex = 0;
 		if (!is_authz_char(c))
@@ -440,6 +441,9 @@ static int entropy_secret(const char *b, size_t bn) {
 		if (!isprint(c) || c == ':')
 			tok = 0;
 	}
+	/* Slashes read as a relative path unless base64 padding says encoded data. */
+	if (slashes >= 2 && !(b64 && padded))
+		return 0;
 	uint32_t h = shannon_q16(b, bn);
 	if (hex)
 		return bn >= 32 && h > 196608u;
