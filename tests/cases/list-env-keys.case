@@ -1,0 +1,13 @@
+%% args
+list
+--env
+
+%% mode
+posix-env
+
+%% setenv
+FOO=one
+
+%% stdout
+PATH
+FOO

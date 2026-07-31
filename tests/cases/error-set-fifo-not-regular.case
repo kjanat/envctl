@@ -1,0 +1,16 @@
+%% args
+set
+{FIFO}
+FOO
+two
+
+%% fifo-file
+env/basic.env
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: not a regular file: fifo

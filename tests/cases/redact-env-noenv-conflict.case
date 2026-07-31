@@ -1,0 +1,12 @@
+%% args
+redact
+--env
+--no-env
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: redact takes --env or --no-env, never both

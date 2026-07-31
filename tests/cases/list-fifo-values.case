@@ -1,0 +1,12 @@
+%% args
+list
+{FIFO}
+--values
+
+%% fifo-file
+env/basic.env
+
+%% stdout
+FOO=one
+API_TOKEN=abcdefghij
+PASSWORD=short

@@ -1,0 +1,9 @@
+%% args
+get
+--env
+NO_SUCH_VAR
+
+%% exit
+1
+
+%% stdout

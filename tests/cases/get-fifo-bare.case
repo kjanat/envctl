@@ -1,0 +1,9 @@
+%% args
+{FIFO}
+FOO
+
+%% fifo-file
+env/basic.env
+
+%% stdout
+one

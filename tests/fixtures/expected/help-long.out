@@ -8,10 +8,14 @@ Commands:
   envctl delete  [file] <KEY>           remove KEY entirely (active + commented) [rm]
   envctl list    [file] [--values] [--all]  active keys; --values shows values;
                                         --all also lists disabled keys           [ls]
-  envctl redact  [file]                 filter stdin to stdout, masking secrets
+  envctl redact  [file | --env | --no-env]  filter stdin to stdout, masking secrets
+  envctl env                            print process environment, always redacted
 
 File: optional when ./.env exists as a regular file. If the first positional is
-an existing regular file, it is used; otherwise .env is assumed when present.
+an existing path, it is used; otherwise .env is assumed when present. Read
+commands (get, list, redact's env file) accept any openable path, including
+FIFOs from process substitution and /dev/fd/N; set/disable/enable/delete
+require a regular file.
 
 Bare form (no command word):
   envctl [file] <KEY>            == get
@@ -21,8 +25,10 @@ Flags:
   --dry-run   mutating command: print a unified diff, write nothing
   --values    list: show values (secret-looking ones follow redact rules)
   --all       list: include disabled keys tagged (disabled)
+  --env       get/list/redact: use the process environment instead of a file
+              (get --env KEY, list --env, redact --env; rejected elsewhere)
   --no-env    redact: skip the env file's literal values, use heuristics only
-              (redact takes a file or --no-env, never both)
+              (redact takes a file, --env, or --no-env, never two of them)
   --redact    mask secret-looking values on get / list --values / dry-run
   --raw       never mask (overrides auto-redact and --redact; redact rejects it)
   -V, --version  print the version this binary was built from (also -v)
@@ -47,6 +53,9 @@ Filter mode: envctl redact reads stdin and writes stdout with secrets masked.
   applies only where a key name is present. A PEM private key prints as one
   <redacted:private-key> line and its body is dropped. With no END marker, 511
   lines drop unconditionally, then only base64-shaped lines stay suppressed.
+  redact --env masks the process environment's literal values instead of a
+  file's; envctl env prints the environment itself with the same always-on
+  redaction.
 
 Guarantees: only the target key's logical assignment changes (a multiline value
 moves with its continuation lines); re-running with the same args is a no-op;
