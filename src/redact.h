@@ -5,6 +5,7 @@
 
 /* Presentation hygiene: agent + TTY auto-redact; pipes stay raw. */
 int want_redact(int flag_redact, int flag_raw);
+void redact_set_paranoid(int on);
 const char *value_body(const char *raw, size_t *len);
 int should_mask(const char *key, const char *val);
 const char *redact_token(const char *key, const char *val);

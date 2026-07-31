@@ -1,0 +1,29 @@
+%% args
+redact
+--no-env
+
+%% stdin
+[default]
+aws_access_key_id=ASIAIOSFODNN7EXAMPLE
+aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+aws_session_token = IQoJb3JpZ2luX2IQoJb3JpZ2luX2IQoJb3JpZ2luX2IQoJb3JpZ2luX2IQoJb3JpZVERYLONG
+region = us-west-2
+output = json
+password	=	s3cr3tPass99xyz
+status = H5Pset_fapl_ros3_token(fapl_id, sessionToken)
+timeout = 30
+retries = 3
+enabled = true
+
+%% stdout
+[default]
+aws_access_key_id=<redacted>
+aws_secret_access_key = <redacted>
+aws_session_token = <redacted>
+region = us-west-2
+output = json
+password	=	<redacted>
+status = H5Pset_fapl_ros3_token(fapl_id, sessionToken)
+timeout = 30
+retries = 3
+enabled = true

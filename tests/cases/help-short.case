@@ -9,5 +9,5 @@ usage: envctl <cmd> [file] [args...]
   bare:     envctl [file] <KEY>          == get
             envctl [file] <KEY> <VALUE>  == set
   flags:    --values --all (list)  --env (get/list/redact)  --no-env (redact)
-            --dry-run  --redact --raw
+            --dry-run  --redact --raw --paranoid
   version:  -v | -V | --version

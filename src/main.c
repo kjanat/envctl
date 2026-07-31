@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
 	_setmode(_fileno(stderr), _O_BINARY);
 #endif
 	int dry = 0, values = 0, all = 0, flag_redact = 0, flag_raw = 0, no_env = 0, use_env = 0,
-	    np = 0;
+	    paranoid = 0, np = 0;
 	int options = 1;
 	const char *pos[16];
 
@@ -117,6 +117,8 @@ int main(int argc, char **argv) {
 			flag_redact = 1;
 		else if (options && !strcmp(a, "--raw"))
 			flag_raw = 1;
+		else if (options && !strcmp(a, "--paranoid"))
+			paranoid = 1;
 		else if (options && !strcmp(a, "--env"))
 			use_env = 1;
 		else if (options && !strcmp(a, "--no-env"))
@@ -135,6 +137,13 @@ int main(int argc, char **argv) {
 
 	if (np == 0)
 		print_help(1);
+
+	if (paranoid) {
+		if (flag_raw)
+			die("--paranoid cannot be --raw");
+		redact_set_paranoid(1);
+		flag_redact = 1;
+	}
 
 	const char *cmd = NULL;
 	const char *file = NULL;

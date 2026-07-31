@@ -1,0 +1,27 @@
+%% args
+redact
+--no-env
+
+%% stdin
+GRAFANA_HOOK_URL=https://hooks.slack.com/services/T00000000000/B00000000000/xxxxxxxxxxxxxxxxxxxxxxxx
+ALERT_TARGET=https://discord.com/api/webhooks/123456789012345678/aBcDeFgHiJkLmNoPqRs
+LEGACY_TARGET=https://discordapp.com/api/webhooks/123456789012345678/aBcDeFgHiJkLmNoPqRs
+AZURE_SAS=sv=2024-01-01&ss=b&srt=sco&sp=rwdlac&sig=Kx9dPzR2vWq8LmN4tYb7JcH3fGe5AuZ1QwSxVdErTy
+UPLOAD_QUERY=x-amz-credential=AKIAIOSFODNN7EXAMPLE&x-amz-signature=Kx9dPzR2vWq8LmN4tYb7JcH3fGe5
+PUBLIC_HOOK=https://hooks.slack.com/services/
+HOOK_HOST=https://hooks.slack.com/services/T00000000000
+SORT_ORDER=key=created_at&dir=desc
+PAGE_QUERY=page=2&limit=50&order=asc
+SIG_EMPTY=sig=&other=1
+
+%% stdout
+GRAFANA_HOOK_URL=<redacted:credentials>
+ALERT_TARGET=<redacted:credentials>
+LEGACY_TARGET=<redacted:credentials>
+AZURE_SAS=<redacted:credentials>
+UPLOAD_QUERY=<redacted:credentials>
+PUBLIC_HOOK=https://hooks.slack.com/services/
+HOOK_HOST=https://hooks.slack.com/services/T00000000000
+SORT_ORDER=key=created_at&dir=desc
+PAGE_QUERY=page=2&limit=50&order=asc
+SIG_EMPTY=sig=&other=1

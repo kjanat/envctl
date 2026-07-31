@@ -38,18 +38,23 @@ Flags:
               (redact takes a file, --env, or --no-env, never two of them)
   --redact    mask secret-looking values on get / list --values / dry-run
   --raw       never mask (overrides auto-redact and --redact; redact rejects it)
+  --paranoid  apply the entropy bar to every value, whatever its key is named
+              (implies --redact; rejects --raw)
   -V, --version  print the version this binary was built from (also -v)
 
 Redaction (presentation only; pipes and scripts stay raw so get stays composable):
   mask as <redacted> / <redacted:private-key> / <redacted:credentials> when on.
-  Signals: key-name segments (case-insensitive), PEM private keys, PuTTY keys,
-  private JWKs, credentialed URLs, sensitive URL query parameters, Bearer and
-  Basic values, connection-string password fragments, known token prefixes,
-  JWTs, and Shannon entropy under a suspicious key name. Path-like key suffixes
-  (*_FILE/*_PATH/*_NAME) and digest-like key names (*_SHA/*_HASH/*_COMMIT) mask
-  only when the value itself looks secret; *_ID keys skip the entropy bar but
-  still mask under a strong secret name. A multiline quoted or PEM value masks
-  to one line and its continuation lines are never printed.
+  Signals: key-name segments (case-insensitive; '_' and camelCase both split,
+  so secretAccessKey reads as SECRET_ACCESS_KEY), PEM private keys, PuTTY keys,
+  private JWKs, credentialed URLs (user:pass@, token@, scheme-relative, and Go
+  tcp()/unix() DSNs), Slack and Discord webhook URLs, sensitive URL query
+  parameters with or without a scheme, Bearer and Basic values, connection-string
+  password fragments, known token prefixes, JWTs, and Shannon entropy under a
+  suspicious key name. Path-like key suffixes (*_FILE/*_PATH/*_NAME) and
+  digest-like key names (*_SHA/*_HASH/*_COMMIT) mask only when the value itself
+  looks secret; *_ID keys skip the entropy bar but still mask under a strong
+  secret name. A multiline quoted or PEM value masks to one line and its
+  continuation lines are never printed.
 Default on when a coding agent is detected and stdout is a TTY; off when
 stdout is piped/redirected unless --redact. --raw always shows full secrets.
 
@@ -57,7 +62,9 @@ Filter mode: envctl redact reads stdin and writes stdout with secrets masked.
   It always redacts and rejects --raw. Every maskable value in the env file is
   matched literally, together with its base64, URL-encoded and JSON-escaped
   forms; value-shape heuristics then run over the rest of the text. Entropy
-  applies only where a key name is present. A PEM private key prints as one
+  applies only where a key name is present, or everywhere under --paranoid.
+  An assignment parses with or without spaces around its separator, so INI
+  files such as .aws/credentials are covered. A PEM private key prints as one
   <redacted:private-key> line and its body is dropped. With no END marker, 511
   lines drop unconditionally, then only base64-shaped lines stay suppressed.
   redact --env masks the process environment's literal values instead of a

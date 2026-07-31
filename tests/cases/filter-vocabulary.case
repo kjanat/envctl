@@ -1,0 +1,23 @@
+%% args
+redact
+--no-env
+
+%% stdin
+COOKIE=s%3AKx9dPzR2vWq8LmN4tYb7JcH3fGe5AuZ1QwSxVdEr
+SESSION_COOKIE=Kx9dPzR2vWq8LmN4tYb7JcH3fGe5AuZ1QwSxVdEr
+WALLET_MNEMONIC=witch collapse practice feed shame open despair creek road again ice least
+BACKUP_SEED_PHRASE=witch collapse practice feed shame open despair creek road again ice least
+COOKIE_NAME=session
+COOKIE_DOMAIN=example.com
+COOKIE_MAX_AGE=3600
+MNEMONIC_FILE=/etc/wallet/seed.txt
+
+%% stdout
+COOKIE=<redacted>
+SESSION_COOKIE=<redacted>
+WALLET_MNEMONIC=<redacted>
+BACKUP_SEED_PHRASE=<redacted>
+COOKIE_NAME=session
+COOKIE_DOMAIN=example.com
+COOKIE_MAX_AGE=3600
+MNEMONIC_FILE=/etc/wallet/seed.txt
