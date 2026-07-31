@@ -1,0 +1,19 @@
+%% args
+redact
+--no-env
+
+%% stdin
+OAUTH_CACHE=FakeQm5uVr8SwX3zLt7YcN2eJh9GdP4i
+BEARER_CACHE=FakeZk4wQn8RtY2vLp6XcB9dMh3FgU7j
+JWT_BLOB=DummyVf6yHm2QwT9zKr4NcX8bLp3DsG7
+CRED_STORE=TestWg5xJn9UtZ3yMq7PcV2eKh8FdR4k
+OAUTH_CLIENT_ID=1234567890-abcdefghijklmnop.apps.googleusercontent.com
+OAUTH_PROVIDER=github
+
+%% stdout
+OAUTH_CACHE=<redacted>
+BEARER_CACHE=<redacted>
+JWT_BLOB=<redacted>
+CRED_STORE=<redacted>
+OAUTH_CLIENT_ID=1234567890-abcdefghijklmnop.apps.googleusercontent.com
+OAUTH_PROVIDER=github
