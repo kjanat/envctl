@@ -1,0 +1,57 @@
+%% args
+redact
+--no-env
+
+%% stdin
+PROXY_URL=http://alice:hunter22@proxy.internal:8080
+REDIS_URI=redis://:p4ssw0rd99@redis.internal:6379/0
+MONGO_SRV=mongodb+srv://app:t0psecret@cluster0.mongodb.net/db
+SIGNED_GET=https://bucket.s3.amazonaws.com/f.txt?X-Amz-Signature=9f86d081884c7d65
+CALLBACK=https://api.example.com/cb?access_token=Gd3hLp9XwT6zKq2N
+SIGNED_URL=https://files.example.com/dl?sig=Zc8uWy2PvK5tXm9Q
+OIDC_CB=https://app.example.com/cb?id_token=eyJhbGciOiJIUzI1NiJ9abcdef
+HDR_VALUE=Authorization: Bearer Vf6yHm2QwT9zKr4NcX8bLp3DsG7jEu5A
+PLAIN_ASSET=https://cdn.example.com/app.js?version=20240601build
+AUTHZ_HEADER=Bearer 8f3kZpQ92LmXcV7t
+AUTHORIZATION=Basic dXNlcjpwYXNz
+ADO_CONN=Server=db;Password=p4ss;Encrypt=true
+LIBPQ_KV=password=verysecret host=db
+AZURE_BLOB=DefaultEndpointsProtocol=https;AccountName=acct;AccountKey=Zc8uWy2PvK5tXm9QbN4eRh7DsG3jFa6L
+JWK_PRIVATE={"kty":"EC","crv":"P-256","d":"Nf5jSx8TwP2mZq6V","x":"aa"}
+JWK_PUBLIC={"kty":"EC","crv":"P-256","x":"aa","y":"bb"}
+INLINE_PK=-----BEGIN PRIVATE KEY-----MIIEvQIBADANBg-----END PRIVATE KEY-----
+TLS_CA=-----BEGIN CERTIFICATE-----MIIBszCCAVmgAw-----END CERTIFICATE-----
+SSH_AUTH_SOCK=/run/user/1000/keyring/ssh
+GIT_COMMIT=da39a3ee5e6b4b0d3255bfef95601890afd80709
+BUILD_SHA256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+RELEASE_ETAG=686897696a7c876b7e
+TRACE_ID=550e8400-e29b-41d4-a716-446655440000
+BW_SESSION=PZ7imp/3K1ZLKOefT2Cqb/tEeGYFXi0lQ8ZtGf9dQFatToUxJC1KGCyJXZW1FyBNRUlt43a5xhLKk4Cj+3P2jQ==
+SESSION_MODULE=lib/session_v2/loader.so=
+
+%% stdout
+PROXY_URL=<redacted:credentials>
+REDIS_URI=<redacted:credentials>
+MONGO_SRV=<redacted:credentials>
+SIGNED_GET=<redacted:credentials>
+CALLBACK=<redacted:credentials>
+SIGNED_URL=<redacted:credentials>
+OIDC_CB=<redacted:credentials>
+HDR_VALUE=<redacted>
+PLAIN_ASSET=https://cdn.example.com/app.js?version=20240601build
+AUTHZ_HEADER=<redacted>
+AUTHORIZATION=<redacted>
+ADO_CONN=<redacted:credentials>
+LIBPQ_KV=<redacted:credentials>
+AZURE_BLOB=<redacted:credentials>
+JWK_PRIVATE=<redacted:private-key>
+JWK_PUBLIC={"kty":"EC","crv":"P-256","x":"aa","y":"bb"}
+INLINE_PK=<redacted:private-key>
+TLS_CA=-----BEGIN CERTIFICATE-----MIIBszCCAVmgAw-----END CERTIFICATE-----
+SSH_AUTH_SOCK=/run/user/1000/keyring/ssh
+GIT_COMMIT=da39a3ee5e6b4b0d3255bfef95601890afd80709
+BUILD_SHA256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+RELEASE_ETAG=686897696a7c876b7e
+TRACE_ID=550e8400-e29b-41d4-a716-446655440000
+BW_SESSION=<redacted>
+SESSION_MODULE=lib/session_v2/loader.so=

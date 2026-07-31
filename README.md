@@ -229,7 +229,8 @@ detection follows [unjs/std-env] signals (plus `AI_AGENT`).
   (`;Password=`, `;Pwd=`, `sslkey=`), known token prefixes (`ghp_`, `sk_live_`,
   `AKIA`, `A3T…`, …), JWT compact form
 - **Entropy:** under a key name containing `KEY`, `API`, `AUTH`, `ACCESS`,
-  `CRED`, `PASS`, `JWT`, `BEARER`, or `OAUTH`, a value clears the bar at 32+ hex
+  `CRED`, `PASS`, `JWT`, `BEARER`, `OAUTH`, or `SESSION` (e.g. `BW_SESSION`),
+  a value clears the bar at 32+ hex
   characters with H > 3.0, or 24+ base64 characters or 16+ opaque characters
   with H > 3.5. UUIDs, paths, and URLs are exempt, and so is a `*_ID` key
   (`SESSION_ID`, `OAUTH_CLIENT_ID`), which still masks under a strong secret

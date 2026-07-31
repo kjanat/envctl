@@ -1,0 +1,23 @@
+%% args
+redact
+--no-env
+
+%% stdin
+{"BW_SESSION": "PZ7impF3K1ZLKOefT2CqbHtEeGYFXi0lQ8ZtGf9dQFatToUxJC1KGCyJXZW1FyBNRUlt43a5xhLKk4Cj+3P2jQ=="}
+BW_SESSION=PZ7impF3K1ZLKOefT2CqbHtEeGYFXi0lQ8ZtGf9dQFatToUxJC1KGCyJXZW1FyBNRUlt43a5xhLKk4Cj+3P2jQ==
+BW_SESSION=PZ7imp/3K1ZLKOefT2Cqb/tEeGYFXi0lQ8ZtGf9dQFatToUxJC1KGCyJXZW1FyBNRUlt43a5xhLKk4Cj+3P2jQ==
+SESSION_KEY_PATH=config/keys/session.pem
+SESSION_MODULE=lib/session_v2/loader.so=
+SESSION_TIMEOUT=3600
+SESSION_NAME=my-app-session
+SESSION_ID=abcdef0123456789abcdef0123456789
+
+%% stdout
+{"BW_SESSION": "<redacted>"}
+BW_SESSION=<redacted>
+BW_SESSION=<redacted>
+SESSION_KEY_PATH=config/keys/session.pem
+SESSION_MODULE=lib/session_v2/loader.so=
+SESSION_TIMEOUT=3600
+SESSION_NAME=my-app-session
+SESSION_ID=abcdef0123456789abcdef0123456789
