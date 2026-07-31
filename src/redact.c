@@ -1134,7 +1134,11 @@ static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap
 		int bare = key && te == ms;
 
 		int hit = kn && te > ms && keyed_mask(kn, in + ms, te - ms);
-		if (!hit) {
+		/* A parsed assignment whose value is a trivial placeholder stays
+		 * plain prose: without this, PASSWORD=changeme re-enters the shape
+		 * detectors as one token and conn_string_secret masks it. */
+		int trivial_kv = key && te > ms && is_trivial_value(in + ms, te - ms);
+		if (!hit && !trivial_kv) {
 			ms = s;
 			hit = te > s && (should_mask_token(in + s, te - s) ||
 			                 (scheme && authz_run(in + s, te - s, scheme)));

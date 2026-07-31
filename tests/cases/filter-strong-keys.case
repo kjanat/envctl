@@ -70,7 +70,7 @@ SECRET_KEY=<redacted>
 AUTH_KEY=<redacted>
 CLIENT_KEY=<redacted>
 PASSWORD_ID=<redacted>
-<redacted:credentials>
+PASSWORD=changeme
 ROOT_PASSWORD=changeme
 DEBUG_SECRET=0
 TOKEN_FILE=/run/secrets/token
