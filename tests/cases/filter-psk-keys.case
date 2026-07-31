@@ -4,6 +4,7 @@ redact
 
 %% stdin
 {"x_psk":"correct-horse-battery","wifi_password":"hunter2hunter2"}
+x_ssh_sha512passwd=plain0ldSecretValue
 wpa_psk=SummerHouse2024!
 pre_shared_key=s3cr3tval
 wlan_preshared_key=opensesame1
@@ -14,6 +15,7 @@ psk_file=/etc/ipsec.d/site.psk
 
 %% stdout
 {"x_psk":"<redacted>","wifi_password":"<redacted>"}
+x_ssh_sha512passwd=<redacted>
 wpa_psk=<redacted>
 pre_shared_key=<redacted>
 wlan_preshared_key=<redacted>
