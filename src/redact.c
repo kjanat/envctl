@@ -10,16 +10,21 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Segment boundaries are '_' and the lower-to-upper transition of camelCase,
- * so secretAccessKey and SECRET_ACCESS_KEY split the same way. */
+/* Segment boundaries are '_', the lower-to-upper transition of camelCase, and
+ * either edge of a digit run, so secretAccessKey, SECRET_ACCESS_KEY, and
+ * sha512passwd all split the same way. */
 static int seg_break_before(const char *k, const char *p) {
 	if (p == k || p[-1] == '_')
+		return 1;
+	if (!isdigit((unsigned char)p[-1]) != !isdigit((unsigned char)p[0]))
 		return 1;
 	return isupper((unsigned char)p[0]) && !isupper((unsigned char)p[-1]);
 }
 
 static int seg_break_after(const char *p, size_t n) {
 	if (p[n] == '\0' || p[n] == '_')
+		return 1;
+	if (!isdigit((unsigned char)p[n - 1]) != !isdigit((unsigned char)p[n]))
 		return 1;
 	return isupper((unsigned char)p[n]) && !isupper((unsigned char)p[n - 1]);
 }
@@ -121,7 +126,8 @@ static int strong_secret_key_name(const char *k) {
 	    has_segment_ci(k, "SECRET") || has_segment_ci(k, "TOKEN") ||
 	    has_segment_ci(k, "CREDENTIAL") || has_segment_ci(k, "CREDENTIALS") ||
 	    has_segment_ci(k, "DSN") || has_segment_ci(k, "KEYSTORE") || has_segment_ci(k, "PKCS12") ||
-	    has_segment_ci(k, "P12") || has_segment_ci(k, "PFX") || has_segment_ci(k, "MNEMONIC"))
+	    has_segment_ci(k, "P12") || has_segment_ci(k, "PFX") || has_segment_ci(k, "MNEMONIC") ||
+	    has_segment_ci(k, "PSK") || has_segment_ci(k, "PRESHAREDKEY"))
 		return 1;
 	if ((has_segment_ci(k, "DATABASE") || has_segment_ci(k, "DB")) && has_segment_ci(k, "URL"))
 		return 1;
@@ -134,7 +140,8 @@ static int strong_secret_key_name(const char *k) {
 	     has_segment_ci(k, "PRIVATE") || has_segment_ci(k, "AUTH") ||
 	     has_segment_ci(k, "SIGNING") || has_segment_ci(k, "ENCRYPTION") ||
 	     has_segment_ci(k, "MASTER") || has_segment_ci(k, "CLIENT") ||
-	     has_segment_ci(k, "SESSION") || has_segment_ci(k, "APP")))
+	     has_segment_ci(k, "SESSION") || has_segment_ci(k, "APP") || has_segment_ci(k, "SHARED") ||
+	     has_segment_ci(k, "PRESHARED")))
 		return 1;
 	return 0;
 }
@@ -556,6 +563,73 @@ static int conn_string_secret(const char *b, size_t bn) {
 	return 0;
 }
 
+/* Modular-crypt-format password hash: $id$[param$...]salt$hash, the shape of
+ * /etc/shadow and htpasswd entries. The id set is closed, so "$HOME$PATH"
+ * style shell strings cannot qualify, and the final field must be long enough
+ * to be hash output rather than a price or a positional parameter. */
+static int is_crypt_hash_shape(const char *b, size_t bn) {
+	static const char *const ids[] = {
+	    "1",
+	    "2",
+	    "2a",
+	    "2b",
+	    "2x",
+	    "2y",
+	    "5",
+	    "6",
+	    "7",
+	    "y",
+	    "gy",
+	    "md5",
+	    "sha1",
+	    "scrypt",
+	    "argon2i",
+	    "argon2d",
+	    "argon2id",
+	    "pbkdf2",
+	    "pbkdf2-sha1",
+	    "pbkdf2-sha256",
+	    "pbkdf2-sha512",
+	    NULL,
+	};
+	if (bn < 8 || b[0] != '$')
+		return 0;
+	size_t ide = 1;
+	while (ide < bn && b[ide] != '$')
+		ide++;
+	if (ide == bn)
+		return 0;
+	int known = 0;
+	for (int i = 0; !known && ids[i]; i++)
+		known = strlen(ids[i]) == ide - 1 && memcmp(b + 1, ids[i], ide - 1) == 0;
+	if (!known)
+		return 0;
+	size_t last = ide;
+	for (size_t i = ide + 1; i < bn; i++) {
+		unsigned char c = (unsigned char)b[i];
+		if (c == '$')
+			last = i;
+		else if (!isalnum(c) && strchr("./+=,-", c) == NULL)
+			return 0;
+	}
+	return last > ide && bn - last - 1 >= 16;
+}
+
+/* A crypt hash travels as one span, but the ','-joined parameters of argon2
+ * and scrypt sit on a prose delimiter, so the token walk splits them. Given a
+ * token starting at '$', return the end of the maximal crypt span when it
+ * forms a valid hash, or 0 when it does not. Trailing commas are prose. */
+static size_t crypt_span_end(const char *b, size_t bn, size_t s) {
+	size_t ce = s;
+	while (ce < bn && (isalnum((unsigned char)b[ce]) || strchr("$./+=,-", b[ce]) != NULL))
+		ce++;
+	while (ce > s && b[ce - 1] == ',')
+		ce--;
+	if (ce > s && is_crypt_hash_shape(b + s, ce - s))
+		return ce;
+	return 0;
+}
+
 static int json_private_object(const char *in, size_t n);
 
 static int is_private_jwk(const char *b, size_t bn) { return json_private_object(b, bn); }
@@ -681,6 +755,11 @@ static int embedded_secret_token(const char *b, size_t bn) {
 		while (p < bn && is_text_delim((unsigned char)b[p]))
 			p++;
 		size_t s = p;
+		if (p < bn && b[p] == '$') {
+			size_t ce = crypt_span_end(b, bn, s);
+			if (ce && ce - s < bn)
+				return 1;
+		}
 		while (p < bn && !is_text_delim((unsigned char)b[p]))
 			p++;
 		size_t te = p;
@@ -708,6 +787,8 @@ static int should_mask_body(const char *key, const char *b, size_t bn, int deep)
 	if (conn_string_secret(b, bn))
 		return 1;
 	if (is_jwt_shape(b, bn))
+		return 1;
+	if (is_crypt_hash_shape(b, bn))
 		return 1;
 	if (digestish_key_name(key))
 		return 0;
@@ -809,7 +890,8 @@ static int token_shape_secret(const char *s, size_t n) {
 		return 0;
 	return private_key_material(s, n) || known_token_prefix(s, n) || aws_access_key_shape(s, n) ||
 	       is_credentialed_url(s, n) || url_sensitive_param(s, n) || authorization_value(s, n, 0) ||
-	       conn_string_secret(s, n) || is_jwt_shape(s, n) || is_webhook_url_shape(s, n);
+	       conn_string_secret(s, n) || is_jwt_shape(s, n) || is_webhook_url_shape(s, n) ||
+	       is_crypt_hash_shape(s, n);
 }
 
 int should_mask_token(const char *s, size_t n) {
@@ -1319,6 +1401,21 @@ static void mask_tokens(const char *in, size_t inlen, char **out, size_t *outcap
 		while (p < inlen && !is_text_delim((unsigned char)in[p]))
 			p++;
 		size_t e = p, te = e;
+		/* The comma after an argon2/scrypt parameter is a delimiter, so the
+		 * token walk stops mid-hash; give a crypt-looking token one chance
+		 * to claim its full span before judging the fragment. */
+		if (in[s] == '$' && e < inlen && in[e] == ',') {
+			size_t ce = crypt_span_end(in, inlen, s);
+			if (ce > e) {
+				const char *tok = redact_token_n(in + s, ce - s);
+				buf_put(out, outcap, len, tok, strlen(tok));
+				p = ce;
+				free(pend);
+				pend = NULL;
+				scheme = 0;
+				continue;
+			}
+		}
 		while (te > s && strchr(".,;:)]}\"'", in[te - 1]))
 			te--;
 
