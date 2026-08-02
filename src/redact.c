@@ -175,11 +175,13 @@ static int digestish_key_name(const char *k) {
 }
 
 static int is_trivial_word(const char *v, size_t n) {
+	/* "read" and "write" join the list for the access levels a permissions
+	 * block grants — id-token: write is a GitHub Actions scope, not a token. */
 	static const char *const trivial[] = {
-	    "",           "0",           "1",    "true",    "false",     "yes",
-	    "no",         "on",          "off",  "debug",   "info",      "warn",
-	    "error",      "trace",       "null", "none",    "localhost", "127.0.0.1",
-	    "production", "development", "test", "staging", "changeme",  NULL,
+	    "",        "0",        "1",         "true",      "false",      "yes",         "no",
+	    "on",      "off",      "debug",     "info",      "warn",       "error",       "trace",
+	    "null",    "none",     "localhost", "127.0.0.1", "production", "development", "test",
+	    "staging", "changeme", "read",      "write",     NULL,
 	};
 	for (int i = 0; trivial[i]; i++) {
 		const char *t = trivial[i];
@@ -303,6 +305,15 @@ static int is_plain_path(const char *b, size_t bn) {
 
 static int is_b64url_char(unsigned char c) { return isalnum(c) || c == '-' || c == '_'; }
 
+/* Three dotted segments is the compact serialization, but it is also the shape
+ * of an ordinary identifier chain: a CI expression like steps.publish.outputs
+ * is three segments and 21 characters. What a JWT adds is that its first two
+ * segments are a base64url JSON object — the header and the claims set — so
+ * both open with the encoding of '{' and the byte after it, "ey". */
+static int jwt_json_segment(const char *b, size_t n) {
+	return n >= 2 && b[0] == 'e' && b[1] == 'y';
+}
+
 static int is_jwt_shape(const char *b, size_t bn) {
 	if (bn < 20)
 		return 0;
@@ -318,6 +329,8 @@ static int is_jwt_shape(const char *b, size_t bn) {
 		if (i == s)
 			return 0;
 		segs++;
+		if (segs <= 2 && !jwt_json_segment(b + s, i - s))
+			return 0;
 		if (i < bn && b[i] == '.')
 			i++;
 		else

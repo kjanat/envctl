@@ -1,0 +1,27 @@
+%% args
+redact
+--no-env
+
+%% stdin
+permissions: { id-token: write, contents: read }
+permissions: { contents: read, pages: write, id-token: write }
+outputs: { url: "${{ toJSON(steps.publish.outputs) }}" }
+env: { URL: "${{ toJSON(needs.publish.outputs) }}" }
+chain: github.event.repository
+id-token: write
+ID_JWT=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c
+bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abcdefghijklmnop accepted
+env: { NPM_TOKEN: npm_Pw6sYv9RtM3zXq7KbC2eNh8GdJ5fLa4u }
+id-token: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6y
+
+%% stdout
+permissions: { id-token: write, contents: read }
+permissions: { contents: read, pages: write, id-token: write }
+outputs: { url: "${{ toJSON(steps.publish.outputs) }}" }
+env: { URL: "${{ toJSON(needs.publish.outputs) }}" }
+chain: github.event.repository
+id-token: write
+ID_JWT=<redacted>
+bearer <redacted> accepted
+env: <redacted>
+id-token: <redacted>
