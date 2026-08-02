@@ -241,6 +241,11 @@ detection follows [unjs/std-env] signals (plus `AI_AGENT`).
   `Basic` values, connection-string fragments (`;Password=`, `;Pwd=`,
   `sslkey=`), known token prefixes (`ghp_`, `sk_live_`, `AKIA`, `A3T…`,
   `LS0tLS1` for a base64-wrapped PEM, …), JWT compact form
+- **Not by prefix alone:** a token prefix counts only when the body its issuer
+  puts after it follows — a long enough run of the right alphabet. So
+  `npm_Pw6sYv9RtM3zXq7KbC2eNh8GdJ5fLa4u` masks while the variables npm hands
+  every script it runs (`npm_command`, `npm_config_*`, `npm_package_*`) stay
+  visible
 - **Entropy:** under a key name containing `KEY`, `API`, `AUTH`, `ACCESS`,
   `CRED`, `PASS`, `JWT`, `BEARER`, `OAUTH`, `SESSION` (e.g. `BW_SESSION`), or
   `COOKIE`, a value clears the bar at 32+ hex characters with H > 3.0, or 24+

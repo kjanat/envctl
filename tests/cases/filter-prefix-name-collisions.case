@@ -1,0 +1,41 @@
+%% args
+redact
+--no-env
+
+%% stdin
+$ env | rg '^npm' | sort
+npm_command=run-script
+npm_config_local_prefix=/home/dev/projects/app
+npm_config_user_agent=bun/1.4.0 npm/? node/v26.3.0 linux x64
+npm_config_globalignorefile=/usr/etc/npmignore
+npm_execpath=/home/dev/.bun/bin/bun
+npm_lifecycle_event=s
+npm_lifecycle_script=env | rg '^npm' | sort
+npm_node_execpath=/home/dev/.volta/bin/node
+npm_package_json=/home/dev/projects/app/package.json
+npm_package_name=app
+npm_package_version=0.8.0-alpha.0
+NPM_TOKEN=npm_Pw6sYv9RtM3zXq7KbC2eNh8GdJ5fLa4u
+run with npm_lifecycle_event=build and npm_execpath=/usr/bin/npm
+SENDGRID_CLASS=SG.Config.load
+AWS_ROLE_LABEL=AKIAROLE
+STRIPE_MODULE=sk-helpers
+
+%% stdout
+$ env | rg '^npm' | sort
+npm_command=run-script
+npm_config_local_prefix=/home/dev/projects/app
+npm_config_user_agent=bun/1.4.0 npm/? node/v26.3.0 linux x64
+npm_config_globalignorefile=/usr/etc/npmignore
+npm_execpath=/home/dev/.bun/bin/bun
+npm_lifecycle_event=s
+npm_lifecycle_script=env | rg '^npm' | sort
+npm_node_execpath=/home/dev/.volta/bin/node
+npm_package_json=/home/dev/projects/app/package.json
+npm_package_name=app
+npm_package_version=0.8.0-alpha.0
+NPM_TOKEN=<redacted>
+run with npm_lifecycle_event=build and npm_execpath=/usr/bin/npm
+SENDGRID_CLASS=SG.Config.load
+AWS_ROLE_LABEL=AKIAROLE
+STRIPE_MODULE=sk-helpers
