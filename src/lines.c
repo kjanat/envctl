@@ -28,8 +28,8 @@ void lines_free(Lines *L) {
 }
 
 static int line_ptr_cmp(const void *a, const void *b) {
-	uintptr_t x = (uintptr_t)*(char *const *)a;
-	uintptr_t y = (uintptr_t)*(char *const *)b;
+	uintptr_t x = (uintptr_t) * (char *const *)a;
+	uintptr_t y = (uintptr_t) * (char *const *)b;
 	if (x < y)
 		return -1;
 	return x > y;

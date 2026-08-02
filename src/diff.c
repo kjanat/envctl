@@ -25,8 +25,8 @@ typedef struct {
 static int same_line_object(const char *a, const char *b) { return a == b; }
 
 static int ptr_cmp(const void *a, const void *b) {
-	uintptr_t x = (uintptr_t)*(char *const *)a;
-	uintptr_t y = (uintptr_t)*(char *const *)b;
+	uintptr_t x = (uintptr_t) * (char *const *)a;
+	uintptr_t y = (uintptr_t) * (char *const *)b;
 
 	if (x < y)
 		return -1;

@@ -21,7 +21,7 @@
 #include <fcntl.h>
 #include <io.h>
 #ifndef S_ISREG
-#define S_ISREG(m) (((m) & _S_IFMT) == _S_IFREG)
+#define S_ISREG(m) (((m)&_S_IFMT) == _S_IFREG)
 #endif
 #endif
 
