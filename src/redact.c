@@ -175,11 +175,13 @@ static int digestish_key_name(const char *k) {
 }
 
 static int is_trivial_word(const char *v, size_t n) {
+	/* "read" and "write" join the list for the access levels a permissions
+	 * block grants — id-token: write is a GitHub Actions scope, not a token. */
 	static const char *const trivial[] = {
-	    "",           "0",           "1",    "true",    "false",     "yes",
-	    "no",         "on",          "off",  "debug",   "info",      "warn",
-	    "error",      "trace",       "null", "none",    "localhost", "127.0.0.1",
-	    "production", "development", "test", "staging", "changeme",  NULL,
+	    "",        "0",        "1",         "true",      "false",      "yes",         "no",
+	    "on",      "off",      "debug",     "info",      "warn",       "error",       "trace",
+	    "null",    "none",     "localhost", "127.0.0.1", "production", "development", "test",
+	    "staging", "changeme", "read",      "write",     NULL,
 	};
 	for (int i = 0; trivial[i]; i++) {
 		const char *t = trivial[i];
@@ -303,6 +305,15 @@ static int is_plain_path(const char *b, size_t bn) {
 
 static int is_b64url_char(unsigned char c) { return isalnum(c) || c == '-' || c == '_'; }
 
+/* Three dotted segments is the compact serialization, but it is also the shape
+ * of an ordinary identifier chain: a CI expression like steps.publish.outputs
+ * is three segments and 21 characters. What a JWT adds is that its first two
+ * segments are a base64url JSON object — the header and the claims set — so
+ * both open with the encoding of '{' and the byte after it, "ey". */
+static int jwt_json_segment(const char *b, size_t n) {
+	return n >= 2 && b[0] == 'e' && b[1] == 'y';
+}
+
 static int is_jwt_shape(const char *b, size_t bn) {
 	if (bn < 20)
 		return 0;
@@ -318,6 +329,8 @@ static int is_jwt_shape(const char *b, size_t bn) {
 		if (i == s)
 			return 0;
 		segs++;
+		if (segs <= 2 && !jwt_json_segment(b + s, i - s))
+			return 0;
 		if (i < bn && b[i] == '.')
 			i++;
 		else
@@ -326,22 +339,93 @@ static int is_jwt_shape(const char *b, size_t bn) {
 	return segs == 3 && i == bn;
 }
 
+/* Body alphabets. A token issuer picks one and stays in it, so the alphabet
+ * is as much a part of the format as the marker that opens it. */
+enum {
+	TB_B62 = 0,        /* base62, the default token alphabet */
+	TB_DASH = 1u << 0, /* '-' */
+	TB_UNDER = 1u << 1,
+	TB_DOT = 1u << 2,
+	TB_B64 = 1u << 3,   /* '+', '/', '=' */
+	TB_UPPER = 1u << 4, /* upper case and digits only */
+};
+
+typedef struct {
+	const char *pfx;
+	size_t min; /* shortest body the format ever issues, with margin */
+	unsigned body;
+} TokenMarker;
+
+static int token_body_char(unsigned char c, unsigned body) {
+	if (body & TB_UPPER)
+		return isdigit(c) || (c >= 'A' && c <= 'Z');
+	if (isalnum(c))
+		return 1;
+	if ((body & TB_DASH) && c == '-')
+		return 1;
+	if ((body & TB_UNDER) && c == '_')
+		return 1;
+	if ((body & TB_DOT) && c == '.')
+		return 1;
+	return (body & TB_B64) && (c == '+' || c == '/' || c == '=');
+}
+
+/* The leading run is measured, not required to reach the end: a token quoted
+ * in prose or pasted into a URL keeps whatever trails it. */
+static int token_body_run(const char *b, size_t bn, size_t off, const TokenMarker *m) {
+	size_t run = 0;
+	while (off + run < bn && token_body_char((unsigned char)b[off + run], m->body))
+		run++;
+	return run >= m->min;
+}
+
+/* A marker alone is not a token. Whole namespaces of ordinary variables open
+ * with one — npm hands every script it runs npm_command, npm_config_*, and
+ * npm_package_* — so each marker also states the body it introduces: the
+ * opaque run its issuer always puts right after it. */
 static int known_token_prefix(const char *b, size_t bn) {
-	static const char *const pfx[] = {
-	    "ghp_",        "gho_",     "ghu_",     "ghs_",     "ghr_",
-	    "github_pat_", "glpat-",   "gpat-",    "sk-ant-",  "sk-proj-",
-	    "sk-live-",    "sk_live_", "rk_live_", "sk_test_", "rk_test_",
-	    "xoxb-",       "xoxp-",    "xoxa-",    "xoxr-",    "xoxs-",
-	    "npm_",        "pypi-",    "dop_v1_",  "whsec_",   "AGE-SECRET-KEY-1",
-	    "AKIA",        "ASIA",     "ABIA",     "ACCA",     "AIza",
-	    "SG.",         "LS0tLS1",  NULL,
+	static const TokenMarker mark[] = {
+	    {"ghp_", 20, TB_B62},
+	    {"gho_", 20, TB_B62},
+	    {"ghu_", 20, TB_B62},
+	    {"ghs_", 20, TB_B62},
+	    {"ghr_", 20, TB_B62},
+	    {"github_pat_", 20, TB_B62 | TB_UNDER},
+	    {"glpat-", 16, TB_B62 | TB_DASH | TB_UNDER},
+	    {"gpat-", 16, TB_B62 | TB_DASH | TB_UNDER},
+	    {"sk-ant-", 16, TB_B62 | TB_DASH | TB_UNDER},
+	    {"sk-proj-", 16, TB_B62 | TB_DASH | TB_UNDER},
+	    {"sk-live-", 16, TB_B62},
+	    {"sk_live_", 16, TB_B62},
+	    {"rk_live_", 16, TB_B62},
+	    {"sk_test_", 16, TB_B62},
+	    {"rk_test_", 16, TB_B62},
+	    {"xoxb-", 16, TB_B62 | TB_DASH},
+	    {"xoxp-", 16, TB_B62 | TB_DASH},
+	    {"xoxa-", 16, TB_B62 | TB_DASH},
+	    {"xoxr-", 16, TB_B62 | TB_DASH},
+	    {"xoxs-", 16, TB_B62 | TB_DASH},
+	    /* npm issues base62(uuid): 36 characters, never a '_' or a '-'. */
+	    {"npm_", 24, TB_B62},
+	    {"pypi-", 16, TB_B62 | TB_DASH | TB_UNDER},
+	    {"dop_v1_", 32, TB_B62},
+	    {"whsec_", 16, TB_B62},
+	    {"AGE-SECRET-KEY-1", 16, TB_B62},
+	    {"AKIA", 16, TB_UPPER},
+	    {"ASIA", 16, TB_UPPER},
+	    {"ABIA", 16, TB_UPPER},
+	    {"ACCA", 16, TB_UPPER},
+	    {"AIza", 24, TB_B62 | TB_DASH | TB_UNDER},
+	    {"SG.", 24, TB_B62 | TB_DASH | TB_UNDER | TB_DOT},
+	    {"LS0tLS1", 8, TB_B62 | TB_B64},
+	    /* Vendor-neutral secret-key convention, so the body carries the weight. */
+	    {"sk-", 17, TB_B62 | TB_DASH | TB_UNDER},
+	    {NULL, 0, TB_B62},
 	};
-	for (int i = 0; pfx[i]; i++) {
-		if (mem_prefix(b, bn, pfx[i]))
+	for (int i = 0; mark[i].pfx; i++) {
+		if (mem_prefix(b, bn, mark[i].pfx) && token_body_run(b, bn, strlen(mark[i].pfx), &mark[i]))
 			return 1;
 	}
-	if (mem_prefix(b, bn, "sk-") && bn >= 20)
-		return 1;
 	return 0;
 }
 

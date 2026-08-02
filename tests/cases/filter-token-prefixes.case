@@ -30,6 +30,9 @@ GENERIC_SK=sk-Bt7kUz4RwN9xPc3MvY6eKh2GsD8f
 ID_JWT=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c
 PREFIX_ONLY=ghp
 SHORT_SK=sk-abc
+GH_SHORT=ghp_AbC123
+NPM_SCRIPT_VAR=npm_lifecycle_event
+AWS_WORD=AKIALIKEWORD
 
 %% stdout
 GH_CLASSIC=<redacted>
@@ -59,3 +62,6 @@ GENERIC_SK=<redacted>
 ID_JWT=<redacted>
 PREFIX_ONLY=ghp
 SHORT_SK=sk-abc
+GH_SHORT=ghp_AbC123
+NPM_SCRIPT_VAR=npm_lifecycle_event
+AWS_WORD=AKIALIKEWORD

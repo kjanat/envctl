@@ -241,6 +241,19 @@ detection follows [unjs/std-env] signals (plus `AI_AGENT`).
   `Basic` values, connection-string fragments (`;Password=`, `;Pwd=`,
   `sslkey=`), known token prefixes (`ghp_`, `sk_live_`, `AKIA`, `A3T…`,
   `LS0tLS1` for a base64-wrapped PEM, …), JWT compact form
+- **Not by prefix alone:** a token prefix counts only when the body its issuer
+  puts after it follows — a long enough run of the right alphabet. So
+  `npm_Pw6sYv9RtM3zXq7KbC2eNh8GdJ5fLa4u` masks while the variables npm hands
+  every script it runs (`npm_command`, `npm_config_*`, `npm_package_*`) stay
+  visible
+- **Not by dotted shape alone:** JWT compact form needs its first two segments
+  to open with `ey`, the base64url of a JSON object, since three dotted segments
+  is also what an identifier chain looks like — a CI expression such as
+  `steps.publish.outputs` stays visible
+- **Trivial values:** `true`/`false`, `yes`/`no`, `on`/`off`, `read`/`write`
+  (`id-token: write` is a permissions scope, not a token), `none`, `null`,
+  `changeme`, log levels, `localhost`, and short numerics keep a value visible
+  even under a strong secret name
 - **Entropy:** under a key name containing `KEY`, `API`, `AUTH`, `ACCESS`,
   `CRED`, `PASS`, `JWT`, `BEARER`, `OAUTH`, `SESSION` (e.g. `BW_SESSION`), or
   `COOKIE`, a value clears the bar at 32+ hex characters with H > 3.0, or 24+
