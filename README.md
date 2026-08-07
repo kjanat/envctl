@@ -252,15 +252,17 @@ redaction is enabled. `--raw` turns it off along with masking.
   `PASS` / `PWD`, `SECRET`, `TOKEN`, `CREDENTIAL(S)`, `DSN`, `MNEMONIC`,
   `SEED`+`PHRASE`, credentialed `*_KEY` (e.g. `API_KEY`, `PRIVATE_KEY`),
   `DATABASE_URL` / `DB_URL`, `WEBHOOK_URL`, …
-- **Compound key names:** a spelled-out secret word also counts when it closes a
-  run with no separator in it, because an English compound carries its head word
-  last, so `BW_CLIENTSECRET`, `GITHUBTOKEN`, and `ADMINPASSWORD` match. That
-  covers `PASSWORD`, `PASSPHRASE`, `SECRET`, `TOKEN`, `CREDENTIAL(S)`,
-  `KEYSTORE`, `MNEMONIC`, `WEBHOOK`, `DATABASEURL` / `DBURL`,
-  `CONNECTIONSTRING`, `SEEDPHRASE`, and a qualifier joined to `KEY` (`APIKEY`,
-  `ACCESSKEY`, `CLIENTKEY`). The abbreviations `PASS`, `PWD`, `PSK`, `P12`, and
-  a bare `KEY` still need a segment of their own, which keeps `BYPASS_HOSTS`,
-  `COMPASS_HEADING`, and `KEYBOARD_LAYOUT` visible
+- **Compound key names:** a spelled-out secret word also counts when it ends the
+  key's last segment, because an English compound carries its head word last, so
+  `BW_CLIENTSECRET`, `GITHUBTOKEN`, and `ADMINPASSWORD` match, and so do their
+  plurals (`DB_PASSWORDS`, `VAULT_SECRETS`, `API_KEYS`). That covers `PASSWORD`,
+  `PASSPHRASE`, `SECRET`, `TOKEN`, `CREDENTIAL(S)`, `KEYSTORE`, `MNEMONIC`,
+  `WEBHOOK`, `DATABASEURL` / `DBURL`, `CONNECTIONSTRING`, `SEEDPHRASE`, and a
+  qualifier joined to `KEY` (`APIKEY`, `ACCESSKEY`, `APIACCESSKEY`). Only the
+  last segment counts, so `accesstokenExpiry` stays visible, and the
+  abbreviations `PASS`, `PWD`, `PSK`, `P12`, and a bare `KEY` still need a
+  segment of their own, which keeps `BYPASS_HOSTS`, `COMPASS_HEADING`, and
+  `KEYBOARD_LAYOUT` visible
 - **Not by name alone:** path-like final segments `*_FILE`, `*_PATH`,
   `*_ENDPOINT`, `*_NAME`, `*_VERSION`, `*_LENGTH`, `*_DIR`, `*_HOME` (webhook
   keys excepted), and digest-like names `*_SHA`, `*_SHA256`, `*_HASH`,

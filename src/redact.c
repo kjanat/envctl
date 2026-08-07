@@ -54,29 +54,6 @@ static int has_segment_ci(const char *k, const char *seg) {
 	return 0;
 }
 
-static int compound_tail_ci(const char *k, const char *seg) {
-	size_t n = strlen(seg);
-	if (!n)
-		return 0;
-	for (const char *p = k; *p; p++) {
-		if (starts_ci(p, seg) && seg_break_after(p, n))
-			return 1;
-	}
-	return 0;
-}
-
-static int compound_pair_ci(const char *k, const char *head, const char *tail) {
-	size_t hn = strlen(head), tn = strlen(tail);
-	if (!hn || !tn)
-		return 0;
-	for (const char *p = k; *p; p++) {
-		if (seg_break_before(k, p) && starts_ci(p, head) && starts_ci(p + hn, tail) &&
-		    seg_break_after(p, hn + tn))
-			return 1;
-	}
-	return 0;
-}
-
 /* Trailing segment with something before it: the camelCase twin of "_SEG". */
 static int final_segment_ci(const char *k, const char *seg) {
 	size_t kn = strlen(k), n = strlen(seg);
@@ -90,15 +67,53 @@ static int final_segment_ci(const char *k, const char *seg) {
 	return seg_break_before(k, p);
 }
 
-static int ends_with_ci(const char *k, const char *suf) {
-	size_t kn = strlen(k), sn = strlen(suf);
-	if (kn < sn)
+static int ends_with_ci_n(const char *k, size_t kn, const char *suf) {
+	size_t sn = strlen(suf);
+	if (!sn || kn < sn)
 		return 0;
 	for (size_t i = 0; i < sn; i++) {
 		if (toupper((unsigned char)k[kn - sn + i]) != toupper((unsigned char)suf[i]))
 			return 0;
 	}
 	return 1;
+}
+
+static int ends_with_ci(const char *k, const char *suf) {
+	return ends_with_ci_n(k, strlen(k), suf);
+}
+
+static const char *last_segment(const char *k) {
+	const char *last = k;
+	for (const char *p = k; *p; p++) {
+		if (seg_break_before(k, p))
+			last = p;
+	}
+	return last;
+}
+
+static int compound_word_ci(const char *k, const char *w) {
+	return has_segment_ci(k, w) || ends_with_ci(last_segment(k), w);
+}
+
+static int strong_word_ci(const char *k, const char *w) {
+	char plural[32];
+	size_t n = strlen(w);
+	if (compound_word_ci(k, w))
+		return 1;
+	if (!n || n + 2 > sizeof(plural))
+		return 0;
+	memcpy(plural, w, n);
+	plural[n] = 'S';
+	plural[n + 1] = '\0';
+	return compound_word_ci(k, plural);
+}
+
+static int compound_pair_ci(const char *k, const char *head, const char *tail) {
+	const char *seg = last_segment(k);
+	size_t sn = strlen(seg), tn = strlen(tail);
+	if (!tn || sn <= tn || !ends_with_ci_n(seg, sn, tail))
+		return 0;
+	return ends_with_ci_n(seg, sn - tn, head);
 }
 
 static const char *mem_find(const char *h, size_t hn, const char *needle) {
@@ -138,7 +153,7 @@ static int pathish_key_suffix(const char *k) {
 static int identifier_key_suffix(const char *k) { return final_segment_ci(k, "ID"); }
 
 static int webhook_key_name(const char *k) {
-	return compound_tail_ci(k, "WEBHOOK") && !identifier_key_suffix(k) &&
+	return strong_word_ci(k, "WEBHOOK") && !identifier_key_suffix(k) &&
 	       !final_segment_ci(k, "NAME");
 }
 
@@ -147,11 +162,11 @@ static int qualified_key_name(const char *k) {
 	    "API",    "ACCESS", "SECRET",  "PRIVATE", "AUTH",   "SIGNING",   "ENCRYPTION",
 	    "MASTER", "CLIENT", "SESSION", "APP",     "SHARED", "PRESHARED", NULL,
 	};
-	int keyed = has_segment_ci(k, "KEY");
+	int keyed = has_segment_ci(k, "KEY") || has_segment_ci(k, "KEYS");
 	for (int i = 0; qual[i]; i++) {
 		if (keyed && has_segment_ci(k, qual[i]))
 			return 1;
-		if (compound_pair_ci(k, qual[i], "KEY"))
+		if (compound_pair_ci(k, qual[i], "KEY") || compound_pair_ci(k, qual[i], "KEYS"))
 			return 1;
 	}
 	return 0;
@@ -159,8 +174,8 @@ static int qualified_key_name(const char *k) {
 
 static int strong_secret_key_name(const char *k) {
 	static const char *const words[] = {
-	    "PASSWORD",    "PASSPHRASE", "SECRET",       "TOKEN",    "CREDENTIAL",
-	    "CREDENTIALS", "KEYSTORE",   "PRESHAREDKEY", "MNEMONIC", NULL,
+	    "PASSWORD", "PASSPHRASE",   "SECRET",   "TOKEN", "CREDENTIAL",
+	    "KEYSTORE", "PRESHAREDKEY", "MNEMONIC", NULL,
 	};
 	static const struct {
 		const char *head;
@@ -172,7 +187,7 @@ static int strong_secret_key_name(const char *k) {
 	if (webhook_key_name(k))
 		return 1;
 	for (int i = 0; words[i]; i++) {
-		if (compound_tail_ci(k, words[i]))
+		if (strong_word_ci(k, words[i]))
 			return 1;
 	}
 	if (has_segment_ci(k, "PASSWD") || has_segment_ci(k, "PWD") || has_segment_ci(k, "PASS") ||
@@ -831,11 +846,13 @@ static int entropy_secret(const char *b, size_t bn) {
 	return 0;
 }
 
-const char *value_body(const char *raw, size_t *len) {
+static const char *value_body_n(const char *raw, size_t n, size_t *len) {
 	const char *p = raw ? raw : "";
-	while (*p == ' ' || *p == '\t')
-		p++;
-	size_t n = strlen(p);
+	size_t i = 0;
+	while (i < n && (p[i] == ' ' || p[i] == '\t'))
+		i++;
+	p += i;
+	n -= i;
 	if (n >= 2 && (p[0] == '"' || p[0] == '\'' || p[0] == '`') && p[n - 1] == p[0]) {
 		if (len)
 			*len = n - 2;
@@ -844,6 +861,10 @@ const char *value_body(const char *raw, size_t *len) {
 	if (len)
 		*len = n;
 	return p;
+}
+
+const char *value_body(const char *raw, size_t *len) {
+	return value_body_n(raw, raw ? strlen(raw) : 0, len);
 }
 
 static int is_text_delim(unsigned char c);
@@ -1092,8 +1113,9 @@ static const char *pem_end_at(const char *in, size_t n, const char *label) {
 }
 
 static int is_text_delim(unsigned char c) {
-	return isspace(c) || c == ',' || c == ';' || c == '\'' || c == '"' || c == '(' || c == ')' ||
-	       c == '[' || c == ']' || c == '{' || c == '}' || c == '<' || c == '>' || c == '`';
+	return isspace(c) || c < 0x20 || c == 0x7f || c == ',' || c == ';' || c == '\'' || c == '"' ||
+	       c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}' || c == '<' ||
+	       c == '>' || c == '`';
 }
 
 static int is_keychar(unsigned char c) { return isalnum(c) || c == '_' || c == '-'; }
@@ -1276,12 +1298,14 @@ static int mask_assignment(const char *in, size_t inlen, char **out, size_t *out
 	int q = close == vbuf + vl - 1;
 	int uq = quoted && !close;
 	int spaced = memchr(vbuf, ' ', vl) != NULL || memchr(vbuf, '\t', vl) != NULL;
-	int masked = should_mask(kbuf, vbuf);
+	size_t bn;
+	const char *body = value_body_n(vbuf, vl, &bn);
+	int masked = should_mask_body(kbuf, body, bn, 1);
 	(void)spaced;
 
 	if (masked && uq && st) {
 		buf_put(out, outcap, len, in, vs + 1);
-		const char *tok = redact_token(kbuf, vbuf);
+		const char *tok = redact_token_n(body, bn);
 		buf_put(out, outcap, len, tok, strlen(tok));
 		buf_put(out, outcap, len, vbuf, 1);
 		st->quote_ch = vbuf[0];
@@ -1291,7 +1315,7 @@ static int mask_assignment(const char *in, size_t inlen, char **out, size_t *out
 		buf_put(out, outcap, len, in, vs);
 		if (q)
 			buf_put(out, outcap, len, vbuf, 1);
-		const char *tok = redact_token(kbuf, vbuf);
+		const char *tok = redact_token_n(body, bn);
 		buf_put(out, outcap, len, tok, strlen(tok));
 		if (q)
 			buf_put(out, outcap, len, vbuf, 1);
@@ -1330,12 +1354,9 @@ static int spaced_eq_follows(const char *in, size_t inlen, size_t from) {
 }
 
 static int keyed_mask(const char *key, const char *v, size_t vn) {
-	char *vbuf = xmalloc(vn + 1);
-	memcpy(vbuf, v, vn);
-	vbuf[vn] = '\0';
-	int hit = should_mask(key, vbuf);
-	free(vbuf);
-	return hit;
+	size_t bn;
+	const char *b = value_body_n(v, vn, &bn);
+	return should_mask_body(key, b, bn, 1);
 }
 
 static int hex_value(unsigned char c) {

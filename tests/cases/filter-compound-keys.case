@@ -19,6 +19,14 @@ CONNECTIONSTRING=Server=db;Database=app
 SEEDPHRASE=witch collapse practice feed shame open
 ACCESSKEY=front-door-42
 SECRET_SIGNINGKEY=sign-me-2024
+APIACCESSKEY=front-door-42
+MYDATABASEURL=postgres://app@db.internal/app
+DB_PASSWORDS=hunter2,hunter3
+VAULT_SECRETS=shhh-one,shhh-two
+SERVICE_TOKENS=tok-abc-1,tok-abc-2
+API_KEYS=key-one-99,key-two-99
+APIKEYS=key-one-99,key-two-99
+SLACK_WEBHOOKS=https://hooks.example.com/x
 
 %% stdout
 BW_CLIENTSECRET=<redacted>
@@ -37,3 +45,11 @@ CONNECTIONSTRING=<redacted>
 SEEDPHRASE=<redacted>
 ACCESSKEY=<redacted>
 SECRET_SIGNINGKEY=<redacted>
+APIACCESSKEY=<redacted>
+MYDATABASEURL=<redacted>
+DB_PASSWORDS=<redacted>
+VAULT_SECRETS=<redacted>
+SERVICE_TOKENS=<redacted>
+API_KEYS=<redacted>
+APIKEYS=<redacted>
+SLACK_WEBHOOKS=<redacted>

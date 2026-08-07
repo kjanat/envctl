@@ -1,0 +1,9 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/nul-token.txt
+
+%% stdout-file
+expected/nul-token.out

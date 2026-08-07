@@ -16,6 +16,13 @@ PASSENGER_ROOT=/usr/lib/passenger
 CLIENTSECRET_FILE=/run/secrets/bw
 APIKEY_PATH=./keys/api.pem
 AUTHTOKEN_VERSION=3
+accesstokenExpiry=1717171717171
+ACCESSTOKEN_EXPIRY=1717171717171
+clientsecretRotatedAt=2026-08-07T10:00:00Z
+MONKEYS=three-of-them
+DONKEYS=two-of-them
+TURKEY=north-of-cyprus
+WHISKEY=single-malt-12yr
 
 %% stdout
 BUILD_TIMESTAMP=1717171717171
@@ -31,3 +38,10 @@ PASSENGER_ROOT=/usr/lib/passenger
 CLIENTSECRET_FILE=/run/secrets/bw
 APIKEY_PATH=./keys/api.pem
 AUTHTOKEN_VERSION=3
+accesstokenExpiry=1717171717171
+ACCESSTOKEN_EXPIRY=1717171717171
+clientsecretRotatedAt=2026-08-07T10:00:00Z
+MONKEYS=three-of-them
+DONKEYS=two-of-them
+TURKEY=north-of-cyprus
+WHISKEY=single-malt-12yr
