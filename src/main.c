@@ -21,7 +21,7 @@
 #include <fcntl.h>
 #include <io.h>
 #ifndef S_ISREG
-#define S_ISREG(m) (((m)&_S_IFMT) == _S_IFREG)
+#define S_ISREG(m) (((m) & _S_IFMT) == _S_IFREG)
 #endif
 #endif
 
@@ -260,6 +260,7 @@ int main(int argc, char **argv) {
 	}
 
 	int redact = want_redact(flag_redact, flag_raw);
+	display_set_escape(!flag_raw && (redact || stdout_isatty()));
 
 	if (!strcmp(cmd, "list")) {
 		if (use_env) {

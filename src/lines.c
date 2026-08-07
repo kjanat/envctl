@@ -28,8 +28,8 @@ void lines_free(Lines *L) {
 }
 
 static int line_ptr_cmp(const void *a, const void *b) {
-	uintptr_t x = (uintptr_t) * (char *const *)a;
-	uintptr_t y = (uintptr_t) * (char *const *)b;
+	uintptr_t x = (uintptr_t)*(char *const *)a;
+	uintptr_t y = (uintptr_t)*(char *const *)b;
 	if (x < y)
 		return -1;
 	return x > y;
@@ -527,10 +527,12 @@ static void list_span(const Lines *L, size_t i, size_t span, int values, int all
 	kbuf[kl] = '\0';
 
 	char *joined = join_span(L, i, span);
+	const char *shown = eq + 1;
 	if (redact && should_mask(kbuf, joined))
-		printf("%.*s=%s%s\n", (int)kl, s, redact_token(kbuf, joined), tag);
-	else
-		printf("%.*s=%s%s\n", (int)kl, s, eq + 1, tag);
+		shown = redact_token(kbuf, joined);
+	printf("%.*s=", (int)kl, s);
+	fputs_display(shown);
+	printf("%s\n", tag);
 	free(joined);
 	free(kbuf);
 }

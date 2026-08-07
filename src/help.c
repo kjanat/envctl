@@ -81,6 +81,8 @@ static const char *LONG_USAGE_REDACTION =
     "  continuation lines are never printed.\n"
     "Default on when a coding agent is detected and stdout is a TTY; off when\n"
     "stdout is piped/redirected unless --redact. --raw always shows full secrets.\n"
+    "Displayed values show control bytes in caret notation (ESC as ^[, newline as\n"
+    "^J) on a TTY and whenever redaction is on; pipes keep the raw bytes.\n"
     "\n"
     "Filter mode: envctl redact reads stdin and writes stdout with secrets masked.\n"
     "  It always redacts and rejects --raw. Every maskable value in the env file is\n"

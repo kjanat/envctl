@@ -994,10 +994,12 @@ int want_redact(int flag_redact, int flag_raw) {
 }
 
 void print_value(const char *key, const char *val, int redact) {
-	if (redact && should_mask(key, val))
+	if (redact && should_mask(key, val)) {
 		printf("%s\n", redact_token(key, val));
-	else
-		printf("%s\n", val);
+		return;
+	}
+	fputs_display(val);
+	putchar('\n');
 }
 
 #define PEM_BEGIN "-----BEGIN "

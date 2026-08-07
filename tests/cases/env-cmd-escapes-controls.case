@@ -1,0 +1,12 @@
+%% args
+env
+
+%% mode
+posix-env
+
+%% setenv
+STYLE=[01;31mbold
+
+%% stdout
+PATH=/usr/bin:/bin
+STYLE=^[[01;31mbold

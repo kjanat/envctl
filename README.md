@@ -199,8 +199,10 @@ API_TOKEN=<redacted>
 
 Entries are printed in environ order. Names that aren't `[A-Za-z_][A-Za-z0-9_]*`
 (for example bash's exported functions) are skipped, matching `list`. A masked
-multi-line value collapses to one token line; an unmasked one prints its raw
-newlines, exactly like `env(1)`.
+multi-line value collapses to one token line; an unmasked one shows its control
+bytes in caret notation (`^J` for a newline, `^[` for ESC), keeping one entry
+per line where `env(1)` would let a `LESS_TERMCAP_*` value restyle your terminal
+or an embedded newline forge extra entries.
 
 ### Redaction
 
@@ -218,6 +220,10 @@ that means. When redaction is on, values become `<redacted>`,
 
 `get` stays raw on pipes so scripts and command substitution keep working. Agent
 detection follows [unjs/std-env] signals (plus `AI_AGENT`).
+
+Displayed values show control bytes in caret notation (ESC as `^[`, newline as
+`^J`) on a TTY and whenever redaction is on; pipes keep the raw bytes, and
+`--raw` turns it off along with masking.
 
 **What counts as secret**
 

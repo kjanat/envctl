@@ -1,0 +1,13 @@
+%% args
+get
+controls.env
+STYLE
+
+%% mode
+pty
+
+%% env
+env/controls.env
+
+%% stdout
+^[[01;31mbold

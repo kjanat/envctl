@@ -12,6 +12,8 @@
 extern const char *PROG;
 
 int stdout_isatty(void);
+void display_set_escape(int on);
+void fputs_display(const char *s);
 NORETURN void die(const char *fmt, ...);
 void *xmalloc(size_t n);
 void *xrealloc(void *q, size_t n);

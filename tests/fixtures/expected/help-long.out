@@ -50,6 +50,8 @@ Redaction (presentation only; pipes and scripts stay raw so get stays composable
   continuation lines are never printed.
 Default on when a coding agent is detected and stdout is a TTY; off when
 stdout is piped/redirected unless --redact. --raw always shows full secrets.
+Displayed values show control bytes in caret notation (ESC as ^[, newline as
+^J) on a TTY and whenever redaction is on; pipes keep the raw bytes.
 
 Filter mode: envctl redact reads stdin and writes stdout with secrets masked.
   It always redacts and rejects --raw. Every maskable value in the env file is

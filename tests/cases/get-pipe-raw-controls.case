@@ -1,0 +1,10 @@
+%% args
+get
+controls.env
+STYLE
+
+%% env
+env/controls.env
+
+%% stdout-file
+expected/controls-value.txt

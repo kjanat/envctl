@@ -24,6 +24,25 @@ int stdout_isatty(void) {
 #endif
 }
 
+static int display_escape;
+
+void display_set_escape(int on) { display_escape = on; }
+
+void fputs_display(const char *s) {
+	if (!display_escape) {
+		fputs(s, stdout);
+		return;
+	}
+	for (const unsigned char *p = (const unsigned char *)s; *p; p++) {
+		if (*p < 0x20 || *p == 0x7f) {
+			putchar('^');
+			putchar(*p == 0x7f ? '?' : *p + 0x40);
+		} else {
+			putchar(*p);
+		}
+	}
+}
+
 NORETURN void die(const char *fmt, ...) {
 	va_list ap;
 

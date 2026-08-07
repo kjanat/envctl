@@ -49,12 +49,17 @@ void act_env_list(int values, int redact) {
 		char *kbuf = xmalloc(kl + 1);
 		memcpy(kbuf, s, kl);
 		kbuf[kl] = '\0';
+		const char *shown = eq + 1;
 		if (redact && should_mask(kbuf, eq + 1))
-			printf("%.*s=%s\n", (int)kl, s, redact_token(kbuf, eq + 1));
-		else
-			printf("%.*s=%s\n", (int)kl, s, eq + 1);
+			shown = redact_token(kbuf, eq + 1);
+		printf("%.*s=", (int)kl, s);
+		fputs_display(shown);
+		putchar('\n');
 		free(kbuf);
 	}
 }
 
-void act_env_dump(void) { act_env_list(1, 1); }
+void act_env_dump(void) {
+	display_set_escape(1);
+	act_env_list(1, 1);
+}
