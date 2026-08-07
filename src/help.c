@@ -1,20 +1,13 @@
 #include "help.h"
 
 #include "agent.h"
+#include "cli.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-static const char *SHORT_USAGE =
-    "usage: envctl <cmd> [file] [args...]\n"
-    "       envctl [file] <KEY> [VALUE]\n"
-    "  commands: set get disable enable delete|rm list|ls redact env\n"
-    "  file:     optional when ./.env exists\n"
-    "  bare:     envctl [file] <KEY>          == get\n"
-    "            envctl [file] <KEY> <VALUE>  == set\n"
-    "  flags:    --values --all (list)  --sort (list/env)  --env (get/list/redact)\n"
-    "            --no-env (redact)  --dry-run  --redact --raw --paranoid\n"
-    "  version:  -v | -V | --version\n";
+#define WRAP_WIDTH 78
 
 static const char *AI_PREAMBLE =
     "You are an AI coding agent. Use envctl to change a key in any env / .env-style file.\n"
@@ -24,84 +17,128 @@ static const char *AI_PREAMBLE =
     "redacted on a TTY by default; use --raw only when you truly need full secrets.\n"
     "Pipe command output through 'envctl redact' to mask secrets in what you print.\n\n";
 
-static const char *LONG_USAGE =
-    "envctl — manage keys in env files\n"
-    "\n"
-    "Commands:\n"
-    "  envctl set     [file] <KEY> [VALUE]   set/replace KEY (uncomments if commented)\n"
-    "  envctl get     [file] <KEY>           print active value; exit 1 if unset\n"
-    "  envctl disable [file] <KEY>           comment KEY out, keep its value\n"
-    "  envctl enable  [file] <KEY>           uncomment KEY\n"
-    "  envctl delete  [file] <KEY>           remove KEY entirely (active + commented) [rm]\n"
-    "  envctl list    [file] [--values] [--all]  active keys; --values shows values;\n"
-    "                                        --all also lists disabled keys           [ls]\n"
-    "  envctl redact  [file | --env | --no-env]  filter stdin to stdout, masking secrets\n"
-    "  envctl env                            print process environment, always redacted\n"
-    "\n"
-    "File: optional when ./.env exists as a regular file. If the first positional is\n"
-    "an existing path, it is used; otherwise .env is assumed when present. Read\n"
-    "commands (get, list, redact's env file) accept any openable path, including\n"
-    "FIFOs from process substitution and /dev/fd/N; set/disable/enable/delete\n"
-    "require a regular file.\n"
-    "\n"
-    "Bare form (no command word):\n"
-    "  envctl [file] <KEY>            == get\n"
-    "  envctl [file] <KEY> <VALUE>    == set\n"
-    "\n"
-    "Flags:\n"
-    "  --dry-run   mutating command: print a unified diff, write nothing\n"
-    "  --values    list: show values (secret-looking ones follow redact rules)\n"
-    "  --all       list: include disabled keys tagged (disabled)\n"
-    "  --sort      list/env: print entries sorted by key\n"
-    "  --env       get/list/redact: use the process environment instead of a file\n"
-    "              (get --env KEY, list --env, redact --env; rejected elsewhere)\n"
-    "  --no-env    redact: skip the env file's literal values, use heuristics only\n"
-    "              (redact takes a file, --env, or --no-env, never two of them)\n"
-    "  --redact    mask secret-looking values on get / list --values / dry-run\n"
-    "  --raw       never mask (overrides auto-redact and --redact; redact rejects it)\n"
-    "  --paranoid  apply the entropy bar to every value, whatever its key is named\n"
-    "              (implies --redact; rejects --raw)\n"
-    "  -V, --version  print the version this binary was built from (also -v)\n";
+typedef struct {
+	int col;
+	int indent;
+} Wrap;
 
-/* C99 guarantees only 4095 bytes per string literal, so the long help is
- * emitted in parts. */
-static const char *LONG_USAGE_REDACTION =
-    "\n"
-    "Redaction (presentation only; pipes and scripts stay raw so get stays composable):\n"
-    "  mask as <redacted> / <redacted:private-key> / <redacted:credentials> when on.\n"
-    "  Signals: key-name segments (case-insensitive; '_' and camelCase both split,\n"
-    "  so secretAccessKey reads as SECRET_ACCESS_KEY), PEM private keys, PuTTY keys,\n"
-    "  private JWKs, credentialed URLs (user:pass@, token@, scheme-relative, and Go\n"
-    "  tcp()/unix() DSNs), Slack and Discord webhook URLs, sensitive URL query\n"
-    "  parameters with or without a scheme, Bearer and Basic values, connection-string\n"
-    "  password fragments, known token prefixes, JWTs, and Shannon entropy under a\n"
-    "  suspicious key name. Path-like key suffixes (*_FILE/*_PATH/*_NAME) and\n"
-    "  digest-like key names (*_SHA/*_HASH/*_COMMIT) mask only when the value itself\n"
-    "  looks secret; *_ID keys skip the entropy bar but still mask under a strong\n"
-    "  secret name. A multiline quoted or PEM value masks to one line and its\n"
-    "  continuation lines are never printed.\n"
-    "Default on when a coding agent is detected and stdout is a TTY; off when\n"
-    "stdout is piped/redirected unless --redact. --raw always shows full secrets.\n"
-    "Displayed values show control bytes in caret notation (ESC as ^[, newline as\n"
-    "^J) on a TTY and whenever redaction is on; pipes keep the raw bytes.\n"
-    "\n"
-    "Filter mode: envctl redact reads stdin and writes stdout with secrets masked.\n"
-    "  It always redacts and rejects --raw. Every maskable value in the env file is\n"
-    "  matched literally, together with its base64, URL-encoded and JSON-escaped\n"
-    "  forms; value-shape heuristics then run over the rest of the text. Entropy\n"
-    "  applies only where a key name is present, or everywhere under --paranoid.\n"
-    "  An assignment parses with or without spaces around its separator, so INI\n"
-    "  files such as .aws/credentials are covered. A PEM private key prints as one\n"
-    "  <redacted:private-key> line and its body is dropped. With no END marker, 511\n"
-    "  lines drop unconditionally, then only base64-shaped lines stay suppressed.\n"
-    "  redact --env masks the process environment's literal values instead of a\n"
-    "  file's; envctl env prints the environment itself with the same always-on\n"
-    "  redaction.\n"
-    "\n"
-    "Guarantees: only the target key's logical assignment changes (a multiline value\n"
-    "moves with its continuation lines); re-running with the same args is a no-op;\n"
-    "writes are atomic (temp + rename) and preserve file mode; VALUE is literal (no\n"
-    "shell/regex reinterpretation).\n";
+static void wrap_start(Wrap *w, const char *label) {
+	fputs(label, stdout);
+	w->indent = (int)strlen(label);
+	w->col = w->indent;
+}
+
+static void wrap_word(Wrap *w, const char *word) {
+	int n = (int)strlen(word);
+	if (w->col > w->indent) {
+		if (w->col + 1 + n > WRAP_WIDTH) {
+			printf("\n%*s", w->indent, "");
+			w->col = w->indent;
+		} else {
+			fputc(' ', stdout);
+			w->col++;
+		}
+	}
+	fputs(word, stdout);
+	w->col += n;
+}
+
+static int widest_command_name(void) {
+	int w = 0;
+	for (int i = 0; i < CMD_COUNT; i++) {
+		int n = (int)strlen(cli_commands[i].name);
+		if (n > w)
+			w = n;
+	}
+	return w;
+}
+
+static int widest_command_args(void) {
+	int w = 0;
+	for (int i = 0; i < CMD_COUNT; i++) {
+		int n = (int)strlen(cli_commands[i].args);
+		if (n > w)
+			w = n;
+	}
+	return w;
+}
+
+static int widest_flag_name(void) {
+	int w = 0;
+	for (int i = 0; i < FLAG_COUNT; i++) {
+		int n = (int)strlen(cli_flags[i].name);
+		if (n > w)
+			w = n;
+	}
+	return w;
+}
+
+static void print_short_usage(void) {
+	char word[64];
+	Wrap w;
+
+	fputs("usage: envctl <cmd> [file] [args...]\n"
+	      "       envctl [file] <KEY> [VALUE]\n",
+	      stdout);
+
+	wrap_start(&w, "  commands: ");
+	for (int i = 0; i < CMD_COUNT; i++) {
+		if (cli_commands[i].alias)
+			snprintf(word, sizeof word, "%s|%s", cli_commands[i].name, cli_commands[i].alias);
+		else
+			snprintf(word, sizeof word, "%s", cli_commands[i].name);
+		wrap_word(&w, word);
+	}
+	fputc('\n', stdout);
+
+	wrap_start(&w, "  flags:    ");
+	for (int i = 0; i < FLAG_COUNT; i++)
+		wrap_word(&w, cli_flags[i].name);
+	fputc('\n', stdout);
+
+	fputs("  file:     optional when ./.env exists\n"
+	      "  bare:     envctl [file] <KEY> == get, with VALUE == set\n"
+	      "  more:     --help, or man envctl\n"
+	      "  version:  -v | -V | --version\n",
+	      stdout);
+}
+
+static void print_long_usage(void) {
+	int nw = widest_command_name();
+	int aw = widest_command_args();
+	int fw = widest_flag_name();
+
+	fputs("envctl — manage keys in env files\n"
+	      "\n"
+	      "Usage:\n"
+	      "  envctl <cmd> [file] [args...]\n"
+	      "  envctl [file] <KEY>            get\n"
+	      "  envctl [file] <KEY> <VALUE>    set\n"
+	      "\n"
+	      "Commands:\n",
+	      stdout);
+	for (int i = 0; i < CMD_COUNT; i++)
+		printf("  %-*s  %-*s  %s\n", nw, cli_commands[i].name, aw, cli_commands[i].args,
+		       cli_commands[i].summary);
+
+	fputs("\nAliases:", stdout);
+	for (int i = 0, seen = 0; i < CMD_COUNT; i++) {
+		if (!cli_commands[i].alias)
+			continue;
+		printf("%s %s = %s", seen++ ? "," : "", cli_commands[i].alias, cli_commands[i].name);
+	}
+	fputs("\nFile: optional when ./.env exists as a regular file\n"
+	      "\n"
+	      "Flags:\n",
+	      stdout);
+	for (int i = 0; i < FLAG_COUNT; i++)
+		printf("  %-*s  %s\n", fw, cli_flags[i].name, cli_flags[i].summary);
+	printf("  %-*s  print short usage\n", fw, "-h");
+	printf("  %-*s  print this help\n", fw, "--help");
+	printf("  %-*s  print the version this binary was built from (also -v, -V)\n", fw, "--version");
+
+	fputs("\nRedaction rules, filter mode, and guarantees: man envctl\n", stdout);
+}
 
 #ifndef ENVCTL_VERSION
 #define ENVCTL_VERSION "unknown"
@@ -115,12 +152,11 @@ NORETURN void print_version(void) {
 
 NORETURN void print_help(int longform) {
 	if (!longform) {
-		fputs(SHORT_USAGE, stdout);
+		print_short_usage();
 	} else {
 		if (detect_agent())
 			fputs(AI_PREAMBLE, stdout);
-		fputs(LONG_USAGE, stdout);
-		fputs(LONG_USAGE_REDACTION, stdout);
+		print_long_usage();
 	}
 	stdout_flush_check();
 	exit(0);

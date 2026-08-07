@@ -1,4 +1,5 @@
 CC       ?= cc
+HOSTCC   ?= $(CC)
 CFLAGS   ?= -O2 -Wall -Wextra -Werror -Wpedantic -Wshadow -std=c11 -Isrc
 VERSION  ?= $(shell git describe --tags --abbrev --dirty 2>/dev/null || echo unknown)
 override CFLAGS += -DENVCTL_VERSION='"$(VERSION)"'
@@ -7,7 +8,7 @@ DEPFLAGS ?= -MMD -MP
 PREFIX   ?= $(HOME)/.local
 DIST     ?= dist
 
-SRCS := src/util.c src/agent.c src/help.c src/lines.c src/entropy.c \
+SRCS := src/util.c src/agent.c src/cli.c src/help.c src/lines.c src/entropy.c \
         src/redact.c src/mask.c src/filter.c src/envsrc.c src/diff.c \
         src/fileio.c src/main.c
 OBJS := $(SRCS:.c=.o)
@@ -29,7 +30,9 @@ else
 EXE :=
 INSTALL_LINK := ln -sf
 endif
-BIN := envctl$(EXE)
+BIN    := envctl$(EXE)
+MANGEN := gen/man$(EXE)
+MAN1   := man/envctl.1
 
 # The housekeeping recipes below shell out to coreutils (mkdir/cp/rm). GNU make
 # finds an sh.exe on PATH even when launched from PowerShell/cmd, but only routes
@@ -50,7 +53,7 @@ ART_WINDOWS_ARM64 := $(DIST)/envctl-windows-arm64.exe
 NPROCS := $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || getconf NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || nproc 2>/dev/null || echo 2)
 MAKEFLAGS += -j$(NPROCS)
 
-.PHONY: all clean install fmt format test
+.PHONY: all clean install fmt format test man
 .PHONY: dist-linux-amd64 dist-linux-arm64 dist-darwin-amd64 dist-darwin-arm64
 .PHONY: dist-windows-amd64 dist-windows-arm64 checksums
 
@@ -66,10 +69,31 @@ src/%.o: src/%.c
 -include $(DEPS)
 
 # ---------------------------------------------------------------------------
+# man page (generated from the CLI registry in src/cli.c)
+# ---------------------------------------------------------------------------
+
+man: $(MAN1)
+
+$(MANGEN): gen/man.c src/cli.c src/cli.h
+	$(HOSTCC) $(CFLAGS) -o $@ gen/man.c src/cli.c
+
+$(MAN1): $(MANGEN)
+	mkdir -p "man"
+	"./$(MANGEN)" > "$(MAN1)"
+
+# ---------------------------------------------------------------------------
 # test
 # ---------------------------------------------------------------------------
 
-test: $(BIN)
+test: $(BIN) $(MANGEN)
+	@"./$(MANGEN)" > "$(MAN1).gen"
+	@cmp -s "$(MAN1)" "$(MAN1).gen" || { \
+		echo "$(MAN1) is stale: regenerate with 'make man' and commit it" >&2; \
+		diff -u "$(MAN1)" "$(MAN1).gen" >&2 || true; \
+		rm -f "$(MAN1).gen"; \
+		exit 1; \
+	}
+	@rm -f "$(MAN1).gen"
 	@bash tests/run.sh "$(CURDIR)/$(BIN)"
 
 # ---------------------------------------------------------------------------
@@ -109,10 +133,13 @@ checksums:
 install: $(BIN)
 	mkdir -p "$(call slash,$(PREFIX))/bin"
 	$(INSTALL_LINK) "$(call slash,$(CURDIR))/$(BIN)" "$(call slash,$(PREFIX))/bin/$(BIN)"
+	mkdir -p "$(call slash,$(PREFIX))/share/man/man1"
+	cp -f "$(call slash,$(CURDIR))/$(MAN1)" "$(call slash,$(PREFIX))/share/man/man1/envctl.1"
 
 fmt format:
 	dprint fmt
 
 clean:
 	rm -f "envctl" "envctl.exe" $(OBJS) $(DEPS)
+	rm -f "gen/man" "gen/man.exe" "$(MAN1).gen"
 	rm -rf "$(call slash,$(DIST))"

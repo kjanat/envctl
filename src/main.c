@@ -4,6 +4,7 @@
  * Build: make  (see Makefile; sources under src/)
  */
 #define _GNU_SOURCE
+#include "cli.h"
 #include "diff.h"
 #include "envsrc.h"
 #include "fileio.h"
@@ -25,15 +26,41 @@
 #endif
 #endif
 
-static int is_command(const char *a) {
-	static const char *const cmds[] = {
-	    "set", "get", "disable", "enable", "delete", "list", "ls", "rm", "redact", "env", NULL,
-	};
-	for (int i = 0; cmds[i]; i++) {
-		if (!strcmp(a, cmds[i]))
-			return 1;
+static const Command *command_by_id(CmdId id) {
+	for (int i = 0; i < CMD_COUNT; i++) {
+		if (cli_commands[i].id == id)
+			return &cli_commands[i];
 	}
-	return 0;
+	die("no such command id: %d", (int)id);
+}
+
+NORETURN static void die_flag_scope(const Flag *f) {
+	char *list = NULL;
+	size_t cap = 0, len = 0;
+	int total = 0, seen = 0;
+
+	for (int i = 0; i < CMD_COUNT; i++) {
+		if (f->commands & CMD_BIT(cli_commands[i].id))
+			total++;
+	}
+	for (int i = 0; i < CMD_COUNT; i++) {
+		if (!(f->commands & CMD_BIT(cli_commands[i].id)))
+			continue;
+		if (seen > 0) {
+			const char *sep = seen == total - 1 ? (total == 2 ? " and " : ", and ") : ", ";
+			buf_put(&list, &cap, &len, sep, strlen(sep));
+		}
+		buf_put(&list, &cap, &len, cli_commands[i].name, strlen(cli_commands[i].name));
+		seen++;
+	}
+	die("%s is only valid for %s", f->name, list);
+}
+
+static void check_flag_scope(const Command *cmd, const int *opts) {
+	for (int i = 0; i < FLAG_COUNT; i++) {
+		if (opts[cli_flags[i].id] && !(cli_flags[i].commands & CMD_BIT(cmd->id)))
+			die_flag_scope(&cli_flags[i]);
+	}
 }
 
 static int is_reg_file(const char *path) {
@@ -97,34 +124,18 @@ int main(int argc, char **argv) {
 	_setmode(_fileno(stdout), _O_BINARY);
 	_setmode(_fileno(stderr), _O_BINARY);
 #endif
-	int dry = 0, values = 0, all = 0, flag_redact = 0, flag_raw = 0, no_env = 0, use_env = 0,
-	    paranoid = 0, sort = 0, np = 0;
-	int options = 1;
+	int opts[FLAG_COUNT] = {0};
+	int options = 1, np = 0;
 	const char *pos[16];
 
 	for (int i = 1; i < argc; i++) {
 		const char *a = argv[i];
+		const Flag *f = options ? cli_flag_by_name(a) : NULL;
 
 		if (options && !strcmp(a, "--"))
 			options = 0;
-		else if (options && !strcmp(a, "--dry-run"))
-			dry = 1;
-		else if (options && !strcmp(a, "--values"))
-			values = 1;
-		else if (options && !strcmp(a, "--all"))
-			all = 1;
-		else if (options && !strcmp(a, "--redact"))
-			flag_redact = 1;
-		else if (options && !strcmp(a, "--raw"))
-			flag_raw = 1;
-		else if (options && !strcmp(a, "--paranoid"))
-			paranoid = 1;
-		else if (options && !strcmp(a, "--env"))
-			use_env = 1;
-		else if (options && !strcmp(a, "--no-env"))
-			no_env = 1;
-		else if (options && !strcmp(a, "--sort"))
-			sort = 1;
+		else if (f)
+			opts[f->id] = 1;
 		else if (options && !strcmp(a, "-h"))
 			print_help(0);
 		else if (options && !strcmp(a, "--help"))
@@ -140,14 +151,13 @@ int main(int argc, char **argv) {
 	if (np == 0)
 		print_help(1);
 
-	if (paranoid) {
-		if (flag_raw)
+	if (opts[FLAG_PARANOID]) {
+		if (opts[FLAG_RAW])
 			die("--paranoid cannot be --raw");
 		redact_set_paranoid(1);
-		flag_redact = 1;
 	}
 
-	const char *cmd = NULL;
+	const Command *cmd = NULL;
 	const char *file = NULL;
 	const char *key = NULL;
 	const char *val = NULL;
@@ -155,78 +165,65 @@ int main(int argc, char **argv) {
 	int nr = 0;
 
 	for (int i = 0; i < np; i++) {
-		if (!cmd && is_command(pos[i]))
-			cmd = pos[i];
+		const Command *c = cli_command_by_name(pos[i]);
+		if (!cmd && c)
+			cmd = c;
 		else
 			rest[nr++] = pos[i];
 	}
 
-	if (!cmd) {
+	int bare = cmd == NULL;
+	if (bare) {
 		if (nr < 1)
 			die("usage: envctl [<cmd>] [file] <KEY> [VALUE]");
-		if (use_env) {
-			if (nr > 1)
-				die("--env is only valid for get, list, and redact");
-			cmd = "get";
-			key = rest[0];
+		if (opts[FLAG_ENV]) {
+			cmd = command_by_id(nr > 1 ? CMD_SET : CMD_GET);
+			if (nr == 1)
+				key = rest[0];
 		} else {
 			resolve_file_args(rest, nr, &file, &key, &val);
 			if (!key)
 				die("usage: envctl [file] <KEY> [VALUE]  or  envctl <cmd> [file] ...");
-			if (val)
-				cmd = "set";
-			else
-				cmd = "get";
+			cmd = command_by_id(val ? CMD_SET : CMD_GET);
 		}
-	} else {
-		if (!strcmp(cmd, "ls"))
-			cmd = "list";
-		if (!strcmp(cmd, "rm"))
-			cmd = "delete";
+	}
 
-		if (!strcmp(cmd, "redact")) {
-			if (sort)
-				die("--sort is only valid for list and env");
-			if (flag_raw)
-				die("redact cannot be --raw");
-			if (use_env) {
-				if (no_env)
-					die("redact takes --env or --no-env, never both");
-				if (nr > 0)
-					die("too many arguments");
-				return act_redact(NULL, 1);
-			}
-			if (no_env) {
-				if (nr > 0)
-					die("too many arguments");
-			} else if (nr > 1) {
-				die("too many arguments");
-			} else if (nr == 1 && path_exists(rest[0])) {
-				file = rest[0];
-			} else if (nr == 1) {
-				die("no such file: %s", rest[0]);
-			} else if (is_reg_file(".env")) {
-				file = ".env";
-			}
-			return act_redact(file, 0);
-		}
+	check_flag_scope(cmd, opts);
 
-		if (!strcmp(cmd, "env")) {
-			if (flag_raw)
-				die("env cannot be --raw");
-			if (no_env)
-				die("--no-env is only valid for redact");
-			if (use_env)
-				die("--env is only valid for get, list, and redact");
+	if (cmd->id == CMD_REDACT) {
+		if (opts[FLAG_ENV]) {
+			if (opts[FLAG_NO_ENV])
+				die("redact takes --env or --no-env, never both");
 			if (nr > 0)
 				die("too many arguments");
-			act_env_dump(sort);
-			stdout_flush_check();
-			return 0;
+			return act_redact(NULL, 1);
 		}
+		if (opts[FLAG_NO_ENV]) {
+			if (nr > 0)
+				die("too many arguments");
+		} else if (nr > 1) {
+			die("too many arguments");
+		} else if (nr == 1 && path_exists(rest[0])) {
+			file = rest[0];
+		} else if (nr == 1) {
+			die("no such file: %s", rest[0]);
+		} else if (is_reg_file(".env")) {
+			file = ".env";
+		}
+		return act_redact(file, 0);
+	}
 
-		if (!strcmp(cmd, "list")) {
-			if (use_env) {
+	if (cmd->id == CMD_ENV) {
+		if (nr > 0)
+			die("too many arguments");
+		act_env_dump(opts[FLAG_SORT]);
+		stdout_flush_check();
+		return 0;
+	}
+
+	if (!bare) {
+		if (cmd->id == CMD_LIST) {
+			if (opts[FLAG_ENV]) {
 				if (nr > 0)
 					die("too many arguments");
 			} else if (nr == 0) {
@@ -240,9 +237,7 @@ int main(int argc, char **argv) {
 			} else {
 				die("too many arguments");
 			}
-		} else if (use_env) {
-			if (strcmp(cmd, "get") != 0)
-				die("--env is only valid for get, list, and redact");
+		} else if (opts[FLAG_ENV]) {
 			if (nr > 1)
 				die("too many arguments");
 			if (nr == 1)
@@ -252,45 +247,39 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	if (sort && strcmp(cmd, "list") != 0)
-		die("--sort is only valid for list and env");
-
-	if (no_env)
-		die("--no-env is only valid for redact");
-
-	if (!use_env) {
+	if (!opts[FLAG_ENV]) {
 		if (!path_exists(file))
 			die("no such file: %s", file);
-		int mutating = strcmp(cmd, "get") != 0 && strcmp(cmd, "list") != 0;
+		int mutating = cmd->id != CMD_GET && cmd->id != CMD_LIST;
 		if (mutating && !is_reg_file(file))
 			die("not a regular file: %s", file);
 	}
 
-	int redact = want_redact(flag_redact, flag_raw);
-	display_set_escape(!flag_raw && (redact || stdout_isatty()));
+	int redact = want_redact(opts[FLAG_REDACT] || opts[FLAG_PARANOID], opts[FLAG_RAW]);
+	display_set_escape(!opts[FLAG_RAW] && (redact || stdout_isatty()));
 
-	if (!strcmp(cmd, "list")) {
-		if (use_env) {
-			act_env_list(values, redact, sort);
+	if (cmd->id == CMD_LIST) {
+		if (opts[FLAG_ENV]) {
+			act_env_list(opts[FLAG_VALUES], redact, opts[FLAG_SORT]);
 			stdout_flush_check();
 			return 0;
 		}
 		Lines L = read_file(file);
-		act_list(&L, values, all, redact, sort);
+		act_list(&L, opts[FLAG_VALUES], opts[FLAG_ALL], redact, opts[FLAG_SORT]);
 		lines_free(&L);
 		stdout_flush_check();
 		return 0;
 	}
 
 	if (!key)
-		die("%s needs KEY", cmd);
+		die("%s needs KEY", cmd->name);
 	if (!valid_keychars(key, strlen(key)))
 		die("invalid key: '%s'", key);
 
-	if (strcmp(cmd, "set") != 0 && val)
+	if (cmd->id != CMD_SET && val)
 		die("too many arguments");
 
-	if (use_env) {
+	if (opts[FLAG_ENV]) {
 		int rc = act_env_get(key, redact);
 		stdout_flush_check();
 		return rc;
@@ -299,7 +288,7 @@ int main(int argc, char **argv) {
 	Lines L = read_file(file);
 	size_t kl = strlen(key);
 
-	if (!strcmp(cmd, "get")) {
+	if (cmd->id == CMD_GET) {
 		int rc = act_get(&L, key, kl, redact);
 		lines_free(&L);
 		stdout_flush_check();
@@ -307,16 +296,16 @@ int main(int argc, char **argv) {
 	}
 
 	Lines out;
-	if (!strcmp(cmd, "set"))
+	if (cmd->id == CMD_SET)
 		out = act_set(&L, key, kl, val ? val : "");
-	else if (!strcmp(cmd, "disable"))
+	else if (cmd->id == CMD_DISABLE)
 		out = act_disable(&L, key, kl);
-	else if (!strcmp(cmd, "enable"))
+	else if (cmd->id == CMD_ENABLE)
 		out = act_enable(&L, key, kl);
 	else
 		out = act_delete(&L, key, kl);
 
-	if (dry) {
+	if (opts[FLAG_DRY_RUN]) {
 		if (!emit_diff(stdout, &L, &out, file, redact))
 			fprintf(stderr, "%s: no changes\n", PROG);
 	} else {
@@ -324,7 +313,7 @@ int main(int argc, char **argv) {
 	}
 	lines_free_borrowing(&out, &L);
 	lines_free(&L);
-	if (dry)
+	if (opts[FLAG_DRY_RUN])
 		stdout_flush_check();
 
 	return 0;

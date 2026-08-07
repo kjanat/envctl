@@ -8,4 +8,4 @@ env
 %% stdout
 
 %% stderr
-envctl: env cannot be --raw
+envctl: --raw is only valid for set, get, disable, enable, delete, and list

@@ -5,9 +5,9 @@
 usage: envctl <cmd> [file] [args...]
        envctl [file] <KEY> [VALUE]
   commands: set get disable enable delete|rm list|ls redact env
+  flags:    --dry-run --values --all --sort --env --no-env --redact --raw
+            --paranoid
   file:     optional when ./.env exists
-  bare:     envctl [file] <KEY>          == get
-            envctl [file] <KEY> <VALUE>  == set
-  flags:    --values --all (list)  --sort (list/env)  --env (get/list/redact)
-            --no-env (redact)  --dry-run  --redact --raw --paranoid
+  bare:     envctl [file] <KEY> == get, with VALUE == set
+  more:     --help, or man envctl
   version:  -v | -V | --version

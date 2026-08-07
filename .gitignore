@@ -1,6 +1,9 @@
 # Build artifacts (`make` compiles src/*.c).
 /envctl
 /envctl.exe
+/gen/man
+/gen/man.exe
+/man/envctl.1.gen
 /dist/
 **/*.o
 **/*.d

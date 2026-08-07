@@ -7,6 +7,7 @@ Makefile       text eol=lf
 .shellcheckrc  text eol=lf
 tests/run.sh   text eol=lf  -linguist-detectable
 install.sh     text eol=lf  -linguist-detectable
+man/envctl.1   text eol=lf  linguist-generated
 .zed/*.json                  linguist-language=JSON-With-Comments
 
 tests/fixtures/**  -text

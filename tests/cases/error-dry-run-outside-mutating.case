@@ -1,0 +1,15 @@
+%% args
+--dry-run
+list
+basic.env
+
+%% env
+env/basic.env
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: --dry-run is only valid for set, disable, enable, and delete

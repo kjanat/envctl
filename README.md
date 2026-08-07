@@ -47,7 +47,7 @@ Verify against `SHA256SUMS` on the same release when you care.
 git clone https://github.com/kjanat/envctl.git
 cd envctl
 make
-make install   # symlink → ~/.local/bin/envctl
+make install   # symlink → ~/.local/bin/envctl, man page → ~/.local/share/man/man1
 ```
 
 One-liner:
@@ -58,6 +58,11 @@ git clone https://github.com/kjanat/envctl.git && cd envctl && make && make inst
 
 Needs a C11 compiler (`cc` by default). Override with `CC=` / `CFLAGS=` /
 `PREFIX=` as usual. `make test` runs the assertion suite.
+
+`src/cli.c` is the single registry of commands and flags: parser validation,
+`--help`, and the man page are all built from it. `make man` regenerates
+`man/envctl.1` through `gen/man.c`, and `make test` fails when the checked-in
+page no longer matches. `HOSTCC=` builds the generator when cross-compiling.
 
 Development, testing, and release workflow: [CONTRIBUTING.md].\
 Threat model and vulnerability reporting: [SECURITY.md].
@@ -110,24 +115,27 @@ a key literally named `env` needs the explicit form `envctl get env`.
 
 ### Flags
 
-| Flag         | Applies to                    | Effect                                                                                          |
-| ------------ | ----------------------------- | ----------------------------------------------------------------------------------------------- |
-| `--dry-run`  | set, disable, enable, delete  | Print a unified diff to stdout; write nothing                                                   |
-| `--values`   | list                          | Show values (secret-looking ones follow redact rules)                                           |
-| `--all`      | list                          | Include disabled (commented) keys, tagged `(disabled)`                                          |
-| `--sort`     | env, list                     | Print entries sorted by key instead of file or environ order                                    |
-| `--env`      | get, list, redact             | Read the process environment instead of an env file                                             |
-| `--no-env`   | redact                        | Skip the env file's literal values, use heuristics only                                         |
-| `--redact`   | get, list `--values`, dry-run | Force masking of secret-looking values                                                          |
-| `--raw`      | get, list `--values`, dry-run | Never mask (overrides auto-redact and `--redact`)                                               |
-| `--paranoid` | all reading commands          | Apply the entropy bar whatever the key is called; path-like and digest-like values stay visible |
+| Flag         | Applies to                   | Effect                                                                                          |
+| ------------ | ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| `--dry-run`  | set, disable, enable, delete | Print a unified diff to stdout; write nothing                                                   |
+| `--values`   | list                         | Show values (secret-looking ones follow redact rules)                                           |
+| `--all`      | list                         | Include disabled (commented) keys, tagged `(disabled)`                                          |
+| `--sort`     | list, env                    | Print entries sorted by key instead of file or environ order                                    |
+| `--env`      | get, list, redact            | Read the process environment instead of an env file                                             |
+| `--no-env`   | redact                       | Skip the env file's literal values, use heuristics only                                         |
+| `--redact`   | all commands                 | Force masking; `redact` and `env` already mask unconditionally                                  |
+| `--raw`      | all but `redact` and `env`   | Never mask (overrides auto-redact and `--redact`)                                               |
+| `--paranoid` | all commands                 | Apply the entropy bar whatever the key is called; path-like and digest-like values stay visible |
 
-`redact` and `env` reject `--raw` and exit non-zero. `redact` takes a file,
-`--env`, or `--no-env`, never two of them. `--paranoid` implies `--redact` and
-rejects `--raw`.
+Using a flag outside its row is a usage error that names where it is valid, so
+`envctl env --raw` reports
+`--raw is only valid for set, get, disable, enable, delete, and list`. `redact`
+takes a file, `--env`, or `--no-env`, never two of them. `--paranoid` implies
+`--redact` and rejects `--raw`.
 
-Help: `-h` for short usage, `--help` (or no args) for long help.
-`-V`/`--version` prints the version baked into the build.
+Help: `-h` for short usage, `--help` (or no args) for long help, `man envctl`
+for the full reference. `-V`/`--version` prints the version baked into the
+build.
 
 ### Dry run
 
@@ -229,8 +237,8 @@ that means. When redaction is on, values become `<redacted>`,
 detection follows [unjs/std-env] signals (plus `AI_AGENT`).
 
 Displayed values show control bytes in caret notation (ESC as `^[`, newline as
-`^J`) on a TTY and whenever redaction is on; pipes keep the raw bytes, and
-`--raw` turns it off along with masking.
+`^J`) on a TTY and whenever redaction is on; pipes keep raw bytes unless
+redaction is enabled. `--raw` turns it off along with masking.
 
 **What counts as secret**
 

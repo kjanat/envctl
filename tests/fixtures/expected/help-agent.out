@@ -7,74 +7,36 @@ Pipe command output through 'envctl redact' to mask secrets in what you print.
 
 envctl — manage keys in env files
 
+Usage:
+  envctl <cmd> [file] [args...]
+  envctl [file] <KEY>            get
+  envctl [file] <KEY> <VALUE>    set
+
 Commands:
-  envctl set     [file] <KEY> [VALUE]   set/replace KEY (uncomments if commented)
-  envctl get     [file] <KEY>           print active value; exit 1 if unset
-  envctl disable [file] <KEY>           comment KEY out, keep its value
-  envctl enable  [file] <KEY>           uncomment KEY
-  envctl delete  [file] <KEY>           remove KEY entirely (active + commented) [rm]
-  envctl list    [file] [--values] [--all]  active keys; --values shows values;
-                                        --all also lists disabled keys           [ls]
-  envctl redact  [file | --env | --no-env]  filter stdin to stdout, masking secrets
-  envctl env                            print process environment, always redacted
+  set      [file] <KEY> [VALUE]  set or replace KEY, uncommenting if commented
+  get      [file] <KEY>          print the active value; exit 1 if unset
+  disable  [file] <KEY>          comment KEY out, keeping its value
+  enable   [file] <KEY>          uncomment KEY
+  delete   [file] <KEY>          remove KEY entirely, active and commented
+  list     [file]                print active keys
+  redact   [file]                filter stdin to stdout, masking secrets
+  env                            print the process environment, always redacted
 
-File: optional when ./.env exists as a regular file. If the first positional is
-an existing path, it is used; otherwise .env is assumed when present. Read
-commands (get, list, redact's env file) accept any openable path, including
-FIFOs from process substitution and /dev/fd/N; set/disable/enable/delete
-require a regular file.
-
-Bare form (no command word):
-  envctl [file] <KEY>            == get
-  envctl [file] <KEY> <VALUE>    == set
+Aliases: rm = delete, ls = list
+File: optional when ./.env exists as a regular file
 
 Flags:
-  --dry-run   mutating command: print a unified diff, write nothing
-  --values    list: show values (secret-looking ones follow redact rules)
-  --all       list: include disabled keys tagged (disabled)
-  --sort      list/env: print entries sorted by key
-  --env       get/list/redact: use the process environment instead of a file
-              (get --env KEY, list --env, redact --env; rejected elsewhere)
-  --no-env    redact: skip the env file's literal values, use heuristics only
-              (redact takes a file, --env, or --no-env, never two of them)
-  --redact    mask secret-looking values on get / list --values / dry-run
-  --raw       never mask (overrides auto-redact and --redact; redact rejects it)
-  --paranoid  apply the entropy bar to every value, whatever its key is named
-              (implies --redact; rejects --raw)
-  -V, --version  print the version this binary was built from (also -v)
+  --dry-run   print a unified diff and write nothing
+  --values    also print values
+  --all       also print disabled keys
+  --sort      print entries sorted by key
+  --env       use the process environment instead of a file
+  --no-env    skip the env file's literal values, use heuristics only
+  --redact    mask secret-looking values
+  --raw       never mask, and never escape control bytes
+  --paranoid  apply the entropy bar to every value
+  -h          print short usage
+  --help      print this help
+  --version   print the version this binary was built from (also -v, -V)
 
-Redaction (presentation only; pipes and scripts stay raw so get stays composable):
-  mask as <redacted> / <redacted:private-key> / <redacted:credentials> when on.
-  Signals: key-name segments (case-insensitive; '_' and camelCase both split,
-  so secretAccessKey reads as SECRET_ACCESS_KEY), PEM private keys, PuTTY keys,
-  private JWKs, credentialed URLs (user:pass@, token@, scheme-relative, and Go
-  tcp()/unix() DSNs), Slack and Discord webhook URLs, sensitive URL query
-  parameters with or without a scheme, Bearer and Basic values, connection-string
-  password fragments, known token prefixes, JWTs, and Shannon entropy under a
-  suspicious key name. Path-like key suffixes (*_FILE/*_PATH/*_NAME) and
-  digest-like key names (*_SHA/*_HASH/*_COMMIT) mask only when the value itself
-  looks secret; *_ID keys skip the entropy bar but still mask under a strong
-  secret name. A multiline quoted or PEM value masks to one line and its
-  continuation lines are never printed.
-Default on when a coding agent is detected and stdout is a TTY; off when
-stdout is piped/redirected unless --redact. --raw always shows full secrets.
-Displayed values show control bytes in caret notation (ESC as ^[, newline as
-^J) on a TTY and whenever redaction is on; pipes keep the raw bytes.
-
-Filter mode: envctl redact reads stdin and writes stdout with secrets masked.
-  It always redacts and rejects --raw. Every maskable value in the env file is
-  matched literally, together with its base64, URL-encoded and JSON-escaped
-  forms; value-shape heuristics then run over the rest of the text. Entropy
-  applies only where a key name is present, or everywhere under --paranoid.
-  An assignment parses with or without spaces around its separator, so INI
-  files such as .aws/credentials are covered. A PEM private key prints as one
-  <redacted:private-key> line and its body is dropped. With no END marker, 511
-  lines drop unconditionally, then only base64-shaped lines stay suppressed.
-  redact --env masks the process environment's literal values instead of a
-  file's; envctl env prints the environment itself with the same always-on
-  redaction.
-
-Guarantees: only the target key's logical assignment changes (a multiline value
-moves with its continuation lines); re-running with the same args is a no-op;
-writes are atomic (temp + rename) and preserve file mode; VALUE is literal (no
-shell/regex reinterpretation).
+Redaction rules, filter mode, and guarantees: man envctl

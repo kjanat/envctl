@@ -1,0 +1,16 @@
+%% args
+get
+basic.env
+FOO
+--values
+
+%% env
+env/basic.env
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: --values is only valid for list

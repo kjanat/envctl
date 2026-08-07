@@ -1,0 +1,176 @@
+.TH ENVCTL 1 "" "envctl" "General Commands Manual"
+.SH NAME
+envctl \- manage keys in env files
+.SH SYNOPSIS
+.B envctl set
+.RI "[file] <KEY> [VALUE]"
+.br
+.B envctl get
+.RI "[file] <KEY>"
+.br
+.B envctl disable
+.RI "[file] <KEY>"
+.br
+.B envctl enable
+.RI "[file] <KEY>"
+.br
+.B envctl delete
+.RI "[file] <KEY>"
+.br
+.B envctl list
+.RI "[file]"
+.br
+.B envctl redact
+.RI "[file]"
+.br
+.B envctl env
+.br
+.B envctl
+.RI "[file] <KEY> [VALUE]"
+.SH DESCRIPTION
+envctl edits a single key in an env file in place, without disturbing order, comments, spacing, or any other line. Writes are atomic (temp file plus rename) and preserve the target\(aqs mode, so a crash mid\-write never leaves a half\-written env file.
+.PP
+If the first positional is an existing path it names the file. Otherwise ./.env is assumed when it exists as a regular file. The read commands (get, list, and redact\(aqs env file) accept any openable path, including FIFOs from process substitution, /dev/fd/N, and character devices, so envctl redact <(sops \-d secrets.env) works. The mutating commands (set, disable, enable, delete) rewrite the target atomically and therefore require a regular file; anything else fails with \(aqnot a regular file\(aq.
+.PP
+With no command word, envctl [file] <KEY> is a get and envctl [file] <KEY> <VALUE> is a set. A command name always wins over a same\-named file, so envctl .env get API_KEY is a get. That includes env: a key literally named env needs envctl get env.
+.PP
+Keys must match [A\-Za\-z_][A\-Za\-z0\-9_]*. An active assignment is optional whitespace and export, then KEY=...; a commented one is a leading # before the same. A value that opens a quote (", \(aq, or \(ga) or a \-\-\-\-\-BEGIN block runs until its terminator, up to 512 lines, and those lines belong to the key, so set, disable, enable, and delete move all of them. Mutating a key whose value never terminates exits non\-zero and writes nothing.
+.SH COMMANDS
+.TP
+.B set [file] <KEY> [VALUE]
+Sets KEY to VALUE, creating the assignment when it is absent. The first active definition is updated in place, any further active duplicates are commented out, and when no active definition exists the first commented one is revived. Failing all of that the assignment is appended. VALUE is literal: no shell or regex reinterpretation. An omitted VALUE writes an empty value.
+.TP
+.B get [file] <KEY>
+Prints the active value of KEY followed by a newline and exits 1 when KEY has no active definition. A multiline value prints in full.
+.TP
+.B disable [file] <KEY>
+Comments out every active definition of KEY, keeping the value and its position in the file.
+.TP
+.B enable [file] <KEY>
+Uncomments the first commented definition of KEY.
+.TP
+.B delete [file] <KEY>
+Removes every definition of KEY, active and commented alike.
+Alias: rm.
+.TP
+.B list [file]
+Prints the active key names one per line in file order. \-\-values appends each value under the redaction rules, and \-\-all adds the commented keys tagged (disabled). A masked multiline value collapses to one line; an unmasked one shows its first line.
+Alias: ls.
+.TP
+.B redact [file]
+Reads text on stdin and writes it to stdout with secrets masked. The positional names the env file supplying literal values, defaulting to ./.env when it exists. See FILTER MODE.
+.TP
+.B env
+Prints the whole process environment as KEY=VALUE lines with redaction always on, making it the one\-word replacement for env | envctl redact \-\-no\-env. The first line reads # envctl VERSION (redacted) and names the build that produced the dump. Entries follow environ order, or key order under \-\-sort. Names outside [A\-Za\-z_][A\-Za\-z0\-9_]* are skipped, matching list.
+.SH OPTIONS
+.TP
+.B \-\-dry\-run
+Prints a unified diff of the change to stdout and writes nothing. Only changed lines appear. When the command would change nothing, stdout stays empty and envctl: no changes goes to stderr. Under redaction the +++ header reads +++ FILE (redacted) and both sides are masked.
+Valid for: set, disable, enable, and delete.
+.TP
+.B \-\-values
+Prints each key\(aqs value after its name. Secret\-looking values follow the redaction rules.
+Valid for: list.
+.TP
+.B \-\-all
+Includes commented keys, each tagged (disabled).
+Valid for: list.
+.TP
+.B \-\-sort
+Prints entries sorted by key instead of in file or environ order.
+Valid for: list and env.
+.TP
+.B \-\-env
+Reads the process environment in place of an env file. For redact this makes the environment\(aqs values the literal mask set.
+Valid for: get, list, and redact.
+.TP
+.B \-\-no\-env
+Skips the env file entirely so only the value\-shape heuristics run. redact takes a file, \-\-env, or \-\-no\-env, never two of them.
+Valid for: redact.
+.TP
+.B \-\-redact
+Forces masking on, whatever the terminal and agent detection would have chosen. redact and env mask unconditionally, so there it changes nothing.
+Valid for: every command.
+.TP
+.B \-\-raw
+Forces masking off, overriding auto\-redaction and \-\-redact, and prints control bytes as they are instead of in caret notation.
+Valid for: set, get, disable, enable, delete, and list.
+.TP
+.B \-\-paranoid
+Applies the entropy bar to every value, whatever its key is named, closing values such as RANDOM_THING=<44 random chars>. Trivial values, plain paths, and digest\-like key names stay visible. Implies \-\-redact and rejects \-\-raw.
+Valid for: every command.
+.TP
+.B \-h
+Print the short usage summary and exit.
+.TP
+.B \-\-help
+Print the long help and exit. With no arguments at all, envctl prints it too.
+.TP
+.B \-V
+Print the version this binary was built from and exit. Also \-v and \-\-version.
+.SH REDACTION
+Redaction is presentation hygiene, not a security boundary. When it is on, values print as <redacted>, <redacted:private\-key>, or <redacted:credentials>, never as partial suffixes. Disk writes are never redacted.
+.PP
+It is on by default when a coding agent is detected and stdout is a TTY, and off when stdout is piped or redirected unless \-\-redact is given. Agent detection follows the unjs/std\-env signals plus AI_AGENT. get stays raw on pipes so scripts and command substitution keep working. \-\-raw always shows full secrets. redact and env always redact and reject \-\-raw.
+.PP
+Displayed values show control bytes in caret notation (ESC as ^[, newline as ^J) on a TTY and whenever redaction is on; pipes keep raw bytes unless redaction is enabled. \-\-raw turns it off along with masking.
+.PP
+The signals are: key\-name segments (case\-insensitive, with both _ and camelCase splitting, so secretAccessKey reads as SECRET_ACCESS_KEY), PEM private keys, PuTTY private key files, private JWKs, credentialed URLs (user:pass@, token@, scheme\-relative, and Go tcp()/unix() DSNs), Slack and Discord webhook URLs, sensitive URL query parameters with or without a scheme, Bearer and Basic values, connection\-string password fragments, known token prefixes, JWTs, and Shannon entropy under a suspicious key name.
+.PP
+A spelled\-out secret word also counts when it closes a run with no separator in it, because an English compound carries its head word last, so BW_CLIENTSECRET, GITHUBTOKEN, and ADMINPASSWORD match. The abbreviations PASS, PWD, PSK, P12, and a bare KEY still need a segment of their own, which keeps BYPASS_HOSTS, COMPASS_HEADING, and KEYBOARD_LAYOUT visible.
+.PP
+Path\-like key suffixes (*_FILE, *_PATH, *_ENDPOINT, *_NAME, *_VERSION, *_LENGTH, *_DIR, *_HOME, webhook keys excepted) drop the key to the entropy bar, and digest\-like key names (*_SHA, *_SHA256, *_HASH, *_DIGEST, *_CHECKSUM, *_ETAG, *_COMMIT) mask only when the value itself looks secret. A *_ID key skips the entropy bar but still masks under a strong secret name such as PASSWORD_ID. A token prefix counts only when the body its issuer puts after it follows, so npm_Pw6sYv9RtM3zXq7KbC2eNh8GdJ5fLa4u masks while npm_config_* stays visible. JWT compact form needs its first two segments to open with ey, so a CI expression such as steps.publish.outputs stays visible.
+.PP
+Trivial values keep a value visible even under a strong secret name: true/false, yes/no, on/off, read/write, none, null, changeme, log levels, localhost, and short numerics. Under a key name containing KEY, API, AUTH, ACCESS, CRED, PASS, JWT, BEARER, OAUTH, SESSION, or COOKIE, a value clears the entropy bar at 32+ hex characters with H > 3.0, or 24+ base64 characters or 16+ opaque characters with H > 3.5. UUIDs, paths, and URLs are exempt.
+.PP
+\&.pgpass lines (host:port:db:user:password) are not detected: five colon\-separated fields are too generic a shape to key on without masking ordinary text, so mask those by key name or with \-\-paranoid.
+.PP
+Surrounding ", \(aq, or \(ga is stripped before detection and the output keeps the original bytes. A quoted or PEM value spanning several lines is one logical assignment: masking it prints one line and its continuation lines are never printed.
+.SH FILTER MODE
+envctl redact reads stdin and writes stdout with secrets masked. It always redacts and rejects \-\-raw, so agent detection and the TTY check do not apply.
+.PP
+Every maskable value in the env file is matched literally, together with its base64, URL\-encoded, and JSON\-escaped forms. The value\-shape heuristics then run over the rest of the text, and entropy applies only on lines that carry a key name, or on every line under \-\-paranoid. An assignment parses with or without spaces around its separator, so INI files such as .aws/credentials are covered, and the key stays attached to its value either way: under \-\-paranoid a spaced GIT_COMMIT = ... keeps the same digest exemption its unspaced form gets.
+.PP
+A PEM private key prints as one <redacted:private\-key> line and its body lines are dropped. If the \-\-\-\-\-END\-\-\-\-\- marker never arrives, the first 511 continuation lines are suppressed; after that, base64\-looking body lines remain suppressed but the first non\-body line resumes normal processing.
+.PP
+\-\-no\-env skips the env file. \-\-env uses the process environment\(aqs values as the literal mask set instead of a file\(aqs.
+.SH GUARANTEES
+.IP \(bu 2
+Only the target key\(aqs logical assignment changes, and a multiline value moves with its continuation lines.
+.IP \(bu 2
+Order, comments, and unrelated lines are preserved.
+.IP \(bu 2
+Re\-running with the same arguments is a no\-op on content.
+.IP \(bu 2
+Writes are atomic (temp plus rename) and preserve the file mode.
+.IP \(bu 2
+VALUE is literal: no shell or regex reinterpretation.
+.IP \(bu 2
+Secret\-looking values are masked under the rules in REDACTION, and never on disk.
+.IP \(bu 2
+On set, the first active definition is updated in place, further active duplicates are commented out, an inactive definition is revived when no active one exists, and otherwise the assignment is appended.
+.SH EXAMPLES
+.nf
+envctl set .env DATABASE_URL \(aqpostgres://localhost/app\(aq
+envctl get DATABASE_URL
+envctl disable DEBUG
+envctl list \-\-values \-\-all
+envctl \-\-dry\-run delete OLD_KEY
+envctl \-\-redact get API_TOKEN
+envctl \-\-raw list \-\-values
+npm run build 2>&1 | envctl redact
+envctl redact <(sops \-d secrets.env) < build.log
+envctl env
+envctl get \-\-env HOME
+.fi
+.SH EXIT STATUS
+0 on success.
+.PP
+1 when get finds no active definition of KEY.
+.PP
+2 on a usage error, an unreadable or unwritable file, or a failed write to stdout.
+.SH SEE ALSO
+.BR env (1),
+.BR printenv (1)
+.PP
+Project home: https://github.com/kjanat/envctl
