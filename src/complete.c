@@ -193,34 +193,98 @@ static void bash_script(void) {
 	      stdout);
 }
 
+static int command_groups(const char **groups) {
+	int n = 0;
+	for (int i = 0; i < CMD_COUNT; i++) {
+		int seen = 0;
+		for (int g = 0; g < n; g++) {
+			if (!strcmp(groups[g], cli_commands[i].group))
+				seen = 1;
+		}
+		if (!seen)
+			groups[n++] = cli_commands[i].group;
+	}
+	return n;
+}
+
+static void put_zsh_usage_call(const Command *c) {
+	fputs("\t\t\t\t\t_envctl_usage", stdout);
+	for (const char *p = c->args; *p;) {
+		while (*p == ' ')
+			p++;
+		if (!*p)
+			break;
+		const char *e = p;
+		while (*e && *e != ' ')
+			e++;
+		printf(" '%.*s'", (int)(e - p), p);
+		p = e;
+	}
+	fputc('\n', stdout);
+}
+
 static void zsh_script(void) {
+	const char *groups[CMD_COUNT];
+	int ngroups = command_groups(groups);
+
 	fputs("#compdef envctl\n"
+	      "\n"
+	      "_envctl_usage() {\n"
+	      "\tinteger done=0 i\n"
+	      "\tlocal w msg\n"
+	      "\tfor w in \"${(@)words[2,CURRENT-1]}\"; do\n"
+	      "\t\t[[ $w == -* ]] || (( done++ ))\n"
+	      "\tdone\n"
+	      "\tmsg=\"%Benvctl ${words[1]}\"\n"
+	      "\tfor ((i = 1; i <= $#; i++)); do\n"
+	      "\t\tif (( i == done + 1 )); then\n"
+	      "\t\t\tmsg+=\"%b %U${@[i]}%u\"\n"
+	      "\t\telse\n"
+	      "\t\t\tmsg+=\" ${@[i]}\"\n"
+	      "\t\tfi\n"
+	      "\tdone\n"
+	      "\t(( done >= $# )) && msg+=\"%b\"\n"
+	      "\tcompadd -x \"$msg\"\n"
+	      "}\n"
 	      "\n"
 	      "_envctl() {\n"
 	      "\tlocal context state state_descr line\n"
-	      "\ttypeset -A opt_args\n"
-	      "\tlocal -a commands\n"
-	      "\tcommands=(\n",
+	      "\ttypeset -A opt_args\n",
 	      stdout);
-	for (int i = 0; i < CMD_COUNT; i++) {
-		printf("\t\t'%s:", cli_commands[i].name);
-		put_zsh_desc(cli_commands[i].summary);
-		fputs("'\n", stdout);
-		if (cli_commands[i].alias)
-			printf("\t\t'%s:alias for %s'\n", cli_commands[i].alias, cli_commands[i].name);
+	for (int g = 0; g < ngroups; g++) {
+		printf("\tlocal -a cmds_%s\n", groups[g]);
+		printf("\tcmds_%s=(\n", groups[g]);
+		for (int i = 0; i < CMD_COUNT; i++) {
+			if (strcmp(cli_commands[i].group, groups[g]) != 0)
+				continue;
+			printf("\t\t'%s:", cli_commands[i].name);
+			put_zsh_desc(cli_commands[i].summary);
+			fputs("'\n", stdout);
+			if (cli_commands[i].alias)
+				printf("\t\t'%s:alias for %s'\n", cli_commands[i].alias, cli_commands[i].name);
+		}
+		fputs("\t)\n", stdout);
 	}
-	fputs("\t)\n"
-	      "\n"
+	fputs("\n"
 	      "\t_arguments -C \\\n"
 	      "\t\t'(- *)'{-h,--help}'[print help and exit]' \\\n"
-	      "\t\t'(- *)'{-v,-V,--version}'[print the version and exit]' \\\n"
-	      "\t\t'1: :->command' \\\n"
+	      "\t\t'(- *)'{-v,-V,--version}'[print the version and exit]' \\\n",
+	      stdout);
+	for (int f = 0; f < FLAG_COUNT; f++) {
+		printf("\t\t'%s[", cli_flags[f].name);
+		put_zsh_desc(cli_flags[f].summary);
+		fputs("]' \\\n", stdout);
+	}
+	fputs("\t\t'1: :->command' \\\n"
 	      "\t\t'*:: :->args' && return 0\n"
 	      "\n"
 	      "\tcase $state in\n"
-	      "\t\tcommand)\n"
-	      "\t\t\t_describe -t commands 'envctl command' commands\n"
-	      "\t\t\t_files\n"
+	      "\t\tcommand)\n",
+	      stdout);
+	for (int g = 0; g < ngroups; g++)
+		printf("\t\t\t_describe -t %s-commands '%s command' cmds_%s -V %s\n", groups[g], groups[g],
+		       groups[g], groups[g]);
+	fputs("\t\t\t_files\n"
 	      "\t\t\t;;\n"
 	      "\t\targs)\n"
 	      "\t\t\tcase $words[1] in\n",
@@ -231,6 +295,7 @@ static void zsh_script(void) {
 		if (c->alias)
 			printf(" | %s", c->alias);
 		fputs(")\n", stdout);
+		put_zsh_usage_call(c);
 		fputs("\t\t\t\t\t_arguments \\\n", stdout);
 		put_zsh_help_specs();
 		if (c->id == CMD_COMPLETIONS) {
@@ -257,7 +322,11 @@ static void zsh_script(void) {
 	      "\tesac\n"
 	      "}\n"
 	      "\n"
-	      "_envctl \"$@\"\n",
+	      "if [ \"${funcstack[1]}\" = \"_envctl\" ]; then\n"
+	      "\t_envctl \"$@\"\n"
+	      "else\n"
+	      "\tcompdef _envctl envctl\n"
+	      "fi\n",
 	      stdout);
 }
 
@@ -279,6 +348,12 @@ static void fish_script(void) {
 	      "complete -c envctl -s V -l version -d 'print the version and exit'\n"
 	      "complete -c envctl -s v -l version -d 'print the version and exit'\n",
 	      stdout);
+	for (int f = 0; f < FLAG_COUNT; f++) {
+		printf("complete -c envctl -n __fish_use_subcommand -l %s -d '",
+		       long_flag_body(cli_flags[f].name));
+		put_sq(cli_flags[f].summary);
+		fputs("'\n", stdout);
+	}
 	for (int i = 0; i < CMD_COUNT; i++) {
 		const Command *c = &cli_commands[i];
 		int printed = 0;

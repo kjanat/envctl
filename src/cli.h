@@ -37,6 +37,7 @@ typedef struct {
 	const char *alias;
 	const char *args;
 	int takes_file;
+	const char *group;
 	const char *summary;
 	const char *description;
 } Command;

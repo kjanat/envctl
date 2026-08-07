@@ -337,6 +337,7 @@ source <(envctl completions bash)              # current shell only
 
 # zsh — the directory must be in $fpath, before compinit runs
 envctl completions zsh > ~/.local/share/zsh/site-functions/_envctl
+eval "$(envctl completions zsh)"               # current shell only, after compinit
 
 # fish
 envctl completions fish > ~/.config/fish/completions/envctl.fish

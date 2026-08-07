@@ -1,37 +1,77 @@
 #compdef envctl
 
+_envctl_usage() {
+	integer done=0 i
+	local w msg
+	for w in "${(@)words[2,CURRENT-1]}"; do
+		[[ $w == -* ]] || (( done++ ))
+	done
+	msg="%Benvctl ${words[1]}"
+	for ((i = 1; i <= $#; i++)); do
+		if (( i == done + 1 )); then
+			msg+="%b %U${@[i]}%u"
+		else
+			msg+=" ${@[i]}"
+		fi
+	done
+	(( done >= $# )) && msg+="%b"
+	compadd -x "$msg"
+}
+
 _envctl() {
 	local context state state_descr line
 	typeset -A opt_args
-	local -a commands
-	commands=(
+	local -a cmds_edit
+	cmds_edit=(
 		'set:set or replace KEY, uncommenting if commented'
-		'get:print the active value; exit 1 if unset'
 		'disable:comment KEY out, keeping its value'
 		'enable:uncomment KEY'
 		'delete:remove KEY entirely, active and commented'
 		'rm:alias for delete'
+	)
+	local -a cmds_read
+	cmds_read=(
+		'get:print the active value; exit 1 if unset'
 		'list:print active keys'
 		'ls:alias for list'
+	)
+	local -a cmds_redact
+	cmds_redact=(
 		'redact:filter stdin to stdout, masking secrets'
 		'env:print the process environment, always redacted'
+	)
+	local -a cmds_shell
+	cmds_shell=(
 		'completions:print a completion script for a shell'
 	)
 
 	_arguments -C \
 		'(- *)'{-h,--help}'[print help and exit]' \
 		'(- *)'{-v,-V,--version}'[print the version and exit]' \
+		'--dry-run[print a unified diff and write nothing]' \
+		'--values[also print values]' \
+		'--all[also print disabled keys]' \
+		'--sort[print entries sorted by key]' \
+		'--env[use the process environment instead of a file]' \
+		'--no-env[skip the env file'\''s literal values, use heuristics only]' \
+		'--redact[mask secret-looking values]' \
+		'--raw[never mask, and never escape control bytes]' \
+		'--paranoid[apply the entropy bar to every value]' \
 		'1: :->command' \
 		'*:: :->args' && return 0
 
 	case $state in
 		command)
-			_describe -t commands 'envctl command' commands
+			_describe -t edit-commands 'edit command' cmds_edit -V edit
+			_describe -t read-commands 'read command' cmds_read -V read
+			_describe -t redact-commands 'redact command' cmds_redact -V redact
+			_describe -t shell-commands 'shell command' cmds_shell -V shell
 			_files
 			;;
 		args)
 			case $words[1] in
 				set)
+					_envctl_usage '[file]' '<KEY>' '[VALUE]'
 					_arguments \
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
@@ -42,6 +82,7 @@ _envctl() {
 						'*:file:_files'
 					;;
 				get)
+					_envctl_usage '[file]' '<KEY>'
 					_arguments \
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
@@ -52,6 +93,7 @@ _envctl() {
 						'*:file:_files'
 					;;
 				disable)
+					_envctl_usage '[file]' '<KEY>'
 					_arguments \
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
@@ -62,6 +104,7 @@ _envctl() {
 						'*:file:_files'
 					;;
 				enable)
+					_envctl_usage '[file]' '<KEY>'
 					_arguments \
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
@@ -72,6 +115,7 @@ _envctl() {
 						'*:file:_files'
 					;;
 				delete | rm)
+					_envctl_usage '[file]' '<KEY>'
 					_arguments \
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
@@ -82,6 +126,7 @@ _envctl() {
 						'*:file:_files'
 					;;
 				list | ls)
+					_envctl_usage '[file]'
 					_arguments \
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
@@ -95,6 +140,7 @@ _envctl() {
 						'*:file:_files'
 					;;
 				redact)
+					_envctl_usage '[file]'
 					_arguments \
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
@@ -105,6 +151,7 @@ _envctl() {
 						'*:file:_files'
 					;;
 				env)
+					_envctl_usage
 					_arguments \
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
@@ -114,6 +161,7 @@ _envctl() {
 						'*: :'
 					;;
 				completions)
+					_envctl_usage '<shell>'
 					_arguments \
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
@@ -124,4 +172,8 @@ _envctl() {
 	esac
 }
 
-_envctl "$@"
+if [ "${funcstack[1]}" = "_envctl" ]; then
+	_envctl "$@"
+else
+	compdef _envctl envctl
+fi
