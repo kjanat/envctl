@@ -122,7 +122,7 @@ file literally named `env` or `completions` needs the explicit form
 | ------------ | -------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `--dry-run`  | set, disable, enable, delete           | Print a unified diff to stdout; write nothing                                                   |
 | `--values`   | list                                   | Show values (secret-looking ones follow redact rules)                                           |
-| `--all`      | list                                   | Include disabled (commented) keys, tagged `(disabled)`                                          |
+| `--all`      | list, not with `--env`                 | Include disabled (commented) keys, tagged `(disabled)`                                          |
 | `--sort`     | list, env                              | Print entries sorted by key instead of file or environ order                                    |
 | `--env`      | get, list, redact                      | Read the process environment instead of an env file                                             |
 | `--no-env`   | redact                                 | Skip the env file's literal values, use heuristics only                                         |

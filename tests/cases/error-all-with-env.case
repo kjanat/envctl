@@ -1,0 +1,15 @@
+%% args
+list
+--env
+--all
+
+%% setenv
+FOO=one
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: --all is not valid with --env

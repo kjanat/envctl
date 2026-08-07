@@ -3,6 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 static void roff_escape_n(const char *s, size_t n) {
 	for (size_t i = 0; i < n; i++) {
 		if (s[i] == '\\')
@@ -13,6 +18,8 @@ static void roff_escape_n(const char *s, size_t n) {
 			fputs("\\(ga", stdout);
 		else if (s[i] == '\'')
 			fputs("\\(aq", stdout);
+		else if (s[i] == '"')
+			fputs("\\(dq", stdout);
 		else
 			fputc(s[i], stdout);
 	}
@@ -20,14 +27,20 @@ static void roff_escape_n(const char *s, size_t n) {
 
 static void roff_escape(const char *s) { roff_escape_n(s, strlen(s)); }
 
-/* A line opening with '.' or '\'' is a roff control line, so text starting that way needs \&. */
+/* A line opening with '.' or '\'' is a roff control line, and a blank input line breaks the fill.
+ */
 static void roff_lines(const char *s, const char *between) {
 	for (const char *p = s;;) {
 		const char *nl = strchr(p, '\n');
-		if (*p == '.' || *p == '\'')
-			fputs("\\&", stdout);
-		roff_escape_n(p, nl ? (size_t)(nl - p) : strlen(p));
-		fputc('\n', stdout);
+		size_t n = nl ? (size_t)(nl - p) : strlen(p);
+		if (n == 0) {
+			fputs(".sp\n", stdout);
+		} else {
+			if (*p == '.' || *p == '\'')
+				fputs("\\&", stdout);
+			roff_escape_n(p, n);
+			fputc('\n', stdout);
+		}
 		if (!nl)
 			return;
 		fputs(between, stdout);
@@ -36,6 +49,9 @@ static void roff_lines(const char *s, const char *between) {
 }
 
 static void roff_paragraphs(const char *s) { roff_lines(s, ".PP\n"); }
+
+/* .PP would end the indented block, so a .TP body separates paragraphs with .sp. */
+static void roff_tp_body(const char *s) { roff_lines(s, ".sp\n"); }
 
 static void section(const char *name, const char *body) {
 	printf(".SH %s\n", name);
@@ -48,6 +64,10 @@ static void valid_for(unsigned mask) {
 	for (int i = 0; i < CMD_COUNT; i++) {
 		if (mask & CMD_BIT(cli_commands[i].id))
 			total++;
+	}
+	if (total == 0) {
+		fputs("Valid for: no command.\n", stdout);
+		return;
 	}
 	fputs("Valid for: ", stdout);
 	for (int i = 0; i < CMD_COUNT; i++) {
@@ -169,6 +189,9 @@ static const char *EXIT_STATUS =
     "2 on a usage error, an unreadable or unwritable file, or a failed write to stdout.";
 
 int main(void) {
+#ifdef _WIN32
+	_setmode(_fileno(stdout), _O_BINARY);
+#endif
 	fputs(".TH ENVCTL 1 \"\" \"envctl\" \"General Commands Manual\"\n", stdout);
 
 	fputs(".SH NAME\n"
@@ -200,7 +223,7 @@ int main(void) {
 			roff_escape(cli_commands[i].args);
 		}
 		fputc('\n', stdout);
-		roff_paragraphs(cli_commands[i].description);
+		roff_tp_body(cli_commands[i].description);
 		if (cli_commands[i].alias) {
 			fputs("Alias: ", stdout);
 			roff_escape(cli_commands[i].alias);
@@ -213,7 +236,7 @@ int main(void) {
 		fputs(".TP\n.B ", stdout);
 		roff_escape(cli_flags[i].name);
 		fputc('\n', stdout);
-		roff_paragraphs(cli_flags[i].description);
+		roff_tp_body(cli_flags[i].description);
 		valid_for(cli_flags[i].commands);
 	}
 	fputs(".TP\n.B \\-h\n"

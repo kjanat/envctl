@@ -68,7 +68,8 @@ const Flag cli_flags[FLAG_COUNT] = {
     {FLAG_VALUES, "--values", M_LIST, "also print values",
      "Prints each key's value after its name. Secret-looking values follow the redaction rules."},
     {FLAG_ALL, "--all", M_LIST, "also print disabled keys",
-     "Includes commented keys, each tagged (disabled)."},
+     "Includes commented keys, each tagged (disabled). A process environment has no commented "
+     "entries, so this is rejected together with --env."},
     {FLAG_SORT, "--sort", M_LIST | M_ENV, "print entries sorted by key",
      "Prints entries sorted by key instead of in file or environ order."},
     {FLAG_ENV, "--env", M_GET | M_LIST | M_REDACT, "use the process environment instead of a file",

@@ -37,7 +37,7 @@ If the first positional is an existing path it names the file. Otherwise ./.env 
 .PP
 With no command word, envctl [file] <KEY> is a get and envctl [file] <KEY> <VALUE> is a set. A command name always wins over a same\-named file, so envctl .env get API_KEY is a get. That includes env: a key literally named env needs envctl get env.
 .PP
-Keys must match [A\-Za\-z_][A\-Za\-z0\-9_]*. An active assignment is optional whitespace and export, then KEY=...; a commented one is a leading # before the same. A value that opens a quote (", \(aq, or \(ga) or a \-\-\-\-\-BEGIN block runs until its terminator, up to 512 lines, and those lines belong to the key, so set, disable, enable, and delete move all of them. Mutating a key whose value never terminates exits non\-zero and writes nothing.
+Keys must match [A\-Za\-z_][A\-Za\-z0\-9_]*. An active assignment is optional whitespace and export, then KEY=...; a commented one is a leading # before the same. A value that opens a quote (\(dq, \(aq, or \(ga) or a \-\-\-\-\-BEGIN block runs until its terminator, up to 512 lines, and those lines belong to the key, so set, disable, enable, and delete move all of them. Mutating a key whose value never terminates exits non\-zero and writes nothing.
 .SH COMMANDS
 .TP
 .B set [file] <KEY> [VALUE]
@@ -79,7 +79,7 @@ Prints each key\(aqs value after its name. Secret\-looking values follow the red
 Valid for: list.
 .TP
 .B \-\-all
-Includes commented keys, each tagged (disabled).
+Includes commented keys, each tagged (disabled). A process environment has no commented entries, so this is rejected together with \-\-env.
 Valid for: list.
 .TP
 .B \-\-sort
@@ -131,7 +131,7 @@ Trivial values keep a value visible even under a strong secret name: true/false,
 .PP
 \&.pgpass lines (host:port:db:user:password) are not detected: five colon\-separated fields are too generic a shape to key on without masking ordinary text, so mask those by key name or with \-\-paranoid.
 .PP
-Surrounding ", \(aq, or \(ga is stripped before detection and the output keeps the original bytes. A quoted or PEM value spanning several lines is one logical assignment: masking it prints one line and its continuation lines are never printed.
+Surrounding \(dq, \(aq, or \(ga is stripped before detection and the output keeps the original bytes. A quoted or PEM value spanning several lines is one logical assignment: masking it prints one line and its continuation lines are never printed.
 .SH FILTER MODE
 envctl redact reads stdin and writes stdout with secrets masked. It always redacts and rejects \-\-raw, so agent detection and the TTY check do not apply.
 .PP

@@ -41,6 +41,7 @@ static char *join_names(const char *const *names, int n, const char *conj) {
 	char *buf = NULL;
 	size_t cap = 0, len = 0;
 
+	buf_put(&buf, &cap, &len, "", 0);
 	for (int i = 0; i < n; i++) {
 		if (i > 0) {
 			const char *sep = i == n - 1 && n == 2 ? " " : ", ";
@@ -63,6 +64,8 @@ NORETURN static void die_flag_scope(const Flag *f) {
 		if (f->commands & CMD_BIT(cli_commands[i].id))
 			names[n++] = cli_commands[i].name;
 	}
+	if (n == 0)
+		die("%s is not valid for any command", f->name);
 	die("%s is only valid for %s", f->name, join_names(names, n, "and"));
 }
 
@@ -74,11 +77,15 @@ NORETURN static void die_shell_choice(void) {
 	die("completions takes %s", join_names(names, SHELL_COUNT, "or"));
 }
 
-static void check_flag_scope(const Command *cmd, const int *opts) {
+static void check_flag_scope_mask(unsigned allowed, const int *opts) {
 	for (int i = 0; i < FLAG_COUNT; i++) {
-		if (opts[cli_flags[i].id] && !(cli_flags[i].commands & CMD_BIT(cmd->id)))
+		if (opts[cli_flags[i].id] && !(cli_flags[i].commands & allowed))
 			die_flag_scope(&cli_flags[i]);
 	}
+}
+
+static void check_flag_scope(const Command *cmd, const int *opts) {
+	check_flag_scope_mask(CMD_BIT(cmd->id), opts);
 }
 
 static int is_reg_file(const char *path) {
@@ -201,6 +208,7 @@ int main(int argc, char **argv) {
 	if (bare) {
 		if (nr < 1)
 			die("usage: envctl [<cmd>] [file] <KEY> [VALUE]");
+		check_flag_scope_mask(CMD_BIT(CMD_GET) | CMD_BIT(CMD_SET), opts);
 		if (opts[FLAG_ENV]) {
 			cmd = command_by_id(nr > 1 ? CMD_SET : CMD_GET);
 			if (nr == 1)
@@ -214,6 +222,9 @@ int main(int argc, char **argv) {
 	}
 
 	check_flag_scope(cmd, opts);
+
+	if (opts[FLAG_ALL] && opts[FLAG_ENV])
+		die("--all is not valid with --env");
 
 	if (cmd->id == CMD_COMPLETIONS) {
 		if (nr != 1)
