@@ -1,0 +1,16 @@
+%% args
+--raw
+list
+duplicates.env
+--all
+--values
+--sort
+
+%% env
+env/duplicates.env
+
+%% stdout
+PLAIN=ok
+TOKEN=one
+TOKEN=two
+TOKEN=three (disabled)

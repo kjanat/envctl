@@ -1,0 +1,18 @@
+%% args
+list
+--env
+--sort
+
+%% mode
+posix-env
+
+%% setenv
+A=zzz
+A1=bbb
+AB=ccc
+
+%% stdout
+A
+A1
+AB
+PATH

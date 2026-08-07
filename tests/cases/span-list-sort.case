@@ -1,0 +1,14 @@
+%% args
+--raw
+list
+multiline-pem.env
+--values
+--sort
+
+%% env
+env/multiline-pem.env
+
+%% stdout
+AFTER=ok
+FOO=bar
+PK="-----BEGIN PRIVATE KEY-----

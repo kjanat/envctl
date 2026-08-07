@@ -32,8 +32,31 @@ int act_env_get(const char *key, int redact) {
 	return 0;
 }
 
-static int entry_cmp(const void *a, const void *b) {
-	return strcmp(*(const char *const *)a, *(const char *const *)b);
+typedef struct {
+	const char *entry;
+	size_t idx;
+} EnvRef;
+
+static void entry_key(const char *s, const char **k, size_t *kl) {
+	const char *eq = strchr(s, '=');
+	*k = s;
+	*kl = eq ? (size_t)(eq - s) : 0;
+}
+
+static int entry_cmp(const void *pa, const void *pb) {
+	const EnvRef *a = pa;
+	const EnvRef *b = pb;
+	const char *ka, *kb;
+	size_t la, lb;
+	entry_key(a->entry, &ka, &la);
+	entry_key(b->entry, &kb, &lb);
+	size_t m = la < lb ? la : lb;
+	int c = m ? memcmp(ka, kb, m) : 0;
+	if (c)
+		return c;
+	if (la != lb)
+		return la < lb ? -1 : 1;
+	return a->idx < b->idx ? -1 : (a->idx > b->idx);
 }
 
 void act_env_list(int values, int redact, int sort) {
@@ -41,13 +64,13 @@ void act_env_list(int values, int redact, int sort) {
 	size_t n = 0;
 	while (e && e[n])
 		n++;
-	const char **v = xmalloc((n ? n : 1) * sizeof(*v));
+	EnvRef *v = xmalloc((n ? n : 1) * sizeof(*v));
 	for (size_t i = 0; i < n; i++)
-		v[i] = e[i];
+		v[i] = (EnvRef){e[i], i};
 	if (sort)
 		qsort(v, n, sizeof(*v), entry_cmp);
 	for (size_t i = 0; i < n; i++) {
-		const char *s = v[i];
+		const char *s = v[i].entry;
 		const char *eq = strchr(s, '=');
 		if (!eq)
 			continue;
