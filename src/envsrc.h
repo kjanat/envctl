@@ -3,7 +3,7 @@
 
 char *const *env_entries(void);
 int act_env_get(const char *key, int redact);
-void act_env_list(int values, int redact);
-void act_env_dump(void);
+void act_env_list(int values, int redact, int sort);
+void act_env_dump(int sort);
 
 #endif

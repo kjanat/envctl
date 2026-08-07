@@ -537,10 +537,53 @@ static void list_span(const Lines *L, size_t i, size_t span, int values, int all
 	free(kbuf);
 }
 
-void act_list(Lines *L, int values, int all, int redact) {
+typedef struct {
+	const char *line;
+	size_t idx;
+	size_t span;
+} SpanRef;
+
+static void sort_key(const char *line, const char **k, size_t *kl) {
+	const char *p = skip_ws(line);
+	if (*p == '#')
+		p = skip_ws(p + 1);
+	p = skip_export(p);
+	const char *eq = strchr(p, '=');
+	*k = p;
+	*kl = eq ? (size_t)(eq - p) : 0;
+}
+
+static int span_cmp(const void *pa, const void *pb) {
+	const SpanRef *a = pa;
+	const SpanRef *b = pb;
+	const char *ka, *kb;
+	size_t la, lb;
+	sort_key(a->line, &ka, &la);
+	sort_key(b->line, &kb, &lb);
+	size_t m = la < lb ? la : lb;
+	int c = m ? memcmp(ka, kb, m) : 0;
+	if (c)
+		return c;
+	if (la != lb)
+		return la < lb ? -1 : 1;
+	return a->idx < b->idx ? -1 : (a->idx > b->idx);
+}
+
+void act_list(Lines *L, int values, int all, int redact, int sort) {
+	size_t nspans = 0;
+	SpanRef *refs = sort ? xmalloc((L->n ? L->n : 1) * sizeof(*refs)) : NULL;
 	for (size_t i = 0; i < L->n;) {
 		size_t span = logical_span(L, i, NULL);
-		list_span(L, i, span, values, all, redact);
+		if (sort)
+			refs[nspans++] = (SpanRef){L->v[i], i, span};
+		else
+			list_span(L, i, span, values, all, redact);
 		i += span;
+	}
+	if (sort) {
+		qsort(refs, nspans, sizeof(*refs), span_cmp);
+		for (size_t j = 0; j < nspans; j++)
+			list_span(L, refs[j].idx, refs[j].span, values, all, redact);
+		free(refs);
 	}
 }

@@ -1,0 +1,13 @@
+%% args
+env
+--sort
+
+%% mode
+posix-env
+
+%% setenv
+ZZ_LAST=2
+AA_FIRST=1
+
+%% stdout-cmd
+printf '# envctl %s (redacted)\nAA_FIRST=1\nPATH=/usr/bin:/bin\nZZ_LAST=2\n' "$(git describe --tags --abbrev --dirty 2>/dev/null || echo unknown)"

@@ -7,6 +7,5 @@ posix-env
 %% setenv
 STYLE=[01;31mbold
 
-%% stdout
-PATH=/usr/bin:/bin
-STYLE=^[[01;31mbold
+%% stdout-cmd
+printf '# envctl %s (redacted)\nPATH=/usr/bin:/bin\nSTYLE=^[[01;31mbold\n' "$(git describe --tags --abbrev --dirty 2>/dev/null || echo unknown)"

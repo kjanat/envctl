@@ -1,0 +1,10 @@
+%% args
+redact
+--no-env
+--sort
+
+%% stderr
+envctl: --sort is only valid for list and env
+
+%% exit
+2

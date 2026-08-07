@@ -12,8 +12,8 @@ static const char *SHORT_USAGE =
     "  file:     optional when ./.env exists\n"
     "  bare:     envctl [file] <KEY>          == get\n"
     "            envctl [file] <KEY> <VALUE>  == set\n"
-    "  flags:    --values --all (list)  --env (get/list/redact)  --no-env (redact)\n"
-    "            --dry-run  --redact --raw --paranoid\n"
+    "  flags:    --values --all (list)  --sort (list/env)  --env (get/list/redact)\n"
+    "            --no-env (redact)  --dry-run  --redact --raw --paranoid\n"
     "  version:  -v | -V | --version\n";
 
 static const char *AI_PREAMBLE =
@@ -52,6 +52,7 @@ static const char *LONG_USAGE =
     "  --dry-run   mutating command: print a unified diff, write nothing\n"
     "  --values    list: show values (secret-looking ones follow redact rules)\n"
     "  --all       list: include disabled keys tagged (disabled)\n"
+    "  --sort      list/env: print entries sorted by key\n"
     "  --env       get/list/redact: use the process environment instead of a file\n"
     "              (get --env KEY, list --env, redact --env; rejected elsewhere)\n"
     "  --no-env    redact: skip the env file's literal values, use heuristics only\n"

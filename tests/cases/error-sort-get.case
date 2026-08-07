@@ -1,0 +1,11 @@
+%% args
+get
+--env
+FOO
+--sort
+
+%% stderr
+envctl: --sort is only valid for list and env
+
+%% exit
+2

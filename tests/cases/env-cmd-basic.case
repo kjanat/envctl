@@ -8,7 +8,5 @@ posix-env
 FOO=one
 API_TOKEN=abcdefghij
 
-%% stdout
-PATH=/usr/bin:/bin
-FOO=one
-API_TOKEN=<redacted>
+%% stdout-cmd
+printf '# envctl %s (redacted)\nPATH=/usr/bin:/bin\nFOO=one\nAPI_TOKEN=<redacted>\n' "$(git describe --tags --abbrev --dirty 2>/dev/null || echo unknown)"

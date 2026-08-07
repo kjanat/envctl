@@ -1,0 +1,16 @@
+%% args
+list
+--env
+--sort
+
+%% mode
+posix-env
+
+%% setenv
+ZZ_LAST=2
+AA_FIRST=1
+
+%% stdout
+AA_FIRST
+PATH
+ZZ_LAST

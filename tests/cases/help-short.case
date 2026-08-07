@@ -8,6 +8,6 @@ usage: envctl <cmd> [file] [args...]
   file:     optional when ./.env exists
   bare:     envctl [file] <KEY>          == get
             envctl [file] <KEY> <VALUE>  == set
-  flags:    --values --all (list)  --env (get/list/redact)  --no-env (redact)
-            --dry-run  --redact --raw --paranoid
+  flags:    --values --all (list)  --sort (list/env)  --env (get/list/redact)
+            --no-env (redact)  --dry-run  --redact --raw --paranoid
   version:  -v | -V | --version

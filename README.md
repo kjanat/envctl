@@ -115,6 +115,7 @@ a key literally named `env` needs the explicit form `envctl get env`.
 | `--dry-run`  | set, disable, enable, delete  | Print a unified diff to stdout; write nothing                                                   |
 | `--values`   | list                          | Show values (secret-looking ones follow redact rules)                                           |
 | `--all`      | list                          | Include disabled (commented) keys, tagged `(disabled)`                                          |
+| `--sort`     | env, list                     | Print entries sorted by key instead of file or environ order                                    |
 | `--env`      | get, list, redact             | Read the process environment instead of an env file                                             |
 | `--no-env`   | redact                        | Skip the env file's literal values, use heuristics only                                         |
 | `--redact`   | get, list `--values`, dry-run | Force masking of secret-looking values                                                          |
@@ -183,6 +184,7 @@ of an env file — no `env` binary or process substitution needed:
 ```sh
 envctl get --env DATABASE_URL     # like get: raw on pipes, exit 1 if unset
 envctl list --env                 # key names, environ order
+envctl list --env --sort          # key names, sorted
 envctl list --env --values        # values follow the same redact rules as list
 some-command | envctl redact --env
 ```
@@ -193,16 +195,21 @@ replacement for `env | envctl redact --no-env`:
 
 ```console
 $ envctl env
+# envctl v0.4.2 (redacted)
 PATH=/usr/bin:/bin
 API_TOKEN=<redacted>
 ```
 
-Entries are printed in environ order. Names that aren't `[A-Za-z_][A-Za-z0-9_]*`
-(for example bash's exported functions) are skipped, matching `list`. A masked
-multi-line value collapses to one token line; an unmasked one shows its control
-bytes in caret notation (`^J` for a newline, `^[` for ESC), keeping one entry
-per line where `env(1)` would let a `LESS_TERMCAP_*` value restyle your terminal
-or an embedded newline forge extra entries.
+The first line names the version that produced the dump and marks the output as
+redacted. Only `envctl env` prints it.
+
+Entries are printed in environ order, or sorted by key with `--sort`. `list`
+takes the same flag, for both a file and `--env`. Names that aren't
+`[A-Za-z_][A-Za-z0-9_]*` (for example bash's exported functions) are skipped,
+matching `list`. A masked multi-line value collapses to one token line; an
+unmasked one shows its control bytes in caret notation (`^J` for a newline, `^[`
+for ESC), keeping one entry per line where `env(1)` would let a `LESS_TERMCAP_*`
+value restyle your terminal or an embedded newline forge extra entries.
 
 ### Redaction
 

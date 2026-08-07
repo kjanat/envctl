@@ -32,10 +32,22 @@ int act_env_get(const char *key, int redact) {
 	return 0;
 }
 
-void act_env_list(int values, int redact) {
+static int entry_cmp(const void *a, const void *b) {
+	return strcmp(*(const char *const *)a, *(const char *const *)b);
+}
+
+void act_env_list(int values, int redact, int sort) {
 	char *const *e = env_entries();
-	for (size_t i = 0; e && e[i]; i++) {
-		const char *s = e[i];
+	size_t n = 0;
+	while (e && e[n])
+		n++;
+	const char **v = xmalloc((n ? n : 1) * sizeof(*v));
+	for (size_t i = 0; i < n; i++)
+		v[i] = e[i];
+	if (sort)
+		qsort(v, n, sizeof(*v), entry_cmp);
+	for (size_t i = 0; i < n; i++) {
+		const char *s = v[i];
 		const char *eq = strchr(s, '=');
 		if (!eq)
 			continue;
@@ -57,9 +69,15 @@ void act_env_list(int values, int redact) {
 		putchar('\n');
 		free(kbuf);
 	}
+	free(v);
 }
 
-void act_env_dump(void) {
+#ifndef ENVCTL_VERSION
+#define ENVCTL_VERSION "unknown"
+#endif
+
+void act_env_dump(int sort) {
 	display_set_escape(1);
-	act_env_list(1, 1);
+	printf("# envctl %s (redacted)\n", ENVCTL_VERSION);
+	act_env_list(1, 1, sort);
 }

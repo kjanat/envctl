@@ -49,6 +49,6 @@ Lines act_disable(Lines *L, const char *key, size_t kl);
 Lines act_enable(Lines *L, const char *key, size_t kl);
 Lines act_delete(Lines *L, const char *key, size_t kl);
 int act_get(Lines *L, const char *key, size_t kl, int redact);
-void act_list(Lines *L, int values, int all, int redact);
+void act_list(Lines *L, int values, int all, int redact, int sort);
 
 #endif

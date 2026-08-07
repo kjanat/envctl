@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
 	_setmode(_fileno(stderr), _O_BINARY);
 #endif
 	int dry = 0, values = 0, all = 0, flag_redact = 0, flag_raw = 0, no_env = 0, use_env = 0,
-	    paranoid = 0, np = 0;
+	    paranoid = 0, sort = 0, np = 0;
 	int options = 1;
 	const char *pos[16];
 
@@ -123,6 +123,8 @@ int main(int argc, char **argv) {
 			use_env = 1;
 		else if (options && !strcmp(a, "--no-env"))
 			no_env = 1;
+		else if (options && !strcmp(a, "--sort"))
+			sort = 1;
 		else if (options && !strcmp(a, "-h"))
 			print_help(0);
 		else if (options && !strcmp(a, "--help"))
@@ -183,6 +185,8 @@ int main(int argc, char **argv) {
 			cmd = "delete";
 
 		if (!strcmp(cmd, "redact")) {
+			if (sort)
+				die("--sort is only valid for list and env");
 			if (flag_raw)
 				die("redact cannot be --raw");
 			if (use_env) {
@@ -216,7 +220,7 @@ int main(int argc, char **argv) {
 				die("--env is only valid for get, list, and redact");
 			if (nr > 0)
 				die("too many arguments");
-			act_env_dump();
+			act_env_dump(sort);
 			stdout_flush_check();
 			return 0;
 		}
@@ -248,6 +252,9 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	if (sort && strcmp(cmd, "list") != 0)
+		die("--sort is only valid for list and env");
+
 	if (no_env)
 		die("--no-env is only valid for redact");
 
@@ -264,12 +271,12 @@ int main(int argc, char **argv) {
 
 	if (!strcmp(cmd, "list")) {
 		if (use_env) {
-			act_env_list(values, redact);
+			act_env_list(values, redact, sort);
 			stdout_flush_check();
 			return 0;
 		}
 		Lines L = read_file(file);
-		act_list(&L, values, all, redact);
+		act_list(&L, values, all, redact, sort);
 		lines_free(&L);
 		stdout_flush_check();
 		return 0;

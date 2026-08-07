@@ -25,6 +25,7 @@ Flags:
   --dry-run   mutating command: print a unified diff, write nothing
   --values    list: show values (secret-looking ones follow redact rules)
   --all       list: include disabled keys tagged (disabled)
+  --sort      list/env: print entries sorted by key
   --env       get/list/redact: use the process environment instead of a file
               (get --env KEY, list --env, redact --env; rejected elsewhere)
   --no-env    redact: skip the env file's literal values, use heuristics only
