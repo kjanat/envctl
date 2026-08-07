@@ -1,0 +1,12 @@
+usage: envctl get [file] <KEY>
+
+Prints the active value of KEY followed by a newline and exits 1 when KEY has
+no active definition. A multiline value prints in full.
+
+Flags:
+  --env       use the process environment instead of a file
+  --redact    mask secret-looking values
+  --raw       never mask, and never escape control bytes
+  --paranoid  apply the entropy bar to every value
+
+Full reference: man envctl

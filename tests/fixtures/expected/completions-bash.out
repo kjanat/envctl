@@ -1,5 +1,6 @@
 _envctl() {
 	local cur cmd i flags
+	local -a hits
 	cur=${COMP_WORDS[COMP_CWORD]}
 	cmd=
 	for ((i = 1; i < COMP_CWORD; i++)); do
@@ -20,38 +21,39 @@ _envctl() {
 	done
 
 	if [[ ${cmd} == completions ]]; then
-		COMPREPLY=($(compgen -W 'bash zsh fish pwsh' -- "${cur}"))
+		mapfile -t COMPREPLY < <(compgen -W 'bash zsh fish pwsh' -- "${cur}")
 		return
 	fi
 
 	flags=
 	case ${cmd} in
-		set) flags='--dry-run --redact --raw --paranoid' ;;
-		get) flags='--env --redact --raw --paranoid' ;;
-		disable) flags='--dry-run --redact --raw --paranoid' ;;
-		enable) flags='--dry-run --redact --raw --paranoid' ;;
-		delete) flags='--dry-run --redact --raw --paranoid' ;;
-		list) flags='--values --all --sort --env --redact --raw --paranoid' ;;
-		redact) flags='--env --no-env --redact --paranoid' ;;
-		env) flags='--sort --redact --paranoid' ;;
-		completions) flags='' ;;
+		set) flags='--dry-run --redact --raw --paranoid -h --help -v -V --version' ;;
+		get) flags='--env --redact --raw --paranoid -h --help -v -V --version' ;;
+		disable) flags='--dry-run --redact --raw --paranoid -h --help -v -V --version' ;;
+		enable) flags='--dry-run --redact --raw --paranoid -h --help -v -V --version' ;;
+		delete) flags='--dry-run --redact --raw --paranoid -h --help -v -V --version' ;;
+		list) flags='--values --all --sort --env --redact --raw --paranoid -h --help -v -V --version' ;;
+		redact) flags='--env --no-env --redact --paranoid -h --help -v -V --version' ;;
+		env) flags='--sort --redact --paranoid -h --help -v -V --version' ;;
+		completions) flags='-h --help -v -V --version' ;;
 		*) flags='--dry-run --values --all --sort --env --no-env --redact --raw --paranoid -h --help -v -V --version' ;;
 	esac
 
 	if [[ ${cur} == -* ]]; then
-		COMPREPLY=($(compgen -W "${flags}" -- "${cur}"))
+		mapfile -t COMPREPLY < <(compgen -W "${flags}" -- "${cur}")
 		return
 	fi
 
 	if [[ -z ${cmd} ]]; then
-		COMPREPLY=($(compgen -W 'set get disable enable delete rm list ls redact env completions' -- "${cur}"))
-		COMPREPLY+=($(compgen -f -- "${cur}"))
+		mapfile -t COMPREPLY < <(compgen -W 'set get disable enable delete rm list ls redact env completions' -- "${cur}")
+		mapfile -t hits < <(compgen -f -- "${cur}")
+		((${#hits[@]})) && COMPREPLY+=("${hits[@]}")
 		return
 	fi
 
 	case ${cmd} in
 		set | get | disable | enable | delete | list | redact)
-			COMPREPLY=($(compgen -f -- "${cur}"))
+			mapfile -t COMPREPLY < <(compgen -f -- "${cur}")
 			;;
 	esac
 }

@@ -1,6 +1,6 @@
 %% args
-get
+-h
 --help
 
 %% stdout-file
-expected/help-get.out
+expected/help-long.out

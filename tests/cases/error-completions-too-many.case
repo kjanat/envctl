@@ -1,0 +1,12 @@
+%% args
+completions
+bash
+zsh
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: too many arguments

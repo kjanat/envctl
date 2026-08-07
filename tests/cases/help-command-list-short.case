@@ -20,4 +20,4 @@ Flags:
   --raw       never mask, and never escape control bytes
   --paranoid  apply the entropy bar to every value
 
-Redaction rules, filter mode, and guarantees: man envctl
+Full reference: man envctl

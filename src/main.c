@@ -227,7 +227,9 @@ int main(int argc, char **argv) {
 		die("--all is not valid with --env");
 
 	if (cmd->id == CMD_COMPLETIONS) {
-		if (nr != 1)
+		if (nr > 1)
+			die("too many arguments");
+		if (nr < 1)
 			die_shell_choice();
 		const Shell *sh = cli_shell_by_name(rest[0]);
 		if (!sh)

@@ -210,7 +210,7 @@ NORETURN void print_command_help(const Command *cmd) {
 		}
 	}
 
-	fputs("\nRedaction rules, filter mode, and guarantees: man envctl\n", stdout);
+	fputs("\nFull reference: man envctl\n", stdout);
 	stdout_flush_check();
 	exit(0);
 }

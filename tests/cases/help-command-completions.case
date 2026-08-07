@@ -1,0 +1,13 @@
+%% args
+completions
+--help
+
+%% stdout
+usage: envctl completions <shell>
+
+Writes a completion script for bash, zsh, fish, or pwsh to stdout. The script
+is generated at run time from the same command and flag tables the parser
+uses, so it offers exactly the flags each command accepts. See the README for
+where each shell wants the file.
+
+Full reference: man envctl

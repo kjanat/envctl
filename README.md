@@ -75,7 +75,7 @@ envctl get     [file] <KEY>           print active value; exit 1 if unset
 envctl disable [file] <KEY>           comment KEY out, keep its value
 envctl enable  [file] <KEY>           uncomment KEY
 envctl delete  [file] <KEY>           remove KEY entirely (active + commented)
-envctl list    [file | --env] [--values] [--all]
+envctl list    [file | --env] [--values] [--all] [--sort]
 envctl redact  [file | --env | --no-env]   filter stdin to stdout, masking secrets
 envctl env                            print the process environment, always redacted
 envctl completions <shell>            print a completion script for a shell
@@ -322,8 +322,13 @@ Disk writes are never redacted.
 tables the parser uses, so it offers exactly the flags each command accepts and
 never drifts from the binary.
 
-`make install` writes the bash, zsh, and fish scripts under `$(PREFIX)`. To
-install by hand, or to load without installing:
+`make install` writes the bash, zsh, and fish scripts under `$(PREFIX)`. Under
+the default `PREFIX=~/.local`, zsh does not search
+`~/.local/share/zsh/site-functions` on its own, so add it to `$fpath` before
+`compinit` runs or the file sits there unused. `make install` prints a reminder
+whenever `PREFIX` is outside `/usr` and `/usr/local`.
+
+To install by hand, or to load without installing:
 
 ```sh
 # bash
@@ -337,6 +342,10 @@ envctl completions zsh > ~/.local/share/zsh/site-functions/_envctl
 envctl completions fish > ~/.config/fish/completions/envctl.fish
 envctl completions fish | source               # current shell only
 ```
+
+fish reads both `~/.config/fish/completions` and the
+`share/fish/vendor_completions.d` that `make install` writes, so either path
+works; installing to both just leaves two copies of the same script.
 
 PowerShell is not installed by `make install`. Append it to your profile:
 

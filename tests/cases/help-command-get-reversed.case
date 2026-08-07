@@ -1,6 +1,6 @@
 %% args
-get
 --help
+get
 
 %% stdout-file
 expected/help-get.out

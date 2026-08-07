@@ -1,0 +1,14 @@
+%% args
+--help
+-h
+
+%% stdout
+usage: envctl <cmd> [file] [args...]
+       envctl [file] <KEY> [VALUE]
+  commands: set get disable enable delete|rm list|ls redact env completions
+  flags:    --dry-run --values --all --sort --env --no-env --redact --raw
+            --paranoid
+  file:     optional when ./.env exists
+  bare:     envctl [file] <KEY> == get, with VALUE == set
+  more:     --help, or man envctl
+  version:  -v | -V | --version

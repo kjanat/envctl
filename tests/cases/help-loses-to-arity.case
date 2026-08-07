@@ -1,0 +1,27 @@
+%% args
+--help
+a
+b
+c
+d
+e
+f
+g
+h
+i
+j
+k
+l
+m
+n
+o
+p
+q
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: too many arguments

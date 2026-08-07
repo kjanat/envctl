@@ -15,6 +15,7 @@ complete -c envctl -n __fish_use_subcommand -F
 
 complete -c envctl -s h -l help -d 'print help and exit'
 complete -c envctl -s V -l version -d 'print the version and exit'
+complete -c envctl -s v -l version -d 'print the version and exit'
 
 complete -c envctl -n '__fish_seen_subcommand_from set' -l dry-run -d 'print a unified diff and write nothing'
 complete -c envctl -n '__fish_seen_subcommand_from set' -l redact -d 'mask secret-looking values'
