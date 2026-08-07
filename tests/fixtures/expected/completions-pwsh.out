@@ -1,0 +1,62 @@
+Register-ArgumentCompleter -Native -CommandName envctl -ScriptBlock {
+	param($wordToComplete, $commandAst, $cursorPosition)
+
+	$commands = @('set', 'get', 'disable', 'enable', 'delete', 'list', 'redact', 'env', 'completions')
+	$aliases = @{ 'rm' = 'delete'; 'ls' = 'list' }
+	$flags = @{
+		'set' = @('--dry-run', '--redact', '--raw', '--paranoid')
+		'get' = @('--env', '--redact', '--raw', '--paranoid')
+		'disable' = @('--dry-run', '--redact', '--raw', '--paranoid')
+		'enable' = @('--dry-run', '--redact', '--raw', '--paranoid')
+		'delete' = @('--dry-run', '--redact', '--raw', '--paranoid')
+		'list' = @('--values', '--all', '--sort', '--env', '--redact', '--raw', '--paranoid')
+		'redact' = @('--env', '--no-env', '--redact', '--paranoid')
+		'env' = @('--sort', '--redact', '--paranoid')
+		'completions' = @()
+		'' = @('--dry-run', '--values', '--all', '--sort', '--env', '--no-env', '--redact', '--raw', '--paranoid', '-h', '--help', '-v', '-V', '--version')
+	}
+	$tips = @{
+		'set' = 'set or replace KEY, uncommenting if commented'
+		'get' = 'print the active value; exit 1 if unset'
+		'disable' = 'comment KEY out, keeping its value'
+		'enable' = 'uncomment KEY'
+		'delete' = 'remove KEY entirely, active and commented'
+		'rm' = 'alias for delete'
+		'list' = 'print active keys'
+		'ls' = 'alias for list'
+		'redact' = 'filter stdin to stdout, masking secrets'
+		'env' = 'print the process environment, always redacted'
+		'completions' = 'print a completion script for a shell'
+		'--dry-run' = 'print a unified diff and write nothing'
+		'--values' = 'also print values'
+		'--all' = 'also print disabled keys'
+		'--sort' = 'print entries sorted by key'
+		'--env' = 'use the process environment instead of a file'
+		'--no-env' = 'skip the env file''s literal values, use heuristics only'
+		'--redact' = 'mask secret-looking values'
+		'--raw' = 'never mask, and never escape control bytes'
+		'--paranoid' = 'apply the entropy bar to every value'
+	}
+
+	$cmd = ''
+	foreach ($e in @($commandAst.CommandElements | Select-Object -Skip 1)) {
+		$t = $e.ToString()
+		if ($aliases.ContainsKey($t)) { $cmd = $aliases[$t]; break }
+		if ($commands -contains $t) { $cmd = $t; break }
+	}
+
+	$candidates = @()
+	if ($cmd -eq 'completions') {
+		$candidates = @('bash', 'zsh', 'fish', 'pwsh')
+	} elseif ($wordToComplete.StartsWith('-')) {
+		$candidates = $flags[$cmd]
+	} elseif ($cmd -eq '') {
+		$candidates = $commands + $aliases.Keys
+	}
+
+	$candidates | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+		$tip = $tips[$_]
+		if (-not $tip) { $tip = $_ }
+		[System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $tip)
+	}
+}

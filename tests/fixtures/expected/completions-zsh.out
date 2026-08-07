@@ -1,0 +1,108 @@
+#compdef envctl
+
+_envctl() {
+	local context state state_descr line
+	typeset -A opt_args
+	local -a commands
+	commands=(
+		'set:set or replace KEY, uncommenting if commented'
+		'get:print the active value; exit 1 if unset'
+		'disable:comment KEY out, keeping its value'
+		'enable:uncomment KEY'
+		'delete:remove KEY entirely, active and commented'
+		'rm:alias for delete'
+		'list:print active keys'
+		'ls:alias for list'
+		'redact:filter stdin to stdout, masking secrets'
+		'env:print the process environment, always redacted'
+		'completions:print a completion script for a shell'
+	)
+
+	_arguments -C \
+		'(- *)'{-h,--help}'[print help and exit]' \
+		'(- *)'{-v,-V,--version}'[print the version and exit]' \
+		'1: :->command' \
+		'*:: :->args' && return 0
+
+	case $state in
+		command)
+			_describe -t commands 'envctl command' commands
+			_files
+			;;
+		args)
+			case $words[1] in
+				set)
+					_arguments \
+						'--dry-run[print a unified diff and write nothing]' \
+						'--redact[mask secret-looking values]' \
+						'--raw[never mask, and never escape control bytes]' \
+						'--paranoid[apply the entropy bar to every value]' \
+						'*:file:_files'
+					;;
+				get)
+					_arguments \
+						'--env[use the process environment instead of a file]' \
+						'--redact[mask secret-looking values]' \
+						'--raw[never mask, and never escape control bytes]' \
+						'--paranoid[apply the entropy bar to every value]' \
+						'*:file:_files'
+					;;
+				disable)
+					_arguments \
+						'--dry-run[print a unified diff and write nothing]' \
+						'--redact[mask secret-looking values]' \
+						'--raw[never mask, and never escape control bytes]' \
+						'--paranoid[apply the entropy bar to every value]' \
+						'*:file:_files'
+					;;
+				enable)
+					_arguments \
+						'--dry-run[print a unified diff and write nothing]' \
+						'--redact[mask secret-looking values]' \
+						'--raw[never mask, and never escape control bytes]' \
+						'--paranoid[apply the entropy bar to every value]' \
+						'*:file:_files'
+					;;
+				delete | rm)
+					_arguments \
+						'--dry-run[print a unified diff and write nothing]' \
+						'--redact[mask secret-looking values]' \
+						'--raw[never mask, and never escape control bytes]' \
+						'--paranoid[apply the entropy bar to every value]' \
+						'*:file:_files'
+					;;
+				list | ls)
+					_arguments \
+						'--values[also print values]' \
+						'--all[also print disabled keys]' \
+						'--sort[print entries sorted by key]' \
+						'--env[use the process environment instead of a file]' \
+						'--redact[mask secret-looking values]' \
+						'--raw[never mask, and never escape control bytes]' \
+						'--paranoid[apply the entropy bar to every value]' \
+						'*:file:_files'
+					;;
+				redact)
+					_arguments \
+						'--env[use the process environment instead of a file]' \
+						'--no-env[skip the env file'\''s literal values, use heuristics only]' \
+						'--redact[mask secret-looking values]' \
+						'--paranoid[apply the entropy bar to every value]' \
+						'*:file:_files'
+					;;
+				env)
+					_arguments \
+						'--sort[print entries sorted by key]' \
+						'--redact[mask secret-looking values]' \
+						'--paranoid[apply the entropy bar to every value]' \
+						'*: :'
+					;;
+				completions)
+					_values 'shell' 'bash' 'zsh' 'fish' 'pwsh'
+					;;
+			esac
+			;;
+	esac
+}
+
+_envctl "$@"

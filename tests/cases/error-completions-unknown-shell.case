@@ -1,0 +1,11 @@
+%% args
+completions
+tcsh
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: completions takes bash, zsh, fish, or pwsh

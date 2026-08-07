@@ -1,0 +1,6 @@
+%% args
+completions
+fish
+
+%% stdout-file
+expected/completions-fish.out

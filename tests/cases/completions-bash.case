@@ -1,0 +1,6 @@
+%% args
+completions
+bash
+
+%% stdout-file
+expected/completions-bash.out

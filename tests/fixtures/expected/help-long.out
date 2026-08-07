@@ -6,14 +6,15 @@ Usage:
   envctl [file] <KEY> <VALUE>    set
 
 Commands:
-  set      [file] <KEY> [VALUE]  set or replace KEY, uncommenting if commented
-  get      [file] <KEY>          print the active value; exit 1 if unset
-  disable  [file] <KEY>          comment KEY out, keeping its value
-  enable   [file] <KEY>          uncomment KEY
-  delete   [file] <KEY>          remove KEY entirely, active and commented
-  list     [file]                print active keys
-  redact   [file]                filter stdin to stdout, masking secrets
-  env                            print the process environment, always redacted
+  set          [file] <KEY> [VALUE]  set or replace KEY, uncommenting if commented
+  get          [file] <KEY>          print the active value; exit 1 if unset
+  disable      [file] <KEY>          comment KEY out, keeping its value
+  enable       [file] <KEY>          uncomment KEY
+  delete       [file] <KEY>          remove KEY entirely, active and commented
+  list         [file]                print active keys
+  redact       [file]                filter stdin to stdout, masking secrets
+  env                                print the process environment, always redacted
+  completions  <shell>               print a completion script for a shell
 
 Aliases: rm = delete, ls = list
 File: optional when ./.env exists as a regular file

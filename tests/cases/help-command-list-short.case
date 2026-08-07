@@ -1,0 +1,23 @@
+%% args
+list
+-h
+
+%% stdout
+usage: envctl list [file]
+alias: envctl ls
+
+Prints the active key names one per line in file order. --values appends each
+value under the redaction rules, and --all adds the commented keys tagged
+(disabled). A masked multiline value collapses to one line; an unmasked one
+shows its first line.
+
+Flags:
+  --values    also print values
+  --all       also print disabled keys
+  --sort      print entries sorted by key
+  --env       use the process environment instead of a file
+  --redact    mask secret-looking values
+  --raw       never mask, and never escape control bytes
+  --paranoid  apply the entropy bar to every value
+
+Redaction rules, filter mode, and guarantees: man envctl

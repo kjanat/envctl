@@ -1,0 +1,6 @@
+%% args
+completions
+zsh
+
+%% stdout-file
+expected/completions-zsh.out

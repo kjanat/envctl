@@ -16,35 +16,47 @@
 #define M_EVERY (M_DISPLAY | M_REDACT | M_ENV)
 
 const Command cli_commands[CMD_COUNT] = {
-    {CMD_SET, "set", NULL, "[file] <KEY> [VALUE]", "set or replace KEY, uncommenting if commented",
+    {CMD_SET, "set", NULL, "[file] <KEY> [VALUE]", 1,
+     "set or replace KEY, uncommenting if commented",
      "Sets KEY to VALUE, creating the assignment when it is absent. The first active definition is "
      "updated in place, any further active duplicates are commented out, and when no active "
      "definition exists the first commented one is revived. Failing all of that the assignment is "
      "appended. VALUE is literal: no shell or regex reinterpretation. An omitted VALUE writes an "
      "empty value."},
-    {CMD_GET, "get", NULL, "[file] <KEY>", "print the active value; exit 1 if unset",
+    {CMD_GET, "get", NULL, "[file] <KEY>", 1, "print the active value; exit 1 if unset",
      "Prints the active value of KEY followed by a newline and exits 1 when KEY has no active "
      "definition. A multiline value prints in full."},
-    {CMD_DISABLE, "disable", NULL, "[file] <KEY>", "comment KEY out, keeping its value",
+    {CMD_DISABLE, "disable", NULL, "[file] <KEY>", 1, "comment KEY out, keeping its value",
      "Comments out every active definition of KEY, keeping the value and its position in the "
      "file."},
-    {CMD_ENABLE, "enable", NULL, "[file] <KEY>", "uncomment KEY",
+    {CMD_ENABLE, "enable", NULL, "[file] <KEY>", 1, "uncomment KEY",
      "Uncomments the first commented definition of KEY."},
-    {CMD_DELETE, "delete", "rm", "[file] <KEY>", "remove KEY entirely, active and commented",
+    {CMD_DELETE, "delete", "rm", "[file] <KEY>", 1, "remove KEY entirely, active and commented",
      "Removes every definition of KEY, active and commented alike."},
-    {CMD_LIST, "list", "ls", "[file]", "print active keys",
+    {CMD_LIST, "list", "ls", "[file]", 1, "print active keys",
      "Prints the active key names one per line in file order. --values appends each value under "
      "the redaction rules, and --all adds the commented keys tagged (disabled). A masked "
      "multiline value collapses to one line; an unmasked one shows its first line."},
-    {CMD_REDACT, "redact", NULL, "[file]", "filter stdin to stdout, masking secrets",
+    {CMD_REDACT, "redact", NULL, "[file]", 1, "filter stdin to stdout, masking secrets",
      "Reads text on stdin and writes it to stdout with secrets masked. The positional names the "
      "env file supplying literal values, defaulting to ./.env when it exists. See FILTER MODE."},
-    {CMD_ENV, "env", NULL, "", "print the process environment, always redacted",
+    {CMD_ENV, "env", NULL, "", 0, "print the process environment, always redacted",
      "Prints the whole process environment as KEY=VALUE lines with redaction always on, making it "
      "the one-word replacement for env | envctl redact --no-env. The first line reads "
      "# envctl VERSION (redacted) and names the build that produced the dump. Entries follow "
      "environ order, or key order under --sort. Names outside [A-Za-z_][A-Za-z0-9_]* are skipped, "
      "matching list."},
+    {CMD_COMPLETIONS, "completions", NULL, "<shell>", 0, "print a completion script for a shell",
+     "Writes a completion script for bash, zsh, fish, or pwsh to stdout. The script is generated "
+     "at run time from the same command and flag tables the parser uses, so it offers exactly the "
+     "flags each command accepts. See the README for where each shell wants the file."},
+};
+
+const Shell cli_shells[SHELL_COUNT] = {
+    {SHELL_BASH, "bash"},
+    {SHELL_ZSH, "zsh"},
+    {SHELL_FISH, "fish"},
+    {SHELL_PWSH, "pwsh"},
 };
 
 const Flag cli_flags[FLAG_COUNT] = {
@@ -91,6 +103,14 @@ const Flag *cli_flag_by_name(const char *name) {
 	for (int i = 0; i < FLAG_COUNT; i++) {
 		if (!strcmp(name, cli_flags[i].name))
 			return &cli_flags[i];
+	}
+	return NULL;
+}
+
+const Shell *cli_shell_by_name(const char *name) {
+	for (int i = 0; i < SHELL_COUNT; i++) {
+		if (!strcmp(name, cli_shells[i].name))
+			return &cli_shells[i];
 	}
 	return NULL;
 }

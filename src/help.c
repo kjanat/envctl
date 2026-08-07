@@ -73,6 +73,45 @@ static int widest_flag_name(void) {
 	return w;
 }
 
+static int widest_flag_of(const Command *cmd) {
+	int w = 0;
+	for (int i = 0; i < FLAG_COUNT; i++) {
+		if (!(cli_flags[i].commands & CMD_BIT(cmd->id)))
+			continue;
+		int n = (int)strlen(cli_flags[i].name);
+		if (n > w)
+			w = n;
+	}
+	return w;
+}
+
+static void put_filled(const char *s) {
+	int col = 0;
+	for (const char *p = s;;) {
+		while (*p == ' ')
+			p++;
+		if (!*p)
+			break;
+		const char *e = p;
+		while (*e && *e != ' ')
+			e++;
+		int n = (int)(e - p);
+		if (col > 0) {
+			if (col + 1 + n > WRAP_WIDTH) {
+				fputc('\n', stdout);
+				col = 0;
+			} else {
+				fputc(' ', stdout);
+				col++;
+			}
+		}
+		fwrite(p, 1, (size_t)n, stdout);
+		col += n;
+		p = e;
+	}
+	fputc('\n', stdout);
+}
+
 static void print_short_usage(void) {
 	char word[64];
 	Wrap w;
@@ -146,6 +185,32 @@ static void print_long_usage(void) {
 
 NORETURN void print_version(void) {
 	fputs(ENVCTL_VERSION "\n", stdout);
+	stdout_flush_check();
+	exit(0);
+}
+
+NORETURN void print_command_help(const Command *cmd) {
+	int fw = widest_flag_of(cmd);
+
+	printf("usage: envctl %s", cmd->name);
+	if (cmd->args[0])
+		printf(" %s", cmd->args);
+	fputc('\n', stdout);
+	if (cmd->alias)
+		printf("alias: envctl %s\n", cmd->alias);
+
+	fputc('\n', stdout);
+	put_filled(cmd->description);
+
+	if (fw > 0) {
+		fputs("\nFlags:\n", stdout);
+		for (int i = 0; i < FLAG_COUNT; i++) {
+			if (cli_flags[i].commands & CMD_BIT(cmd->id))
+				printf("  %-*s  %s\n", fw, cli_flags[i].name, cli_flags[i].summary);
+		}
+	}
+
+	fputs("\nRedaction rules, filter mode, and guarantees: man envctl\n", stdout);
 	stdout_flush_check();
 	exit(0);
 }

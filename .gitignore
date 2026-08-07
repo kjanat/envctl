@@ -4,6 +4,7 @@
 /gen/man
 /gen/man.exe
 /man/envctl.1.gen
+/.version
 /dist/
 **/*.o
 **/*.d

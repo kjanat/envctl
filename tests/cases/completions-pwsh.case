@@ -1,0 +1,6 @@
+%% args
+completions
+pwsh
+
+%% stdout-file
+expected/completions-pwsh.out

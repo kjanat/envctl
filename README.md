@@ -78,6 +78,7 @@ envctl delete  [file] <KEY>           remove KEY entirely (active + commented)
 envctl list    [file | --env] [--values] [--all]
 envctl redact  [file | --env | --no-env]   filter stdin to stdout, masking secrets
 envctl env                            print the process environment, always redacted
+envctl completions <shell>            print a completion script for a shell
 ```
 
 Aliases: `ls` = `list`, `rm` = `delete`.
@@ -110,22 +111,24 @@ envctl [file] <KEY> <VALUE>    # set
 ```
 
 A command name always wins over a same-named file, so `envctl .env get API_KEY`
-is a get. This includes `env`: `envctl env` is the environment dump command, so
-a key literally named `env` needs the explicit form `envctl get env`.
+is a get. This includes `env` and `completions`: `envctl env` is the environment
+dump command and `envctl completions` prints a completion script, so a key or
+file literally named `env` or `completions` needs the explicit form
+`envctl get env`.
 
 ### Flags
 
-| Flag         | Applies to                   | Effect                                                                                          |
-| ------------ | ---------------------------- | ----------------------------------------------------------------------------------------------- |
-| `--dry-run`  | set, disable, enable, delete | Print a unified diff to stdout; write nothing                                                   |
-| `--values`   | list                         | Show values (secret-looking ones follow redact rules)                                           |
-| `--all`      | list                         | Include disabled (commented) keys, tagged `(disabled)`                                          |
-| `--sort`     | list, env                    | Print entries sorted by key instead of file or environ order                                    |
-| `--env`      | get, list, redact            | Read the process environment instead of an env file                                             |
-| `--no-env`   | redact                       | Skip the env file's literal values, use heuristics only                                         |
-| `--redact`   | all commands                 | Force masking; `redact` and `env` already mask unconditionally                                  |
-| `--raw`      | all but `redact` and `env`   | Never mask (overrides auto-redact and `--redact`)                                               |
-| `--paranoid` | all commands                 | Apply the entropy bar whatever the key is called; path-like and digest-like values stay visible |
+| Flag         | Applies to                             | Effect                                                                                          |
+| ------------ | -------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `--dry-run`  | set, disable, enable, delete           | Print a unified diff to stdout; write nothing                                                   |
+| `--values`   | list                                   | Show values (secret-looking ones follow redact rules)                                           |
+| `--all`      | list                                   | Include disabled (commented) keys, tagged `(disabled)`                                          |
+| `--sort`     | list, env                              | Print entries sorted by key instead of file or environ order                                    |
+| `--env`      | get, list, redact                      | Read the process environment instead of an env file                                             |
+| `--no-env`   | redact                                 | Skip the env file's literal values, use heuristics only                                         |
+| `--redact`   | all but `completions`                  | Force masking; `redact` and `env` already mask unconditionally                                  |
+| `--raw`      | all but `redact`, `env`, `completions` | Never mask (overrides auto-redact and `--redact`)                                               |
+| `--paranoid` | all but `completions`                  | Apply the entropy bar whatever the key is called; path-like and digest-like values stay visible |
 
 Using a flag outside its row is a usage error that names where it is valid, so
 `envctl env --raw` reports
@@ -133,9 +136,11 @@ Using a flag outside its row is a usage error that names where it is valid, so
 takes a file, `--env`, or `--no-env`, never two of them. `--paranoid` implies
 `--redact` and rejects `--raw`.
 
-Help: `-h` for short usage, `--help` (or no args) for long help, `man envctl`
-for the full reference. `-V`/`--version` prints the version baked into the
-build.
+Help: `-h` for short usage, `--help` (or no args) for long help. With a command
+word both print that command alone: its synopsis, description, and the flags it
+accepts. `envctl get --help` and `envctl --help get` are the same thing, since
+the command word is found wherever it sits. `man envctl` has the full reference,
+and `-V`/`--version` prints the version baked into the build.
 
 ### Dry run
 
@@ -308,6 +313,36 @@ redaction is enabled. `--raw` turns it off along with masking.
 
 Disk writes are never redacted.
 
+### Shell completions
+
+`envctl completions <shell>` writes a completion script to stdout for `bash`,
+`zsh`, `fish`, or `pwsh`. The script is generated from the same command and flag
+tables the parser uses, so it offers exactly the flags each command accepts and
+never drifts from the binary.
+
+`make install` writes the bash, zsh, and fish scripts under `$(PREFIX)`. To
+install by hand, or to load without installing:
+
+```sh
+# bash
+envctl completions bash > ~/.local/share/bash-completion/completions/envctl
+source <(envctl completions bash)              # current shell only
+
+# zsh — the directory must be in $fpath, before compinit runs
+envctl completions zsh > ~/.local/share/zsh/site-functions/_envctl
+
+# fish
+envctl completions fish > ~/.config/fish/completions/envctl.fish
+envctl completions fish | source               # current shell only
+```
+
+PowerShell is not installed by `make install`. Append it to your profile:
+
+```powershell
+envctl completions pwsh | Out-String | Invoke-Expression          # current session
+envctl completions pwsh >> $PROFILE                               # persistent
+```
+
 ### Examples
 
 ```sh
@@ -322,6 +357,8 @@ envctl --raw list --values           # force full secrets
 npm run build 2>&1 | envctl redact   # mask secrets in tool output
 envctl env                           # print the environment, secrets masked
 envctl get --env HOME                # read an environment variable
+envctl get --help                    # help for one command
+envctl completions zsh               # completion script for zsh
 ```
 
 ## Matching rules

@@ -50,10 +50,6 @@ static void valid_for(unsigned mask) {
 			total++;
 	}
 	fputs("Valid for: ", stdout);
-	if (total == CMD_COUNT) {
-		fputs("every command.\n", stdout);
-		return;
-	}
 	for (int i = 0; i < CMD_COUNT; i++) {
 		if (!(mask & CMD_BIT(cli_commands[i].id)))
 			continue;

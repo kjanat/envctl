@@ -5,6 +5,7 @@
  */
 #define _GNU_SOURCE
 #include "cli.h"
+#include "complete.h"
 #include "diff.h"
 #include "envsrc.h"
 #include "fileio.h"
@@ -26,6 +27,8 @@
 #endif
 #endif
 
+typedef enum { HELP_NONE, HELP_SHORT, HELP_LONG } HelpMode;
+
 static const Command *command_by_id(CmdId id) {
 	for (int i = 0; i < CMD_COUNT; i++) {
 		if (cli_commands[i].id == id)
@@ -34,26 +37,41 @@ static const Command *command_by_id(CmdId id) {
 	die("no such command id: %d", (int)id);
 }
 
-NORETURN static void die_flag_scope(const Flag *f) {
-	char *list = NULL;
+static char *join_names(const char *const *names, int n, const char *conj) {
+	char *buf = NULL;
 	size_t cap = 0, len = 0;
-	int total = 0, seen = 0;
+
+	for (int i = 0; i < n; i++) {
+		if (i > 0) {
+			const char *sep = i == n - 1 && n == 2 ? " " : ", ";
+			buf_put(&buf, &cap, &len, sep, strlen(sep));
+			if (i == n - 1) {
+				buf_put(&buf, &cap, &len, conj, strlen(conj));
+				buf_put(&buf, &cap, &len, " ", 1);
+			}
+		}
+		buf_put(&buf, &cap, &len, names[i], strlen(names[i]));
+	}
+	return buf;
+}
+
+NORETURN static void die_flag_scope(const Flag *f) {
+	const char *names[CMD_COUNT];
+	int n = 0;
 
 	for (int i = 0; i < CMD_COUNT; i++) {
 		if (f->commands & CMD_BIT(cli_commands[i].id))
-			total++;
+			names[n++] = cli_commands[i].name;
 	}
-	for (int i = 0; i < CMD_COUNT; i++) {
-		if (!(f->commands & CMD_BIT(cli_commands[i].id)))
-			continue;
-		if (seen > 0) {
-			const char *sep = seen == total - 1 ? (total == 2 ? " and " : ", and ") : ", ";
-			buf_put(&list, &cap, &len, sep, strlen(sep));
-		}
-		buf_put(&list, &cap, &len, cli_commands[i].name, strlen(cli_commands[i].name));
-		seen++;
-	}
-	die("%s is only valid for %s", f->name, list);
+	die("%s is only valid for %s", f->name, join_names(names, n, "and"));
+}
+
+NORETURN static void die_shell_choice(void) {
+	const char *names[SHELL_COUNT];
+
+	for (int i = 0; i < SHELL_COUNT; i++)
+		names[i] = cli_shells[i].name;
+	die("completions takes %s", join_names(names, SHELL_COUNT, "or"));
 }
 
 static void check_flag_scope(const Command *cmd, const int *opts) {
@@ -126,6 +144,7 @@ int main(int argc, char **argv) {
 #endif
 	int opts[FLAG_COUNT] = {0};
 	int options = 1, np = 0;
+	HelpMode help = HELP_NONE;
 	const char *pos[16];
 
 	for (int i = 1; i < argc; i++) {
@@ -137,24 +156,15 @@ int main(int argc, char **argv) {
 		else if (f)
 			opts[f->id] = 1;
 		else if (options && !strcmp(a, "-h"))
-			print_help(0);
+			help = HELP_SHORT;
 		else if (options && !strcmp(a, "--help"))
-			print_help(1);
+			help = HELP_LONG;
 		else if (options && (!strcmp(a, "-V") || !strcmp(a, "-v") || !strcmp(a, "--version")))
 			print_version();
 		else if (np < (int)(sizeof(pos) / sizeof(*pos)))
 			pos[np++] = a;
 		else
 			die("too many arguments");
-	}
-
-	if (np == 0)
-		print_help(1);
-
-	if (opts[FLAG_PARANOID]) {
-		if (opts[FLAG_RAW])
-			die("--paranoid cannot be --raw");
-		redact_set_paranoid(1);
 	}
 
 	const Command *cmd = NULL;
@@ -170,6 +180,21 @@ int main(int argc, char **argv) {
 			cmd = c;
 		else
 			rest[nr++] = pos[i];
+	}
+
+	if (help != HELP_NONE) {
+		if (cmd)
+			print_command_help(cmd);
+		print_help(help == HELP_LONG);
+	}
+
+	if (np == 0)
+		print_help(1);
+
+	if (opts[FLAG_PARANOID]) {
+		if (opts[FLAG_RAW])
+			die("--paranoid cannot be --raw");
+		redact_set_paranoid(1);
 	}
 
 	int bare = cmd == NULL;
@@ -189,6 +214,17 @@ int main(int argc, char **argv) {
 	}
 
 	check_flag_scope(cmd, opts);
+
+	if (cmd->id == CMD_COMPLETIONS) {
+		if (nr != 1)
+			die_shell_choice();
+		const Shell *sh = cli_shell_by_name(rest[0]);
+		if (!sh)
+			die_shell_choice();
+		act_completions(sh->id);
+		stdout_flush_check();
+		return 0;
+	}
 
 	if (cmd->id == CMD_REDACT) {
 		if (opts[FLAG_ENV]) {
