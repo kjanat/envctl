@@ -75,6 +75,8 @@ Lines read_file(const char *file) {
 	int c;
 
 	while ((c = fgetc(f)) != EOF) {
+		if (c == '\0')
+			die("binary data in %s", file);
 		if (c == '\n') {
 			if (len && buf[len - 1] == '\r')
 				len--;

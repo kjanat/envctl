@@ -1,0 +1,15 @@
+%% args
+get
+nul-byte.env
+BAR
+
+%% env
+env/nul-byte.env
+
+%% exit
+2
+
+%% stdout
+
+%% stderr
+envctl: binary data in nul-byte.env
