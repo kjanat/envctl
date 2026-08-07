@@ -1,0 +1,13 @@
+%% args
+env
+
+%% mode
+posix-env
+
+%% setenv
+BW_CLIENTSECRET=Ab3Xk9Qm2Zt7Rv1Lp5Nc8Wd4Yh6Ju
+MYAPP_APIKEY=key-abc-1234
+BUILD_TIMESTAMP=1717171717171
+
+%% stdout-cmd
+printf '# envctl %s (redacted)\nPATH=/usr/bin:/bin\nBW_CLIENTSECRET=<redacted>\nMYAPP_APIKEY=<redacted>\nBUILD_TIMESTAMP=1717171717171\n' "$(git describe --tags --abbrev --dirty 2>/dev/null || echo unknown)"

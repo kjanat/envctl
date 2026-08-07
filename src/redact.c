@@ -33,21 +33,45 @@ static int paranoid;
 
 void redact_set_paranoid(int on) { paranoid = on; }
 
+static int starts_ci(const char *p, const char *w) {
+	for (size_t i = 0; w[i]; i++) {
+		unsigned char a = (unsigned char)p[i];
+		if (!a || toupper(a) != toupper((unsigned char)w[i]))
+			return 0;
+	}
+	return 1;
+}
+
 /* Case-insensitive segment match: (^|_|camel)seg(_|camel|$). */
 static int has_segment_ci(const char *k, const char *seg) {
 	size_t n = strlen(seg);
 	if (!n)
 		return 0;
 	for (const char *p = k; *p; p++) {
-		size_t i = 0;
-		for (; i < n; i++) {
-			unsigned char a = (unsigned char)p[i], b = (unsigned char)seg[i];
-			if (!a || toupper(a) != toupper(b))
-				break;
-		}
-		if (i != n)
-			continue;
-		if (seg_break_before(k, p) && seg_break_after(p, n))
+		if (starts_ci(p, seg) && seg_break_before(k, p) && seg_break_after(p, n))
+			return 1;
+	}
+	return 0;
+}
+
+static int compound_tail_ci(const char *k, const char *seg) {
+	size_t n = strlen(seg);
+	if (!n)
+		return 0;
+	for (const char *p = k; *p; p++) {
+		if (starts_ci(p, seg) && seg_break_after(p, n))
+			return 1;
+	}
+	return 0;
+}
+
+static int compound_pair_ci(const char *k, const char *head, const char *tail) {
+	size_t hn = strlen(head), tn = strlen(tail);
+	if (!hn || !tn)
+		return 0;
+	for (const char *p = k; *p; p++) {
+		if (seg_break_before(k, p) && starts_ci(p, head) && starts_ci(p + hn, tail) &&
+		    seg_break_after(p, hn + tn))
 			return 1;
 	}
 	return 0;
@@ -114,36 +138,54 @@ static int pathish_key_suffix(const char *k) {
 static int identifier_key_suffix(const char *k) { return final_segment_ci(k, "ID"); }
 
 static int webhook_key_name(const char *k) {
-	return has_segment_ci(k, "WEBHOOK") && !identifier_key_suffix(k) &&
+	return compound_tail_ci(k, "WEBHOOK") && !identifier_key_suffix(k) &&
 	       !final_segment_ci(k, "NAME");
 }
 
+static int qualified_key_name(const char *k) {
+	static const char *const qual[] = {
+	    "API",    "ACCESS", "SECRET",  "PRIVATE", "AUTH",   "SIGNING",   "ENCRYPTION",
+	    "MASTER", "CLIENT", "SESSION", "APP",     "SHARED", "PRESHARED", NULL,
+	};
+	int keyed = has_segment_ci(k, "KEY");
+	for (int i = 0; qual[i]; i++) {
+		if (keyed && has_segment_ci(k, qual[i]))
+			return 1;
+		if (compound_pair_ci(k, qual[i], "KEY"))
+			return 1;
+	}
+	return 0;
+}
+
 static int strong_secret_key_name(const char *k) {
+	static const char *const words[] = {
+	    "PASSWORD",    "PASSPHRASE", "SECRET",       "TOKEN",    "CREDENTIAL",
+	    "CREDENTIALS", "KEYSTORE",   "PRESHAREDKEY", "MNEMONIC", NULL,
+	};
+	static const struct {
+		const char *head;
+		const char *tail;
+	} pairs[] = {
+	    {"DATABASE", "URL"}, {"DB", "URL"}, {"CONNECTION", "STRING"},
+	    {"SEED", "PHRASE"},  {NULL, NULL},
+	};
 	if (webhook_key_name(k))
 		return 1;
-	if (has_segment_ci(k, "PASSWORD") || has_segment_ci(k, "PASSWD") || has_segment_ci(k, "PWD") ||
-	    has_segment_ci(k, "PASS") || has_segment_ci(k, "PASSPHRASE") ||
-	    has_segment_ci(k, "SECRET") || has_segment_ci(k, "TOKEN") ||
-	    has_segment_ci(k, "CREDENTIAL") || has_segment_ci(k, "CREDENTIALS") ||
-	    has_segment_ci(k, "DSN") || has_segment_ci(k, "KEYSTORE") || has_segment_ci(k, "PKCS12") ||
-	    has_segment_ci(k, "P12") || has_segment_ci(k, "PFX") || has_segment_ci(k, "MNEMONIC") ||
-	    has_segment_ci(k, "PSK") || has_segment_ci(k, "PRESHAREDKEY"))
+	for (int i = 0; words[i]; i++) {
+		if (compound_tail_ci(k, words[i]))
+			return 1;
+	}
+	if (has_segment_ci(k, "PASSWD") || has_segment_ci(k, "PWD") || has_segment_ci(k, "PASS") ||
+	    has_segment_ci(k, "DSN") || has_segment_ci(k, "PKCS12") || has_segment_ci(k, "P12") ||
+	    has_segment_ci(k, "PFX") || has_segment_ci(k, "PSK"))
 		return 1;
-	if ((has_segment_ci(k, "DATABASE") || has_segment_ci(k, "DB")) && has_segment_ci(k, "URL"))
-		return 1;
-	if (has_segment_ci(k, "CONNECTION") && has_segment_ci(k, "STRING"))
-		return 1;
-	if (has_segment_ci(k, "SEED") && has_segment_ci(k, "PHRASE"))
-		return 1;
-	if (has_segment_ci(k, "KEY") &&
-	    (has_segment_ci(k, "API") || has_segment_ci(k, "ACCESS") || has_segment_ci(k, "SECRET") ||
-	     has_segment_ci(k, "PRIVATE") || has_segment_ci(k, "AUTH") ||
-	     has_segment_ci(k, "SIGNING") || has_segment_ci(k, "ENCRYPTION") ||
-	     has_segment_ci(k, "MASTER") || has_segment_ci(k, "CLIENT") ||
-	     has_segment_ci(k, "SESSION") || has_segment_ci(k, "APP") || has_segment_ci(k, "SHARED") ||
-	     has_segment_ci(k, "PRESHARED")))
-		return 1;
-	return 0;
+	for (int i = 0; pairs[i].head; i++) {
+		if (has_segment_ci(k, pairs[i].head) && has_segment_ci(k, pairs[i].tail))
+			return 1;
+		if (compound_pair_ci(k, pairs[i].head, pairs[i].tail))
+			return 1;
+	}
+	return qualified_key_name(k);
 }
 
 static int suspicious_key_name(const char *k) {

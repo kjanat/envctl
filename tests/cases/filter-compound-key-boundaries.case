@@ -1,0 +1,33 @@
+%% args
+redact
+--no-env
+
+%% stdin
+BUILD_TIMESTAMP=1717171717171
+RATE_LIMIT=100req-per-minute
+BYPASS_HOSTS=example.com,internal.example.org
+PROXY_BYPASS=localhost,127.0.0.1,.internal
+COMPASS_HEADING=north-northeast
+MONKEY_PATCH=enabled-for-tests
+KEYBOARD_LAYOUT=us-intl-altgr
+TOKENIZER_MODEL=cl100k-base-v2
+SECRETARY_EMAIL=jane@example.com
+PASSENGER_ROOT=/usr/lib/passenger
+CLIENTSECRET_FILE=/run/secrets/bw
+APIKEY_PATH=./keys/api.pem
+AUTHTOKEN_VERSION=3
+
+%% stdout
+BUILD_TIMESTAMP=1717171717171
+RATE_LIMIT=100req-per-minute
+BYPASS_HOSTS=example.com,internal.example.org
+PROXY_BYPASS=localhost,127.0.0.1,.internal
+COMPASS_HEADING=north-northeast
+MONKEY_PATCH=enabled-for-tests
+KEYBOARD_LAYOUT=us-intl-altgr
+TOKENIZER_MODEL=cl100k-base-v2
+SECRETARY_EMAIL=jane@example.com
+PASSENGER_ROOT=/usr/lib/passenger
+CLIENTSECRET_FILE=/run/secrets/bw
+APIKEY_PATH=./keys/api.pem
+AUTHTOKEN_VERSION=3

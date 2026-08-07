@@ -1,0 +1,39 @@
+%% args
+redact
+--no-env
+
+%% stdin
+BW_CLIENTSECRET=Ab3Xk9Qm2Zt7Rv1Lp5Nc8Wd4Yh6Ju
+MYAPP_APIKEY=key-abc-1234
+X_AUTHTOKEN=tok-abc-123
+GITHUBTOKEN=gh-plain-value
+ADMINPASSWORD=hunter2butlonger
+clientSecret=Zc8uWy2PvK5tXm9Q
+AWSCREDENTIALS=cred-blob-1
+VAULT_MASTERPASSPHRASE=correct horse battery staple
+JAVA_TRUSTKEYSTORE=changeit-store
+WALLET_BACKUPMNEMONIC=witch collapse practice feed shame open
+SLACKWEBHOOK=https://hooks.example.com/x
+DBURL=postgres://app@db.internal/app
+CONNECTIONSTRING=Server=db;Database=app
+SEEDPHRASE=witch collapse practice feed shame open
+ACCESSKEY=front-door-42
+SECRET_SIGNINGKEY=sign-me-2024
+
+%% stdout
+BW_CLIENTSECRET=<redacted>
+MYAPP_APIKEY=<redacted>
+X_AUTHTOKEN=<redacted>
+GITHUBTOKEN=<redacted>
+ADMINPASSWORD=<redacted>
+clientSecret=<redacted>
+AWSCREDENTIALS=<redacted>
+VAULT_MASTERPASSPHRASE=<redacted>
+JAVA_TRUSTKEYSTORE=<redacted>
+WALLET_BACKUPMNEMONIC=<redacted>
+SLACKWEBHOOK=<redacted>
+DBURL=<redacted>
+CONNECTIONSTRING=<redacted>
+SEEDPHRASE=<redacted>
+ACCESSKEY=<redacted>
+SECRET_SIGNINGKEY=<redacted>
