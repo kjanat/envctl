@@ -1,5 +1,8 @@
 #compdef envctl
 
+zstyle ':completion:*:*:envctl:*' file-patterns \
+	'.*(-.):dotfiles:dotfile *(-.):plain-files:file *(-/):directories:directory'
+
 _envctl_usage() {
 	integer done=0 i
 	local w msg
@@ -18,8 +21,35 @@ _envctl_usage() {
 	compadd -x "$msg"
 }
 
+_envctl_keys() {
+	local mode=$1 f=$2 txt
+	local -a lines active disabled
+	if [[ $f == --env ]]; then
+		txt=$("$_envctl_cmd" list --env 2>/dev/null) || return 1
+	else
+		txt=$("$_envctl_cmd" list --all -- "$f" 2>/dev/null) || {
+			_message -r "not an env file: $f"
+			return 1
+		}
+	fi
+	lines=(${(f)txt})
+	active=(${lines:#* \(disabled\)})
+	disabled=(${${(M)lines:#* \(disabled\)}%% \(disabled\)})
+	case $mode in
+		active) lines=($active) ;;
+		disabled) lines=($disabled) ;;
+		all) lines=($active $disabled) ;;
+	esac
+	if (( ! $#lines )); then
+		_message -r "no matching keys in $f"
+		return 1
+	fi
+	compadd -- $lines
+}
+
 _envctl() {
 	local context state state_descr line
+	local _envctl_cmd=$words[1]
 	typeset -A opt_args
 	local -a cmds_edit
 	cmds_edit=(
@@ -79,7 +109,24 @@ _envctl() {
 						'--redact[mask secret-looking values]' \
 						'--raw[never mask, and never escape control bytes]' \
 						'--paranoid[apply the entropy bar to every value]' \
-						'*:file:_files'
+						'1: :->pos1' \
+						'2: :->pos2' \
+						'3: :->pos3'
+					case $state in
+						pos1)
+							_files
+							[[ -f .env ]] && _envctl_keys all .env
+							;;
+						pos2)
+							local f=$line[1]
+							[[ $f == \~* ]] && f=${~f}
+							if [[ -e $f ]]; then
+								_envctl_keys all "$f"
+							elif [[ ! -f .env ]]; then
+								_message -r "no such file: $line[1]"
+							fi
+							;;
+					esac
 					;;
 				get)
 					_envctl_usage '[file]' '<KEY>'
@@ -90,7 +137,27 @@ _envctl() {
 						'--redact[mask secret-looking values]' \
 						'--raw[never mask, and never escape control bytes]' \
 						'--paranoid[apply the entropy bar to every value]' \
-						'*:file:_files'
+						'1: :->pos1' \
+						'2: :->pos2'
+					case $state in
+						pos1)
+							if (( ${+opt_args[--env]} )); then
+								_envctl_keys active --env
+							else
+								_files
+								[[ -f .env ]] && _envctl_keys active .env
+							fi
+							;;
+						pos2)
+							local f=$line[1]
+							[[ $f == \~* ]] && f=${~f}
+							if [[ -e $f ]]; then
+								_envctl_keys active "$f"
+							elif [[ ! -f .env ]]; then
+								_message -r "no such file: $line[1]"
+							fi
+							;;
+					esac
 					;;
 				disable)
 					_envctl_usage '[file]' '<KEY>'
@@ -101,7 +168,23 @@ _envctl() {
 						'--redact[mask secret-looking values]' \
 						'--raw[never mask, and never escape control bytes]' \
 						'--paranoid[apply the entropy bar to every value]' \
-						'*:file:_files'
+						'1: :->pos1' \
+						'2: :->pos2'
+					case $state in
+						pos1)
+							_files
+							[[ -f .env ]] && _envctl_keys active .env
+							;;
+						pos2)
+							local f=$line[1]
+							[[ $f == \~* ]] && f=${~f}
+							if [[ -e $f ]]; then
+								_envctl_keys active "$f"
+							elif [[ ! -f .env ]]; then
+								_message -r "no such file: $line[1]"
+							fi
+							;;
+					esac
 					;;
 				enable)
 					_envctl_usage '[file]' '<KEY>'
@@ -112,7 +195,23 @@ _envctl() {
 						'--redact[mask secret-looking values]' \
 						'--raw[never mask, and never escape control bytes]' \
 						'--paranoid[apply the entropy bar to every value]' \
-						'*:file:_files'
+						'1: :->pos1' \
+						'2: :->pos2'
+					case $state in
+						pos1)
+							_files
+							[[ -f .env ]] && _envctl_keys disabled .env
+							;;
+						pos2)
+							local f=$line[1]
+							[[ $f == \~* ]] && f=${~f}
+							if [[ -e $f ]]; then
+								_envctl_keys disabled "$f"
+							elif [[ ! -f .env ]]; then
+								_message -r "no such file: $line[1]"
+							fi
+							;;
+					esac
 					;;
 				delete | rm)
 					_envctl_usage '[file]' '<KEY>'
@@ -123,7 +222,23 @@ _envctl() {
 						'--redact[mask secret-looking values]' \
 						'--raw[never mask, and never escape control bytes]' \
 						'--paranoid[apply the entropy bar to every value]' \
-						'*:file:_files'
+						'1: :->pos1' \
+						'2: :->pos2'
+					case $state in
+						pos1)
+							_files
+							[[ -f .env ]] && _envctl_keys all .env
+							;;
+						pos2)
+							local f=$line[1]
+							[[ $f == \~* ]] && f=${~f}
+							if [[ -e $f ]]; then
+								_envctl_keys all "$f"
+							elif [[ ! -f .env ]]; then
+								_message -r "no such file: $line[1]"
+							fi
+							;;
+					esac
 					;;
 				list | ls)
 					_envctl_usage '[file]'
@@ -137,7 +252,12 @@ _envctl() {
 						'--redact[mask secret-looking values]' \
 						'--raw[never mask, and never escape control bytes]' \
 						'--paranoid[apply the entropy bar to every value]' \
-						'*:file:_files'
+						'1: :->pos1'
+					case $state in
+						pos1)
+							(( ${+opt_args[--env]} )) || _files
+							;;
+					esac
 					;;
 				redact)
 					_envctl_usage '[file]'
@@ -148,7 +268,12 @@ _envctl() {
 						'--no-env[skip the env file'\''s literal values, use heuristics only]' \
 						'--redact[mask secret-looking values]' \
 						'--paranoid[apply the entropy bar to every value]' \
-						'*:file:_files'
+						'1: :->pos1'
+					case $state in
+						pos1)
+							(( ${+opt_args[--env]} || ${+opt_args[--no-env]} )) || _files
+							;;
+					esac
 					;;
 				env)
 					_envctl_usage
@@ -165,7 +290,8 @@ _envctl() {
 					_arguments \
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
-						'*:shell:(bash zsh fish pwsh)'
+						'1:shell:(bash zsh fish pwsh)' \
+						'*: :_default'
 					;;
 			esac
 			;;

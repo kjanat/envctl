@@ -355,6 +355,22 @@ envctl completions pwsh | Out-String | Invoke-Expression          # current sess
 envctl completions pwsh >> $PROFILE                               # persistent
 ```
 
+The completions carry tooltips, shown by `MenuComplete` (Ctrl+Space) and by
+Predictive IntelliSense list view. The [CompletionPredictor] module surfaces
+anything tab-completable, these completions included, as predictions while you
+type (PowerShell 7.2+):
+
+```powershell
+Install-PSResource -Name PSReadLine, CompletionPredictor
+# in $PROFILE:
+Import-Module CompletionPredictor
+Set-PSReadLineOption -PredictionSource HistoryAndPlugin
+```
+
+F2 toggles between the inline and list prediction views.
+
+[CompletionPredictor]: https://www.powershellgallery.com/packages/CompletionPredictor
+
 ### Examples
 
 ```sh

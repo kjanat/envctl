@@ -207,6 +207,18 @@ static int command_groups(const char **groups) {
 	return n;
 }
 
+static const char *zsh_key_mode(CmdId id) {
+	switch (id) {
+	case CMD_ENABLE:
+		return "disabled";
+	case CMD_SET:
+	case CMD_DELETE:
+		return "all";
+	default:
+		return "active";
+	}
+}
+
 static void put_zsh_usage_call(const Command *c) {
 	fputs("\t\t\t\t\t_envctl_usage", stdout);
 	for (const char *p = c->args; *p;) {
@@ -229,6 +241,9 @@ static void zsh_script(void) {
 
 	fputs("#compdef envctl\n"
 	      "\n"
+	      "zstyle ':completion:*:*:envctl:*' file-patterns \\\n"
+	      "\t'.*(-.):dotfiles:dotfile *(-.):plain-files:file *(-/):directories:directory'\n"
+	      "\n"
 	      "_envctl_usage() {\n"
 	      "\tinteger done=0 i\n"
 	      "\tlocal w msg\n"
@@ -247,8 +262,35 @@ static void zsh_script(void) {
 	      "\tcompadd -x \"$msg\"\n"
 	      "}\n"
 	      "\n"
+	      "_envctl_keys() {\n"
+	      "\tlocal mode=$1 f=$2 txt\n"
+	      "\tlocal -a lines active disabled\n"
+	      "\tif [[ $f == --env ]]; then\n"
+	      "\t\ttxt=$(\"$_envctl_cmd\" list --env 2>/dev/null) || return 1\n"
+	      "\telse\n"
+	      "\t\ttxt=$(\"$_envctl_cmd\" list --all -- \"$f\" 2>/dev/null) || {\n"
+	      "\t\t\t_message -r \"not an env file: $f\"\n"
+	      "\t\t\treturn 1\n"
+	      "\t\t}\n"
+	      "\tfi\n"
+	      "\tlines=(${(f)txt})\n"
+	      "\tactive=(${lines:#* \\(disabled\\)})\n"
+	      "\tdisabled=(${${(M)lines:#* \\(disabled\\)}%% \\(disabled\\)})\n"
+	      "\tcase $mode in\n"
+	      "\t\tactive) lines=($active) ;;\n"
+	      "\t\tdisabled) lines=($disabled) ;;\n"
+	      "\t\tall) lines=($active $disabled) ;;\n"
+	      "\tesac\n"
+	      "\tif (( ! $#lines )); then\n"
+	      "\t\t_message -r \"no matching keys in $f\"\n"
+	      "\t\treturn 1\n"
+	      "\tfi\n"
+	      "\tcompadd -- $lines\n"
+	      "}\n"
+	      "\n"
 	      "_envctl() {\n"
 	      "\tlocal context state state_descr line\n"
+	      "\tlocal _envctl_cmd=$words[1]\n"
 	      "\ttypeset -A opt_args\n",
 	      stdout);
 	for (int g = 0; g < ngroups; g++) {
@@ -299,9 +341,9 @@ static void zsh_script(void) {
 		fputs("\t\t\t\t\t_arguments \\\n", stdout);
 		put_zsh_help_specs();
 		if (c->id == CMD_COMPLETIONS) {
-			fputs("\t\t\t\t\t\t'*:shell:(", stdout);
+			fputs("\t\t\t\t\t\t'1:shell:(", stdout);
 			put_shell_words(" ");
-			fputs(")'\n\t\t\t\t\t;;\n", stdout);
+			fputs(")' \\\n\t\t\t\t\t\t'*: :_default'\n\t\t\t\t\t;;\n", stdout);
 			continue;
 		}
 		for (int f = 0; f < FLAG_COUNT; f++) {
@@ -311,11 +353,53 @@ static void zsh_script(void) {
 			put_zsh_desc(cli_flags[f].summary);
 			fputs("]' \\\n", stdout);
 		}
-		if (c->takes_file)
-			fputs("\t\t\t\t\t\t'*:file:_files'\n", stdout);
+		if (!c->takes_file) {
+			fputs("\t\t\t\t\t\t'*: :'\n\t\t\t\t\t;;\n", stdout);
+			continue;
+		}
+		int nparts = 0;
+		for (const char *p = c->args; *p;) {
+			while (*p == ' ')
+				p++;
+			if (!*p)
+				break;
+			nparts++;
+			while (*p && *p != ' ')
+				p++;
+		}
+		for (int n = 1; n <= nparts; n++)
+			printf("\t\t\t\t\t\t'%d: :->pos%d'%s\n", n, n, n < nparts ? " \\" : "");
+		fputs("\t\t\t\t\tcase $state in\n\t\t\t\t\t\tpos1)\n", stdout);
+		if (c->id == CMD_GET)
+			printf("\t\t\t\t\t\t\tif (( ${+opt_args[--env]} )); then\n"
+			       "\t\t\t\t\t\t\t\t_envctl_keys active --env\n"
+			       "\t\t\t\t\t\t\telse\n"
+			       "\t\t\t\t\t\t\t\t_files\n"
+			       "\t\t\t\t\t\t\t\t[[ -f .env ]] && _envctl_keys %s .env\n"
+			       "\t\t\t\t\t\t\tfi\n",
+			       zsh_key_mode(c->id));
+		else if (c->id == CMD_LIST)
+			fputs("\t\t\t\t\t\t\t(( ${+opt_args[--env]} )) || _files\n", stdout);
+		else if (c->id == CMD_REDACT)
+			fputs("\t\t\t\t\t\t\t(( ${+opt_args[--env]} || ${+opt_args[--no-env]} )) || _files\n",
+			      stdout);
 		else
-			fputs("\t\t\t\t\t\t'*: :'\n", stdout);
-		fputs("\t\t\t\t\t;;\n", stdout);
+			printf("\t\t\t\t\t\t\t_files\n"
+			       "\t\t\t\t\t\t\t[[ -f .env ]] && _envctl_keys %s .env\n",
+			       zsh_key_mode(c->id));
+		fputs("\t\t\t\t\t\t\t;;\n", stdout);
+		if (nparts >= 2)
+			printf("\t\t\t\t\t\tpos2)\n"
+			       "\t\t\t\t\t\t\tlocal f=$line[1]\n"
+			       "\t\t\t\t\t\t\t[[ $f == \\~* ]] && f=${~f}\n"
+			       "\t\t\t\t\t\t\tif [[ -e $f ]]; then\n"
+			       "\t\t\t\t\t\t\t\t_envctl_keys %s \"$f\"\n"
+			       "\t\t\t\t\t\t\telif [[ ! -f .env ]]; then\n"
+			       "\t\t\t\t\t\t\t\t_message -r \"no such file: $line[1]\"\n"
+			       "\t\t\t\t\t\t\tfi\n"
+			       "\t\t\t\t\t\t\t;;\n",
+			       zsh_key_mode(c->id));
+		fputs("\t\t\t\t\tesac\n\t\t\t\t\t;;\n", stdout);
 	}
 	fputs("\t\t\tesac\n"
 	      "\t\t\t;;\n"
