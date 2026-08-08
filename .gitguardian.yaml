@@ -1,0 +1,9 @@
+version: 2
+secret:
+  ignored_paths:
+    - README.md
+    - docs/**/*
+    - gen/**/*
+    - man/**/*
+    - src/redact.c
+    - tests/**/*
