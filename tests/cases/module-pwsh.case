@@ -1,0 +1,6 @@
+%% args
+module
+pwsh
+
+%% stdout-file
+expected/module-pwsh.out

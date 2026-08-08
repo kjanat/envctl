@@ -1,7 +1,7 @@
 Register-ArgumentCompleter -Native -CommandName envctl -ScriptBlock {
 	param($wordToComplete, $commandAst, $cursorPosition)
 
-	$commands = @('set', 'get', 'disable', 'enable', 'delete', 'list', 'redact', 'env', 'completions')
+	$commands = @('set', 'get', 'disable', 'enable', 'delete', 'list', 'redact', 'env', 'completions', 'module')
 	$aliases = @{ 'rm' = 'delete'; 'ls' = 'list' }
 	$flags = @{
 		'set' = @('--dry-run', '--redact', '--raw', '--paranoid', '-h', '--help', '-v', '-V', '--version')
@@ -13,6 +13,7 @@ Register-ArgumentCompleter -Native -CommandName envctl -ScriptBlock {
 		'redact' = @('--env', '--no-env', '--redact', '--paranoid', '-h', '--help', '-v', '-V', '--version')
 		'env' = @('--sort', '--redact', '--paranoid', '-h', '--help', '-v', '-V', '--version')
 		'completions' = @('-h', '--help', '-v', '-V', '--version')
+		'module' = @('-h', '--help', '-v', '-V', '--version')
 		'' = @('--dry-run', '--values', '--all', '--sort', '--env', '--no-env', '--redact', '--raw', '--paranoid', '-h', '--help', '-v', '-V', '--version')
 	}
 	$tips = @{
@@ -27,6 +28,7 @@ Register-ArgumentCompleter -Native -CommandName envctl -ScriptBlock {
 		'redact' = 'filter stdin to stdout, masking secrets'
 		'env' = 'print the process environment, always redacted'
 		'completions' = 'print a completion script for a shell'
+		'module' = 'print a cmdlet wrapper module for pwsh'
 		'--dry-run' = 'print a unified diff and write nothing'
 		'--values' = 'also print values'
 		'--all' = 'also print disabled keys'
@@ -48,6 +50,8 @@ Register-ArgumentCompleter -Native -CommandName envctl -ScriptBlock {
 	$candidates = @()
 	if ($cmd -eq 'completions') {
 		$candidates = @('bash', 'zsh', 'fish', 'pwsh')
+	} elseif ($cmd -eq 'module') {
+		$candidates = @('pwsh')
 	} elseif ($wordToComplete.StartsWith('-')) {
 		$candidates = $flags[$cmd]
 	} elseif ($cmd -eq '') {

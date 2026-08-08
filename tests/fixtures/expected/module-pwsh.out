@@ -1,0 +1,393 @@
+Set-StrictMode -Version 3.0
+
+function Get-EnvctlValue {
+	<#
+	.SYNOPSIS
+	print the active value; exit 1 if unset, through envctl get.
+	.DESCRIPTION
+	Prints the active value of KEY followed by a newline and exits 1 when KEY has no active definition. A multiline value prints in full.
+	.PARAMETER Key
+	The key to read.
+	.PARAMETER File
+	The env file; ./.env when omitted.
+	.PARAMETER Environment
+	Read the process environment instead of a file.
+	.PARAMETER Redact
+	Pass --redact: mask secret-looking values.
+	.PARAMETER Raw
+	Pass --raw: never mask, and never escape control bytes.
+	.PARAMETER Paranoid
+	Pass --paranoid: apply the entropy bar to every value.
+	.EXAMPLE
+	Get-EnvctlValue -Key DATABASE_URL -File .env
+	#>
+	[CmdletBinding()]
+	param(
+		[Parameter(Mandatory, Position = 0)][string]$Key,
+		[string]$File,
+		[switch]$Environment,
+		[switch]$Redact,
+		[switch]$Raw,
+		[switch]$Paranoid
+	)
+	$a = @('get')
+	if ($Environment) { $a += '--env' }
+	elseif ($File) { $a += $File }
+	$a += $Key
+	if ($Redact) { $a += '--redact' }
+	if ($Raw) { $a += '--raw' }
+	if ($Paranoid) { $a += '--paranoid' }
+	$out = & envctl @a
+	if ($LASTEXITCODE) {
+		Write-Error "$Key is unset (envctl get exit code $LASTEXITCODE)"
+		return
+	}
+	$out
+}
+
+function Set-EnvctlValue {
+	<#
+	.SYNOPSIS
+	set or replace KEY, uncommenting if commented, through envctl set.
+	.DESCRIPTION
+	Sets KEY to VALUE, creating the assignment when it is absent. The first active definition is updated in place, any further active duplicates are commented out, and when no active definition exists the first commented one is revived. Failing all of that the assignment is appended. VALUE is literal: no shell or regex reinterpretation. An omitted VALUE writes an empty value.
+	.PARAMETER Key
+	The key to set or replace.
+	.PARAMETER Value
+	The literal value; empty when omitted.
+	.PARAMETER File
+	The env file; ./.env when omitted.
+	.PARAMETER Redact
+	Pass --redact: mask secret-looking values.
+	.PARAMETER Raw
+	Pass --raw: never mask, and never escape control bytes.
+	.PARAMETER Paranoid
+	Pass --paranoid: apply the entropy bar to every value.
+	.EXAMPLE
+	Set-EnvctlValue -Key DEBUG -Value true -WhatIf
+	#>
+	[CmdletBinding(SupportsShouldProcess)]
+	param(
+		[Parameter(Mandatory, Position = 0)][string]$Key,
+		[Parameter(Position = 1)][AllowEmptyString()][string]$Value = '',
+		[string]$File,
+		[switch]$Redact,
+		[switch]$Raw,
+		[switch]$Paranoid
+	)
+	$a = @('set')
+	if ($File) { $a += $File }
+	$a += $Key
+	$a += $Value
+	if ($Redact) { $a += '--redact' }
+	if ($Raw) { $a += '--raw' }
+	if ($Paranoid) { $a += '--paranoid' }
+	if (-not $PSCmdlet.ShouldProcess($(if ($File) { $File } else { '.env' }), "set $Key")) {
+		& envctl @(@('--dry-run') + $a)
+		return
+	}
+	$out = & envctl @a
+	if ($LASTEXITCODE) {
+		Write-Error "envctl set failed with exit code $LASTEXITCODE"
+		return
+	}
+	$out
+}
+
+function Disable-EnvctlKey {
+	<#
+	.SYNOPSIS
+	comment KEY out, keeping its value, through envctl disable.
+	.DESCRIPTION
+	Comments out every active definition of KEY, keeping the value and its position in the file.
+	.PARAMETER Key
+	The key to comment out.
+	.PARAMETER File
+	The env file; ./.env when omitted.
+	.PARAMETER Redact
+	Pass --redact: mask secret-looking values.
+	.PARAMETER Raw
+	Pass --raw: never mask, and never escape control bytes.
+	.PARAMETER Paranoid
+	Pass --paranoid: apply the entropy bar to every value.
+	.EXAMPLE
+	Disable-EnvctlKey -Key DEBUG
+	#>
+	[CmdletBinding(SupportsShouldProcess)]
+	param(
+		[Parameter(Mandatory, Position = 0)][string]$Key,
+		[string]$File,
+		[switch]$Redact,
+		[switch]$Raw,
+		[switch]$Paranoid
+	)
+	$a = @('disable')
+	if ($File) { $a += $File }
+	$a += $Key
+	if ($Redact) { $a += '--redact' }
+	if ($Raw) { $a += '--raw' }
+	if ($Paranoid) { $a += '--paranoid' }
+	if (-not $PSCmdlet.ShouldProcess($(if ($File) { $File } else { '.env' }), "disable $Key")) {
+		& envctl @(@('--dry-run') + $a)
+		return
+	}
+	$out = & envctl @a
+	if ($LASTEXITCODE) {
+		Write-Error "envctl disable failed with exit code $LASTEXITCODE"
+		return
+	}
+	$out
+}
+
+function Enable-EnvctlKey {
+	<#
+	.SYNOPSIS
+	uncomment KEY, through envctl enable.
+	.DESCRIPTION
+	Uncomments the first commented definition of KEY.
+	.PARAMETER Key
+	The key to uncomment.
+	.PARAMETER File
+	The env file; ./.env when omitted.
+	.PARAMETER Redact
+	Pass --redact: mask secret-looking values.
+	.PARAMETER Raw
+	Pass --raw: never mask, and never escape control bytes.
+	.PARAMETER Paranoid
+	Pass --paranoid: apply the entropy bar to every value.
+	.EXAMPLE
+	Enable-EnvctlKey -Key DEBUG
+	#>
+	[CmdletBinding(SupportsShouldProcess)]
+	param(
+		[Parameter(Mandatory, Position = 0)][string]$Key,
+		[string]$File,
+		[switch]$Redact,
+		[switch]$Raw,
+		[switch]$Paranoid
+	)
+	$a = @('enable')
+	if ($File) { $a += $File }
+	$a += $Key
+	if ($Redact) { $a += '--redact' }
+	if ($Raw) { $a += '--raw' }
+	if ($Paranoid) { $a += '--paranoid' }
+	if (-not $PSCmdlet.ShouldProcess($(if ($File) { $File } else { '.env' }), "enable $Key")) {
+		& envctl @(@('--dry-run') + $a)
+		return
+	}
+	$out = & envctl @a
+	if ($LASTEXITCODE) {
+		Write-Error "envctl enable failed with exit code $LASTEXITCODE"
+		return
+	}
+	$out
+}
+
+function Remove-EnvctlKey {
+	<#
+	.SYNOPSIS
+	remove KEY entirely, active and commented, through envctl delete.
+	.DESCRIPTION
+	Removes every definition of KEY, active and commented alike.
+	.PARAMETER Key
+	The key to remove, active and commented.
+	.PARAMETER File
+	The env file; ./.env when omitted.
+	.PARAMETER Redact
+	Pass --redact: mask secret-looking values.
+	.PARAMETER Raw
+	Pass --raw: never mask, and never escape control bytes.
+	.PARAMETER Paranoid
+	Pass --paranoid: apply the entropy bar to every value.
+	.EXAMPLE
+	Remove-EnvctlKey -Key DEBUG -WhatIf
+	#>
+	[CmdletBinding(SupportsShouldProcess)]
+	param(
+		[Parameter(Mandatory, Position = 0)][string]$Key,
+		[string]$File,
+		[switch]$Redact,
+		[switch]$Raw,
+		[switch]$Paranoid
+	)
+	$a = @('delete')
+	if ($File) { $a += $File }
+	$a += $Key
+	if ($Redact) { $a += '--redact' }
+	if ($Raw) { $a += '--raw' }
+	if ($Paranoid) { $a += '--paranoid' }
+	if (-not $PSCmdlet.ShouldProcess($(if ($File) { $File } else { '.env' }), "delete $Key")) {
+		& envctl @(@('--dry-run') + $a)
+		return
+	}
+	$out = & envctl @a
+	if ($LASTEXITCODE) {
+		Write-Error "envctl delete failed with exit code $LASTEXITCODE"
+		return
+	}
+	$out
+}
+
+function Get-EnvctlKey {
+	<#
+	.SYNOPSIS
+	print active keys, through envctl list.
+	.DESCRIPTION
+	Prints the active key names one per line in file order. --values appends each value under the redaction rules, and --all adds the commented keys tagged (disabled). A masked multiline value collapses to one line; an unmasked one shows its first line.
+	.PARAMETER File
+	The env file; ./.env when omitted.
+	.PARAMETER Environment
+	Read the process environment instead of a file.
+	.PARAMETER Sort
+	Pass --sort: print entries sorted by key.
+	.PARAMETER Redact
+	Pass --redact: mask secret-looking values.
+	.PARAMETER Raw
+	Pass --raw: never mask, and never escape control bytes.
+	.PARAMETER Paranoid
+	Pass --paranoid: apply the entropy bar to every value.
+	.EXAMPLE
+	Get-EnvctlKey -File .env | Where-Object Disabled
+	#>
+	[CmdletBinding()]
+	param(
+		[string]$File,
+		[switch]$Environment,
+		[switch]$Sort,
+		[switch]$Redact,
+		[switch]$Raw,
+		[switch]$Paranoid
+	)
+	$a = @('list', '--values')
+	if ($Environment) { $a += '--env' }
+	else {
+		$a += '--all'
+		if ($File) { $a += $File }
+	}
+	if ($Sort) { $a += '--sort' }
+	if ($Redact) { $a += '--redact' }
+	if ($Raw) { $a += '--raw' }
+	if ($Paranoid) { $a += '--paranoid' }
+	$out = & envctl @a
+	if ($LASTEXITCODE) {
+		Write-Error "envctl list failed with exit code $LASTEXITCODE"
+		return
+	}
+	$src = if ($Environment) { $null } elseif ($File) { $File } else { '.env' }
+	foreach ($line in @($out)) {
+		$off = $false
+		if ($line.EndsWith(' (disabled)')) {
+			$off = $true
+			$line = $line.Substring(0, $line.Length - 11)
+		}
+		$i = $line.IndexOf('=')
+		if ($i -lt 0) { continue }
+		$v = $line.Substring($i + 1)
+		$kind = $null
+		$red = $v -match '^<redacted(:(?<kind>[a-z-]+))?>$'
+		if ($red) { $kind = $Matches['kind'] }
+		[pscustomobject]@{
+			Key           = $line.Substring(0, $i)
+			Value         = $v
+			Redacted      = $red
+			RedactionKind = $kind
+			Disabled      = $off
+			File          = $src
+		}
+	}
+}
+
+function Get-EnvctlEnvironment {
+	<#
+	.SYNOPSIS
+	print the process environment, always redacted, through envctl env.
+	.DESCRIPTION
+	Prints the whole process environment as KEY=VALUE lines with redaction always on, making it the one-word replacement for env | envctl redact --no-env. The first line reads # envctl VERSION (redacted) and names the build that produced the dump. Entries follow environ order, or key order under --sort. Names outside [A-Za-z_][A-Za-z0-9_]* are skipped, matching list.
+	.PARAMETER Sort
+	Pass --sort: print entries sorted by key.
+	.PARAMETER Redact
+	Pass --redact: mask secret-looking values.
+	.PARAMETER Paranoid
+	Pass --paranoid: apply the entropy bar to every value.
+	.EXAMPLE
+	Get-EnvctlEnvironment | Where-Object Redacted
+	#>
+	[CmdletBinding()]
+	param(
+		[switch]$Sort,
+		[switch]$Redact,
+		[switch]$Paranoid
+	)
+	$a = @('env')
+	if ($Sort) { $a += '--sort' }
+	if ($Redact) { $a += '--redact' }
+	if ($Paranoid) { $a += '--paranoid' }
+	$out = & envctl @a
+	if ($LASTEXITCODE) {
+		Write-Error "envctl env failed with exit code $LASTEXITCODE"
+		return
+	}
+	$out = @($out) | Where-Object { -not $_.StartsWith('# ') }
+	foreach ($line in @($out)) {
+		$i = $line.IndexOf('=')
+		if ($i -lt 0) { continue }
+		$v = $line.Substring($i + 1)
+		$kind = $null
+		$red = $v -match '^<redacted(:(?<kind>[a-z-]+))?>$'
+		if ($red) { $kind = $Matches['kind'] }
+		[pscustomobject]@{
+			Key           = $line.Substring(0, $i)
+			Value         = $v
+			Redacted      = $red
+			RedactionKind = $kind
+		}
+	}
+}
+
+function Invoke-EnvctlRedact {
+	<#
+	.SYNOPSIS
+	filter stdin to stdout, masking secrets, through envctl redact.
+	.DESCRIPTION
+	Reads text on stdin and writes it to stdout with secrets masked. The positional names the env file supplying literal values, defaulting to ./.env when it exists. See FILTER MODE.
+	.PARAMETER InputObject
+	Lines to filter; accepts pipeline input.
+	.PARAMETER File
+	The env file supplying literal values; ./.env when omitted.
+	.PARAMETER Environment
+	Mask the process environment's literal values.
+	.PARAMETER NoEnv
+	Skip literal values, use heuristics only.
+	.PARAMETER Redact
+	Pass --redact: mask secret-looking values.
+	.PARAMETER Paranoid
+	Pass --paranoid: apply the entropy bar to every value.
+	.EXAMPLE
+	npm run build 2>&1 | Invoke-EnvctlRedact -Environment
+	#>
+	[CmdletBinding()]
+	param(
+		[Parameter(ValueFromPipeline)][string[]]$InputObject,
+		[string]$File,
+		[switch]$Environment,
+		[switch]$NoEnv,
+		[switch]$Redact,
+		[switch]$Paranoid
+	)
+	begin { $lines = [System.Collections.Generic.List[string]]::new() }
+	process { foreach ($l in $InputObject) { $lines.Add([string]$l) } }
+	end {
+		$a = @('redact')
+		if ($Environment) { $a += '--env' }
+		elseif ($NoEnv) { $a += '--no-env' }
+		elseif ($File) { $a += $File }
+		if ($Redact) { $a += '--redact' }
+		if ($Paranoid) { $a += '--paranoid' }
+		$lines | & envctl @a
+		if ($LASTEXITCODE) {
+			Write-Error "envctl redact failed with exit code $LASTEXITCODE"
+		}
+	}
+}
+

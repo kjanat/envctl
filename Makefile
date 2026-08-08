@@ -8,7 +8,7 @@ DEPFLAGS ?= -MMD -MP
 PREFIX   ?= $(HOME)/.local
 DIST     ?= dist
 
-SRCS := src/util.c src/agent.c src/cli.c src/complete.c src/help.c src/lines.c src/entropy.c \
+SRCS := src/util.c src/agent.c src/cli.c src/complete.c src/module.c src/help.c src/lines.c src/entropy.c \
         src/redact.c src/mask.c src/filter.c src/envsrc.c src/diff.c \
         src/fileio.c src/main.c
 OBJS := $(SRCS:.c=.o)

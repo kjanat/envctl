@@ -28,6 +28,9 @@ envctl \- manage keys in env files
 .B envctl completions
 .RI "<shell>"
 .br
+.B envctl module
+.RI "<shell>"
+.br
 .B envctl
 .RI "[file] <KEY> [VALUE]"
 .SH DESCRIPTION
@@ -68,6 +71,9 @@ Prints the whole process environment as KEY=VALUE lines with redaction always on
 .TP
 .B completions <shell>
 Writes a completion script for bash, zsh, fish, or pwsh to stdout. The script is generated at run time from the same command and flag tables the parser uses, so it offers exactly the flags each command accepts. See the README for where each shell wants the file.
+.TP
+.B module <shell>
+Writes a PowerShell module to stdout that wraps envctl in cmdlets with typed parameters and object output: Get\-EnvctlValue, Set\-EnvctlValue, Disable\-EnvctlKey, Enable\-EnvctlKey, Remove\-EnvctlKey, Get\-EnvctlKey, Get\-EnvctlEnvironment, and Invoke\-EnvctlRedact. Get\-EnvctlKey and Get\-EnvctlEnvironment parse KEY=VALUE lines into objects for the pipeline. The mutating cmdlets support \-WhatIf by running the underlying command with \-\-dry\-run. Load it with: envctl module pwsh | Out\-String | Invoke\-Expression. The only shell accepted is pwsh.
 .SH OPTIONS
 .TP
 .B \-\-dry\-run

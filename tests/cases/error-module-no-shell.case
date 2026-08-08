@@ -1,0 +1,8 @@
+%% args
+module
+
+%% stderr
+envctl: module takes pwsh
+
+%% exit
+2

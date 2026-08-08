@@ -369,6 +369,32 @@ Set-PSReadLineOption -PredictionSource HistoryAndPlugin
 
 F2 toggles between the inline and list prediction views.
 
+### PowerShell cmdlets
+
+`envctl module pwsh` writes a PowerShell module to stdout that wraps envctl in
+cmdlets, generated from the same registry as everything else. `Get-EnvctlKey`
+and `Get-EnvctlEnvironment` parse `KEY=VALUE` lines into objects for the
+pipeline, and the mutating cmdlets support `-WhatIf` by running the underlying
+command with `--dry-run`:
+
+```powershell
+envctl module pwsh | Out-String | Invoke-Expression   # current session, or in $PROFILE
+envctl module pwsh > envctl.psm1                      # Import-Module ./envctl.psm1
+
+Get-EnvctlKey -File .env | Where-Object Key -like '*TOKEN*'
+Set-EnvctlValue -Key DEBUG -Value true -WhatIf
+Get-EnvctlEnvironment | Where-Object Redacted
+npm run build 2>&1 | Invoke-EnvctlRedact -Environment
+```
+
+Cmdlets: `Get-EnvctlValue`, `Set-EnvctlValue`, `Disable-EnvctlKey`,
+`Enable-EnvctlKey`, `Remove-EnvctlKey`, `Get-EnvctlKey`,
+`Get-EnvctlEnvironment`, `Invoke-EnvctlRedact`. The binary must be on `PATH` as
+`envctl`. The objects carry `Key`, `Value`, `Redacted`, and `RedactionKind`
+(`private-key` or `credentials` for the typed tokens, `$null` otherwise);
+`Get-EnvctlKey` adds `Disabled` and `File`. Values in `Get-EnvctlEnvironment`
+objects carry the dump's always-on redaction and caret escaping.
+
 [CompletionPredictor]: https://www.powershellgallery.com/packages/CompletionPredictor
 
 ### Examples

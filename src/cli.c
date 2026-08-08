@@ -52,6 +52,14 @@ const Command cli_commands[CMD_COUNT] = {
      "Writes a completion script for bash, zsh, fish, or pwsh to stdout. The script is generated "
      "at run time from the same command and flag tables the parser uses, so it offers exactly the "
      "flags each command accepts. See the README for where each shell wants the file."},
+    {CMD_MODULE, "module", NULL, "<shell>", 0, "shell", "print a cmdlet wrapper module for pwsh",
+     "Writes a PowerShell module to stdout that wraps envctl in cmdlets with typed parameters and "
+     "object output: Get-EnvctlValue, Set-EnvctlValue, Disable-EnvctlKey, Enable-EnvctlKey, "
+     "Remove-EnvctlKey, Get-EnvctlKey, Get-EnvctlEnvironment, and Invoke-EnvctlRedact. "
+     "Get-EnvctlKey and Get-EnvctlEnvironment parse KEY=VALUE lines into objects for the "
+     "pipeline. The mutating cmdlets support -WhatIf by running the underlying command with "
+     "--dry-run. Load it with: envctl module pwsh | Out-String | Invoke-Expression. The only "
+     "shell accepted is pwsh."},
 };
 
 const Shell cli_shells[SHELL_COUNT] = {

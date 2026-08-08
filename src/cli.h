@@ -11,6 +11,7 @@ typedef enum {
 	CMD_REDACT,
 	CMD_ENV,
 	CMD_COMPLETIONS,
+	CMD_MODULE,
 	CMD_COUNT
 } CmdId;
 

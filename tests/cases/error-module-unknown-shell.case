@@ -1,0 +1,9 @@
+%% args
+module
+zsh
+
+%% stderr
+envctl: module takes pwsh
+
+%% exit
+2

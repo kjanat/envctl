@@ -5,7 +5,7 @@ _envctl() {
 	cmd=
 	for ((i = 1; i < COMP_CWORD; i++)); do
 		case ${COMP_WORDS[i]} in
-			set | get | disable | enable | delete | list | redact | env | completions)
+			set | get | disable | enable | delete | list | redact | env | completions | module)
 				cmd=${COMP_WORDS[i]}
 				break
 				;;
@@ -25,6 +25,11 @@ _envctl() {
 		return
 	fi
 
+	if [[ ${cmd} == module ]]; then
+		mapfile -t COMPREPLY < <(compgen -W 'pwsh' -- "${cur}")
+		return
+	fi
+
 	flags=
 	case ${cmd} in
 		set) flags='--dry-run --redact --raw --paranoid -h --help -v -V --version' ;;
@@ -36,6 +41,7 @@ _envctl() {
 		redact) flags='--env --no-env --redact --paranoid -h --help -v -V --version' ;;
 		env) flags='--sort --redact --paranoid -h --help -v -V --version' ;;
 		completions) flags='-h --help -v -V --version' ;;
+		module) flags='-h --help -v -V --version' ;;
 		*) flags='--dry-run --values --all --sort --env --no-env --redact --raw --paranoid -h --help -v -V --version' ;;
 	esac
 
@@ -45,7 +51,7 @@ _envctl() {
 	fi
 
 	if [[ -z ${cmd} ]]; then
-		mapfile -t COMPREPLY < <(compgen -W 'set get disable enable delete rm list ls redact env completions' -- "${cur}")
+		mapfile -t COMPREPLY < <(compgen -W 'set get disable enable delete rm list ls redact env completions module' -- "${cur}")
 		mapfile -t hits < <(compgen -f -- "${cur}")
 		((${#hits[@]})) && COMPREPLY+=("${hits[@]}")
 		return

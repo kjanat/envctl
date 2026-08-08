@@ -12,6 +12,7 @@
 #include "filter.h"
 #include "help.h"
 #include "lines.h"
+#include "module.h"
 #include "redact.h"
 #include "util.h"
 
@@ -235,6 +236,16 @@ int main(int argc, char **argv) {
 		if (!sh)
 			die_shell_choice();
 		act_completions(sh->id);
+		stdout_flush_check();
+		return 0;
+	}
+
+	if (cmd->id == CMD_MODULE) {
+		if (nr > 1)
+			die("too many arguments");
+		if (nr < 1 || strcmp(rest[0], "pwsh") != 0)
+			die("module takes pwsh");
+		act_module_pwsh();
 		stdout_flush_check();
 		return 0;
 	}

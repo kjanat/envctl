@@ -11,6 +11,7 @@ complete -c envctl -n __fish_use_subcommand -a ls -d 'alias for list'
 complete -c envctl -n __fish_use_subcommand -a redact -d 'filter stdin to stdout, masking secrets'
 complete -c envctl -n __fish_use_subcommand -a env -d 'print the process environment, always redacted'
 complete -c envctl -n __fish_use_subcommand -a completions -d 'print a completion script for a shell'
+complete -c envctl -n __fish_use_subcommand -a module -d 'print a cmdlet wrapper module for pwsh'
 complete -c envctl -n __fish_use_subcommand -F
 
 complete -c envctl -s h -l help -d 'print help and exit'
@@ -76,3 +77,5 @@ complete -c envctl -n '__fish_seen_subcommand_from env' -l redact -d 'mask secre
 complete -c envctl -n '__fish_seen_subcommand_from env' -l paranoid -d 'apply the entropy bar to every value'
 
 complete -c envctl -n '__fish_seen_subcommand_from completions' -a 'bash zsh fish pwsh'
+
+complete -c envctl -n '__fish_seen_subcommand_from module' -a 'pwsh'

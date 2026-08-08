@@ -22,6 +22,7 @@ Commands:
   redact       [file]                filter stdin to stdout, masking secrets
   env                                print the process environment, always redacted
   completions  <shell>               print a completion script for a shell
+  module       <shell>               print a cmdlet wrapper module for pwsh
 
 Aliases: rm = delete, ls = list
 File: optional when ./.env exists as a regular file

@@ -73,6 +73,7 @@ _envctl() {
 	local -a cmds_shell
 	cmds_shell=(
 		'completions:print a completion script for a shell'
+		'module:print a cmdlet wrapper module for pwsh'
 	)
 
 	_arguments -C \
@@ -291,6 +292,14 @@ _envctl() {
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
 						'1:shell:(bash zsh fish pwsh)' \
+						'*: :_default'
+					;;
+				module)
+					_envctl_usage '<shell>'
+					_arguments \
+						'(- *)'{-h,--help}'[print help and exit]' \
+						'(- *)'{-v,-V,--version}'[print the version and exit]' \
+						'1:shell:(pwsh)' \
 						'*: :_default'
 					;;
 			esac

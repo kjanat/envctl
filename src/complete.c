@@ -140,6 +140,11 @@ static void bash_script(void) {
 	      "\t\treturn\n"
 	      "\tfi\n"
 	      "\n"
+	      "\tif [[ ${cmd} == module ]]; then\n"
+	      "\t\tmapfile -t COMPREPLY < <(compgen -W 'pwsh' -- \"${cur}\")\n"
+	      "\t\treturn\n"
+	      "\tfi\n"
+	      "\n"
 	      "\tflags=\n"
 	      "\tcase ${cmd} in\n",
 	      stdout);
@@ -346,6 +351,12 @@ static void zsh_script(void) {
 			fputs(")' \\\n\t\t\t\t\t\t'*: :_default'\n\t\t\t\t\t;;\n", stdout);
 			continue;
 		}
+		if (c->id == CMD_MODULE) {
+			fputs("\t\t\t\t\t\t'1:shell:(pwsh)' \\\n"
+			      "\t\t\t\t\t\t'*: :_default'\n\t\t\t\t\t;;\n",
+			      stdout);
+			continue;
+		}
 		for (int f = 0; f < FLAG_COUNT; f++) {
 			if (!flag_fits(c, &cli_flags[f]))
 				continue;
@@ -468,6 +479,11 @@ static void fish_script(void) {
 			put_shell_words(" ");
 			fputs("'\n", stdout);
 		}
+		if (c->id == CMD_MODULE) {
+			if (!printed++)
+				fputc('\n', stdout);
+			printf("complete -c envctl -n '__fish_seen_subcommand_from %s' -a 'pwsh'\n", c->name);
+		}
 	}
 }
 
@@ -540,6 +556,8 @@ static void pwsh_script(void) {
 		printf("%s'%s'", i ? ", " : "", cli_shells[i].name);
 	fputs(
 	    ")\n"
+	    "\t} elseif ($cmd -eq 'module') {\n"
+	    "\t\t$candidates = @('pwsh')\n"
 	    "\t} elseif ($wordToComplete.StartsWith('-')) {\n"
 	    "\t\t$candidates = $flags[$cmd]\n"
 	    "\t} elseif ($cmd -eq '') {\n"

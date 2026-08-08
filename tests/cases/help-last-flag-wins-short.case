@@ -6,6 +6,7 @@
 usage: envctl <cmd> [file] [args...]
        envctl [file] <KEY> [VALUE]
   commands: set get disable enable delete|rm list|ls redact env completions
+            module
   flags:    --dry-run --values --all --sort --env --no-env --redact --raw
             --paranoid
   file:     optional when ./.env exists
