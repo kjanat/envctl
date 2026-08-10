@@ -124,6 +124,7 @@ CI runs `make test` on Linux, macOS, and Windows.
 | `diff`           | Dry-run diff output                            |
 | `atomicity`      | File writes, atomic replace, mode preservation |
 | `agent-detect`   | Coding agent detection and TTY rules           |
+| `completions`    | Shell completion scripts and the pwsh module   |
 | `portability`    | Windows, macOS, BSD behavior                   |
 | `build`          | Makefile, CI, release artifacts                |
 | `tests`          | Suite and harness                              |
