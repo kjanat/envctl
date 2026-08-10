@@ -9,7 +9,7 @@ bin=${1:-}
 	echo 'usage: completions.sh <path-to-envctl>' >&2
 	exit 2
 }
-[[ ${bin} == /* ]] || bin=${PWD}/${bin}
+[[ ${bin} == /* || ${bin} == [A-Za-z]:* ]] || bin=${PWD}/${bin}
 [[ -x ${bin} ]] || {
 	echo "not executable: ${bin}" >&2
 	exit 2
