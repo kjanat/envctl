@@ -7,4 +7,13 @@ jobs:
     name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy: { matrix: { os: [ubuntu-26.04, macos-15, windows-2025-vs2026] }, fail-fast: false }
-    steps: [uses: actions/checkout@v7, uses: kjanat/runner@master, run: run -s make test]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: kjanat/runner@master
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y zsh fish
+      # bash 3.2 ships with macOS and cannot run tests/completions.sh.
+      - if: runner.os == 'macOS'
+        run: brew install fish bash
+      - run: run -s make test
+        env: { COMPLETIONS_SHELLS: "${{ runner.os == 'Windows' && 'bash' || 'bash zsh fish' }}" }

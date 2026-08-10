@@ -4,6 +4,18 @@
 # in a place the shell applies too widely, which is the defect this exists for.
 set -u
 
+# mapfile and associative arrays are bash 4, and macOS ships 3.2.
+((BASH_VERSINFO[0] >= 4)) || {
+	echo "completions.sh needs bash 4 or newer, this is ${BASH_VERSION}" >&2
+	exit 2
+}
+
+read -ra shells <<<"${COMPLETIONS_SHELLS:-bash zsh fish}"
+((${#shells[@]})) || {
+	echo 'COMPLETIONS_SHELLS is empty, so no shell would be checked' >&2
+	exit 2
+}
+
 bin=${1:-}
 [[ -n ${bin} ]] || {
 	echo 'usage: completions.sh <path-to-envctl>' >&2
@@ -20,7 +32,6 @@ work=$(mktemp -d) || exit 2
 trap 'rm -rf "${work}"' EXIT INT TERM
 
 declare -i failed=0
-declare -a skipped=()
 
 fail() {
 	printf '  FAIL  %s\n' "$*"
@@ -86,7 +97,6 @@ for f in "${flags[@]}"; do
 	flag_values[${f}]=$(sed -e 's/.* takes //' -e 's/, or / /' -e 's/ or / /' -e 's/,/ /g' <<<"${out}")
 done
 flag_under_test=
-ran_any=0
 
 valid_flags_for() {
 	local cmd=$1 f
@@ -202,10 +212,9 @@ value_flags_for() {
 run_shell() {
 	local shell=$1 script=${work}/script.$1 cmd first ctx got vflag v f
 	command -v "${shell}" >/dev/null 2>&1 || {
-		skipped+=("${shell} (not installed)")
+		fail "${shell}: not installed, so nothing it offers was checked"
 		return
 	}
-	ran_any=1
 	"${bin}" completions "${shell}" >"${script}" || {
 		fail "${shell}: generating the script failed"
 		return
@@ -276,21 +285,13 @@ run_shell() {
 	done
 }
 
-for shell in bash fish zsh; do
+for shell in "${shells[@]}"; do
 	run_shell "${shell}"
 done
 
 printf '\n'
-if ((${#skipped[@]})); then
-	printf '%d skipped:\n' "${#skipped[@]}"
-	printf '  %s\n' "${skipped[@]}"
-fi
-if ((!ran_any)); then
-	printf 'no shell was available, so nothing was checked\n' >&2
-	exit 1
-fi
 if ((failed == 0)); then
-	printf 'completions consistent with the parser\n'
+	printf 'completions consistent with the parser (%s)\n' "${shells[*]}"
 	exit 0
 fi
 printf '%d completion mismatches\n' "${failed}"
