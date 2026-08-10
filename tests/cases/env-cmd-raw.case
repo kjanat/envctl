@@ -1,12 +1,13 @@
 %% args
 env
+--raw
 
 %% mode
 posix-env
 
 %% setenv
-STYLE=[01;31mbold
+API_TOKEN=abcdefghij
 
 %% stdout
 PATH=/usr/bin:/bin
-STYLE=^[[01;31mbold
+API_TOKEN=abcdefghij

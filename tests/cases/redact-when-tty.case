@@ -1,0 +1,14 @@
+%% args
+--redact=tty
+get
+basic.env
+API_TOKEN
+
+%% mode
+pty
+
+%% env
+env/basic.env
+
+%% stdout
+<redacted>

@@ -26,9 +26,12 @@ typedef enum {
 	FLAG_NO_ENV,
 	FLAG_REDACT,
 	FLAG_RAW,
+	FLAG_SHOW_CONTROL,
 	FLAG_PARANOID,
 	FLAG_COUNT
 } FlagId;
+
+typedef enum { WHEN_NEVER, WHEN_AUTO, WHEN_AGENT, WHEN_TTY, WHEN_ALWAYS } RedactWhen;
 
 #define CMD_BIT(id) (1u << (unsigned)(id))
 
@@ -52,6 +55,7 @@ typedef struct {
 	FlagId id;
 	const char *name;
 	unsigned commands;
+	const char *values;
 	const char *summary;
 	const char *description;
 } Flag;

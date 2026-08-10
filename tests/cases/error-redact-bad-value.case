@@ -1,0 +1,14 @@
+%% args
+--redact=sometimes
+get
+basic.env
+API_TOKEN
+
+%% env
+env/basic.env
+
+%% stderr
+envctl: --redact takes never, auto, agent, tty, or always
+
+%% exit
+2

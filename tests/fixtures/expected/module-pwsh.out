@@ -15,7 +15,7 @@ function Get-EnvctlValue {
 	.PARAMETER Redact
 	Pass --redact: mask secret-looking values.
 	.PARAMETER Raw
-	Pass --raw: never mask, and never escape control bytes.
+	Pass --raw: shorthand for --redact=never --show-control-chars.
 	.PARAMETER Paranoid
 	Pass --paranoid: apply the entropy bar to every value.
 	.EXAMPLE
@@ -60,7 +60,7 @@ function Set-EnvctlValue {
 	.PARAMETER Redact
 	Pass --redact: mask secret-looking values.
 	.PARAMETER Raw
-	Pass --raw: never mask, and never escape control bytes.
+	Pass --raw: shorthand for --redact=never --show-control-chars.
 	.PARAMETER Paranoid
 	Pass --paranoid: apply the entropy bar to every value.
 	.EXAMPLE
@@ -107,7 +107,7 @@ function Disable-EnvctlKey {
 	.PARAMETER Redact
 	Pass --redact: mask secret-looking values.
 	.PARAMETER Raw
-	Pass --raw: never mask, and never escape control bytes.
+	Pass --raw: shorthand for --redact=never --show-control-chars.
 	.PARAMETER Paranoid
 	Pass --paranoid: apply the entropy bar to every value.
 	.EXAMPLE
@@ -152,7 +152,7 @@ function Enable-EnvctlKey {
 	.PARAMETER Redact
 	Pass --redact: mask secret-looking values.
 	.PARAMETER Raw
-	Pass --raw: never mask, and never escape control bytes.
+	Pass --raw: shorthand for --redact=never --show-control-chars.
 	.PARAMETER Paranoid
 	Pass --paranoid: apply the entropy bar to every value.
 	.EXAMPLE
@@ -197,7 +197,7 @@ function Remove-EnvctlKey {
 	.PARAMETER Redact
 	Pass --redact: mask secret-looking values.
 	.PARAMETER Raw
-	Pass --raw: never mask, and never escape control bytes.
+	Pass --raw: shorthand for --redact=never --show-control-chars.
 	.PARAMETER Paranoid
 	Pass --paranoid: apply the entropy bar to every value.
 	.EXAMPLE
@@ -244,7 +244,7 @@ function Get-EnvctlKey {
 	.PARAMETER Redact
 	Pass --redact: mask secret-looking values.
 	.PARAMETER Raw
-	Pass --raw: never mask, and never escape control bytes.
+	Pass --raw: shorthand for --redact=never --show-control-chars.
 	.PARAMETER Paranoid
 	Pass --paranoid: apply the entropy bar to every value.
 	.EXAMPLE
@@ -303,11 +303,13 @@ function Get-EnvctlEnvironment {
 	.SYNOPSIS
 	print the process environment, always redacted, through envctl env.
 	.DESCRIPTION
-	Prints the whole process environment as KEY=VALUE lines with redaction always on, making it the one-word replacement for env | envctl redact --no-env. The first line reads # envctl VERSION (redacted) and names the build that produced the dump. Entries follow environ order, or key order under --sort. Names outside [A-Za-z_][A-Za-z0-9_]* are skipped, matching list.
+	Prints the whole process environment as KEY=VALUE lines with redaction always on, making it the one-word replacement for env | envctl redact --no-env. Entries follow environ order, or key order under --sort. Names outside [A-Za-z_][A-Za-z0-9_]* are skipped, matching list.
 	.PARAMETER Sort
 	Pass --sort: print entries sorted by key.
 	.PARAMETER Redact
 	Pass --redact: mask secret-looking values.
+	.PARAMETER Raw
+	Pass --raw: shorthand for --redact=never --show-control-chars.
 	.PARAMETER Paranoid
 	Pass --paranoid: apply the entropy bar to every value.
 	.EXAMPLE
@@ -317,11 +319,13 @@ function Get-EnvctlEnvironment {
 	param(
 		[switch]$Sort,
 		[switch]$Redact,
+		[switch]$Raw,
 		[switch]$Paranoid
 	)
 	$a = @('env')
 	if ($Sort) { $a += '--sort' }
 	if ($Redact) { $a += '--redact' }
+	if ($Raw) { $a += '--raw' }
 	if ($Paranoid) { $a += '--paranoid' }
 	$out = & envctl @a
 	if ($LASTEXITCODE) {

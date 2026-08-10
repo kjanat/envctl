@@ -1,0 +1,13 @@
+%% args
+--sort=x
+list
+basic.env
+
+%% env
+env/basic.env
+
+%% stderr
+envctl: --sort takes no value
+
+%% exit
+2

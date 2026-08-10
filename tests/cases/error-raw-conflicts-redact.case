@@ -1,0 +1,15 @@
+%% args
+--raw
+--redact=always
+get
+basic.env
+API_TOKEN
+
+%% env
+env/basic.env
+
+%% stderr
+envctl: --raw cannot be --redact=always
+
+%% exit
+2

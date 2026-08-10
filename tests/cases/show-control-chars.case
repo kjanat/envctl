@@ -1,0 +1,14 @@
+%% args
+--show-control-chars
+get
+controls.env
+STYLE
+
+%% mode
+pty
+
+%% env
+env/controls.env
+
+%% stdout-file
+expected/controls-value.txt

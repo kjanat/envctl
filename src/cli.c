@@ -43,10 +43,8 @@ const Command cli_commands[CMD_COUNT] = {
      "env file supplying literal values, defaulting to ./.env when it exists. See FILTER MODE."},
     {CMD_ENV, "env", NULL, "", 0, "redact", "print the process environment, always redacted",
      "Prints the whole process environment as KEY=VALUE lines with redaction always on, making it "
-     "the one-word replacement for env | envctl redact --no-env. The first line reads "
-     "# envctl VERSION (redacted) and names the build that produced the dump. Entries follow "
-     "environ order, or key order under --sort. Names outside [A-Za-z_][A-Za-z0-9_]* are skipped, "
-     "matching list."},
+     "the one-word replacement for env | envctl redact --no-env. Entries follow environ order, or "
+     "key order under --sort. Names outside [A-Za-z_][A-Za-z0-9_]* are skipped, matching list."},
     {CMD_COMPLETIONS, "completions", NULL, "<shell>", 0, "shell",
      "print a completion script for a shell",
      "Writes a completion script for bash, zsh, fish, or pwsh to stdout. The script is generated "
@@ -70,31 +68,41 @@ const Shell cli_shells[SHELL_COUNT] = {
 };
 
 const Flag cli_flags[FLAG_COUNT] = {
-    {FLAG_DRY_RUN, "--dry-run", M_MUTATING, "print a unified diff and write nothing",
+    {FLAG_DRY_RUN, "--dry-run", M_MUTATING, NULL, "print a unified diff and write nothing",
      "Prints a unified diff of the change to stdout and writes nothing. Only changed lines appear. "
      "When the command would change nothing, stdout stays empty and envctl: no changes goes to "
      "stderr. Under redaction the +++ header reads +++ FILE (redacted) and both sides are "
      "masked."},
-    {FLAG_VALUES, "--values", M_LIST, "also print values",
+    {FLAG_VALUES, "--values", M_LIST, NULL, "also print values",
      "Prints each key's value after its name. Secret-looking values follow the redaction rules."},
-    {FLAG_ALL, "--all", M_LIST, "also print disabled keys",
+    {FLAG_ALL, "--all", M_LIST, NULL, "also print disabled keys",
      "Includes commented keys, each tagged (disabled). A process environment has no commented "
      "entries, so this is rejected together with --env."},
-    {FLAG_SORT, "--sort", M_LIST | M_ENV, "print entries sorted by key",
+    {FLAG_SORT, "--sort", M_LIST | M_ENV, NULL, "print entries sorted by key",
      "Prints entries sorted by key instead of in file or environ order."},
-    {FLAG_ENV, "--env", M_GET | M_LIST | M_REDACT, "use the process environment instead of a file",
+    {FLAG_ENV, "--env", M_GET | M_LIST | M_REDACT, NULL,
+     "use the process environment instead of a file",
      "Reads the process environment in place of an env file. For redact this makes the "
      "environment's values the literal mask set."},
-    {FLAG_NO_ENV, "--no-env", M_REDACT, "skip the env file's literal values, use heuristics only",
+    {FLAG_NO_ENV, "--no-env", M_REDACT, NULL,
+     "skip the env file's literal values, use heuristics only",
      "Skips the env file entirely so only the value-shape heuristics run. redact takes a file, "
      "--env, or --no-env, never two of them."},
-    {FLAG_REDACT, "--redact", M_EVERY, "mask secret-looking values",
-     "Forces masking on, whatever the terminal and agent detection would have chosen. redact and "
-     "env mask unconditionally, so there it changes nothing."},
-    {FLAG_RAW, "--raw", M_DISPLAY, "never mask, and never escape control bytes",
-     "Forces masking off, overriding auto-redaction and --redact, and prints control bytes as "
-     "they are instead of in caret notation."},
-    {FLAG_PARANOID, "--paranoid", M_EVERY, "apply the entropy bar to every value",
+    {FLAG_REDACT, "--redact", M_EVERY, "never auto agent tty always", "mask secret-looking values",
+     "Chooses when values are masked. never disables it; auto is the default and masks when a "
+     "coding agent is detected and stdout is a terminal; agent masks whenever an agent is "
+     "detected, terminal or not; tty masks whenever stdout is a terminal; always masks "
+     "unconditionally. A bare --redact means always. redact and env mask unconditionally, so "
+     "there only --redact=never changes anything."},
+    {FLAG_RAW, "--raw", M_DISPLAY | M_ENV, NULL,
+     "shorthand for --redact=never --show-control-chars",
+     "Prints values exactly as stored: no masking, and control bytes as they are rather than in "
+     "caret notation."},
+    {FLAG_SHOW_CONTROL, "--show-control-chars", M_DISPLAY | M_ENV, NULL,
+     "print control bytes as they are",
+     "Prints control bytes unchanged instead of in caret notation, leaving masking alone. Without "
+     "it, control bytes are escaped on a terminal and whenever masking is on, following ls."},
+    {FLAG_PARANOID, "--paranoid", M_EVERY, NULL, "apply the entropy bar to every value",
      "Applies the entropy bar to every value, whatever its key is named, closing values such as "
      "RANDOM_THING=<44 random chars>. Trivial values, plain paths, and digest-like key names stay "
      "visible. Implies --redact and rejects --raw."},

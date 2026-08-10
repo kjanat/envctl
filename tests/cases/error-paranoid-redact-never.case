@@ -1,0 +1,15 @@
+%% args
+--paranoid
+--redact=never
+get
+basic.env
+API_TOKEN
+
+%% env
+env/basic.env
+
+%% stderr
+envctl: --paranoid cannot be --redact=never
+
+%% exit
+2

@@ -95,12 +95,4 @@ void act_env_list(int values, int redact, int sort) {
 	free(v);
 }
 
-#ifndef ENVCTL_VERSION
-#define ENVCTL_VERSION "unknown"
-#endif
-
-void act_env_dump(int sort) {
-	display_set_escape(1);
-	printf("# envctl %s (redacted)\n", ENVCTL_VERSION);
-	act_env_list(1, 1, sort);
-}
+void act_env_dump(int sort, int redact) { act_env_list(1, redact, sort); }

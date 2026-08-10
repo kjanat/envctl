@@ -67,7 +67,7 @@ Alias: ls.
 Reads text on stdin and writes it to stdout with secrets masked. The positional names the env file supplying literal values, defaulting to ./.env when it exists. See FILTER MODE.
 .TP
 .B env
-Prints the whole process environment as KEY=VALUE lines with redaction always on, making it the one\-word replacement for env | envctl redact \-\-no\-env. The first line reads # envctl VERSION (redacted) and names the build that produced the dump. Entries follow environ order, or key order under \-\-sort. Names outside [A\-Za\-z_][A\-Za\-z0\-9_]* are skipped, matching list.
+Prints the whole process environment as KEY=VALUE lines with redaction always on, making it the one\-word replacement for env | envctl redact \-\-no\-env. Entries follow environ order, or key order under \-\-sort. Names outside [A\-Za\-z_][A\-Za\-z0\-9_]* are skipped, matching list.
 .TP
 .B completions <shell>
 Writes a completion script for bash, zsh, fish, or pwsh to stdout. The script is generated at run time from the same command and flag tables the parser uses, so it offers exactly the flags each command accepts. See the README for where each shell wants the file.
@@ -100,13 +100,17 @@ Valid for: get, list, and redact.
 Skips the env file entirely so only the value\-shape heuristics run. redact takes a file, \-\-env, or \-\-no\-env, never two of them.
 Valid for: redact.
 .TP
-.B \-\-redact
-Forces masking on, whatever the terminal and agent detection would have chosen. redact and env mask unconditionally, so there it changes nothing.
+.B \-\-redact[=never|auto|agent|tty|always]
+Chooses when values are masked. never disables it; auto is the default and masks when a coding agent is detected and stdout is a terminal; agent masks whenever an agent is detected, terminal or not; tty masks whenever stdout is a terminal; always masks unconditionally. A bare \-\-redact means always. redact and env mask unconditionally, so there only \-\-redact=never changes anything.
 Valid for: set, get, disable, enable, delete, list, redact, and env.
 .TP
 .B \-\-raw
-Forces masking off, overriding auto\-redaction and \-\-redact, and prints control bytes as they are instead of in caret notation.
-Valid for: set, get, disable, enable, delete, and list.
+Prints values exactly as stored: no masking, and control bytes as they are rather than in caret notation.
+Valid for: set, get, disable, enable, delete, list, and env.
+.TP
+.B \-\-show\-control\-chars
+Prints control bytes unchanged instead of in caret notation, leaving masking alone. Without it, control bytes are escaped on a terminal and whenever masking is on, following ls.
+Valid for: set, get, disable, enable, delete, list, and env.
 .TP
 .B \-\-paranoid
 Applies the entropy bar to every value, whatever its key is named, closing values such as RANDOM_THING=<44 random chars>. Trivial values, plain paths, and digest\-like key names stay visible. Implies \-\-redact and rejects \-\-raw.

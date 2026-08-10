@@ -1,0 +1,14 @@
+%% args
+--redact=agent
+get
+basic.env
+API_TOKEN
+
+%% env
+env/basic.env
+
+%% setenv
+AI_AGENT=1
+
+%% stdout
+<redacted>

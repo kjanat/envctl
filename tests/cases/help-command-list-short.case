@@ -12,12 +12,13 @@ value under the redaction rules, and --all adds the commented keys tagged
 shows its first line.
 
 Flags:
-  --values    also print values
-  --all       also print disabled keys
-  --sort      print entries sorted by key
-  --env       use the process environment instead of a file
-  --redact    mask secret-looking values
-  --raw       never mask, and never escape control bytes
-  --paranoid  apply the entropy bar to every value
+  --values              also print values
+  --all                 also print disabled keys
+  --sort                print entries sorted by key
+  --env                 use the process environment instead of a file
+  --redact              mask secret-looking values
+  --raw                 shorthand for --redact=never --show-control-chars
+  --show-control-chars  print control bytes as they are
+  --paranoid            apply the entropy bar to every value
 
 Full reference: man envctl

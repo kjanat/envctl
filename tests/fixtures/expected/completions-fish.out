@@ -24,36 +24,42 @@ complete -c envctl -n __fish_use_subcommand -l sort -d 'print entries sorted by 
 complete -c envctl -n __fish_use_subcommand -l env -d 'use the process environment instead of a file'
 complete -c envctl -n __fish_use_subcommand -l no-env -d 'skip the env file'\''s literal values, use heuristics only'
 complete -c envctl -n __fish_use_subcommand -l redact -d 'mask secret-looking values'
-complete -c envctl -n __fish_use_subcommand -l raw -d 'never mask, and never escape control bytes'
+complete -c envctl -n __fish_use_subcommand -l raw -d 'shorthand for --redact=never --show-control-chars'
+complete -c envctl -n __fish_use_subcommand -l show-control-chars -d 'print control bytes as they are'
 complete -c envctl -n __fish_use_subcommand -l paranoid -d 'apply the entropy bar to every value'
 
 complete -c envctl -n '__fish_seen_subcommand_from set' -l dry-run -d 'print a unified diff and write nothing'
-complete -c envctl -n '__fish_seen_subcommand_from set' -l redact -d 'mask secret-looking values'
-complete -c envctl -n '__fish_seen_subcommand_from set' -l raw -d 'never mask, and never escape control bytes'
+complete -c envctl -n '__fish_seen_subcommand_from set' -l redact -a 'never auto agent tty always' -d 'mask secret-looking values'
+complete -c envctl -n '__fish_seen_subcommand_from set' -l raw -d 'shorthand for --redact=never --show-control-chars'
+complete -c envctl -n '__fish_seen_subcommand_from set' -l show-control-chars -d 'print control bytes as they are'
 complete -c envctl -n '__fish_seen_subcommand_from set' -l paranoid -d 'apply the entropy bar to every value'
 complete -c envctl -n '__fish_seen_subcommand_from set' -F
 
 complete -c envctl -n '__fish_seen_subcommand_from get' -l env -d 'use the process environment instead of a file'
-complete -c envctl -n '__fish_seen_subcommand_from get' -l redact -d 'mask secret-looking values'
-complete -c envctl -n '__fish_seen_subcommand_from get' -l raw -d 'never mask, and never escape control bytes'
+complete -c envctl -n '__fish_seen_subcommand_from get' -l redact -a 'never auto agent tty always' -d 'mask secret-looking values'
+complete -c envctl -n '__fish_seen_subcommand_from get' -l raw -d 'shorthand for --redact=never --show-control-chars'
+complete -c envctl -n '__fish_seen_subcommand_from get' -l show-control-chars -d 'print control bytes as they are'
 complete -c envctl -n '__fish_seen_subcommand_from get' -l paranoid -d 'apply the entropy bar to every value'
 complete -c envctl -n '__fish_seen_subcommand_from get' -F
 
 complete -c envctl -n '__fish_seen_subcommand_from disable' -l dry-run -d 'print a unified diff and write nothing'
-complete -c envctl -n '__fish_seen_subcommand_from disable' -l redact -d 'mask secret-looking values'
-complete -c envctl -n '__fish_seen_subcommand_from disable' -l raw -d 'never mask, and never escape control bytes'
+complete -c envctl -n '__fish_seen_subcommand_from disable' -l redact -a 'never auto agent tty always' -d 'mask secret-looking values'
+complete -c envctl -n '__fish_seen_subcommand_from disable' -l raw -d 'shorthand for --redact=never --show-control-chars'
+complete -c envctl -n '__fish_seen_subcommand_from disable' -l show-control-chars -d 'print control bytes as they are'
 complete -c envctl -n '__fish_seen_subcommand_from disable' -l paranoid -d 'apply the entropy bar to every value'
 complete -c envctl -n '__fish_seen_subcommand_from disable' -F
 
 complete -c envctl -n '__fish_seen_subcommand_from enable' -l dry-run -d 'print a unified diff and write nothing'
-complete -c envctl -n '__fish_seen_subcommand_from enable' -l redact -d 'mask secret-looking values'
-complete -c envctl -n '__fish_seen_subcommand_from enable' -l raw -d 'never mask, and never escape control bytes'
+complete -c envctl -n '__fish_seen_subcommand_from enable' -l redact -a 'never auto agent tty always' -d 'mask secret-looking values'
+complete -c envctl -n '__fish_seen_subcommand_from enable' -l raw -d 'shorthand for --redact=never --show-control-chars'
+complete -c envctl -n '__fish_seen_subcommand_from enable' -l show-control-chars -d 'print control bytes as they are'
 complete -c envctl -n '__fish_seen_subcommand_from enable' -l paranoid -d 'apply the entropy bar to every value'
 complete -c envctl -n '__fish_seen_subcommand_from enable' -F
 
 complete -c envctl -n '__fish_seen_subcommand_from delete rm' -l dry-run -d 'print a unified diff and write nothing'
-complete -c envctl -n '__fish_seen_subcommand_from delete rm' -l redact -d 'mask secret-looking values'
-complete -c envctl -n '__fish_seen_subcommand_from delete rm' -l raw -d 'never mask, and never escape control bytes'
+complete -c envctl -n '__fish_seen_subcommand_from delete rm' -l redact -a 'never auto agent tty always' -d 'mask secret-looking values'
+complete -c envctl -n '__fish_seen_subcommand_from delete rm' -l raw -d 'shorthand for --redact=never --show-control-chars'
+complete -c envctl -n '__fish_seen_subcommand_from delete rm' -l show-control-chars -d 'print control bytes as they are'
 complete -c envctl -n '__fish_seen_subcommand_from delete rm' -l paranoid -d 'apply the entropy bar to every value'
 complete -c envctl -n '__fish_seen_subcommand_from delete rm' -F
 
@@ -61,19 +67,22 @@ complete -c envctl -n '__fish_seen_subcommand_from list ls' -l values -d 'also p
 complete -c envctl -n '__fish_seen_subcommand_from list ls' -l all -d 'also print disabled keys'
 complete -c envctl -n '__fish_seen_subcommand_from list ls' -l sort -d 'print entries sorted by key'
 complete -c envctl -n '__fish_seen_subcommand_from list ls' -l env -d 'use the process environment instead of a file'
-complete -c envctl -n '__fish_seen_subcommand_from list ls' -l redact -d 'mask secret-looking values'
-complete -c envctl -n '__fish_seen_subcommand_from list ls' -l raw -d 'never mask, and never escape control bytes'
+complete -c envctl -n '__fish_seen_subcommand_from list ls' -l redact -a 'never auto agent tty always' -d 'mask secret-looking values'
+complete -c envctl -n '__fish_seen_subcommand_from list ls' -l raw -d 'shorthand for --redact=never --show-control-chars'
+complete -c envctl -n '__fish_seen_subcommand_from list ls' -l show-control-chars -d 'print control bytes as they are'
 complete -c envctl -n '__fish_seen_subcommand_from list ls' -l paranoid -d 'apply the entropy bar to every value'
 complete -c envctl -n '__fish_seen_subcommand_from list ls' -F
 
 complete -c envctl -n '__fish_seen_subcommand_from redact' -l env -d 'use the process environment instead of a file'
 complete -c envctl -n '__fish_seen_subcommand_from redact' -l no-env -d 'skip the env file'\''s literal values, use heuristics only'
-complete -c envctl -n '__fish_seen_subcommand_from redact' -l redact -d 'mask secret-looking values'
+complete -c envctl -n '__fish_seen_subcommand_from redact' -l redact -a 'never auto agent tty always' -d 'mask secret-looking values'
 complete -c envctl -n '__fish_seen_subcommand_from redact' -l paranoid -d 'apply the entropy bar to every value'
 complete -c envctl -n '__fish_seen_subcommand_from redact' -F
 
 complete -c envctl -n '__fish_seen_subcommand_from env' -l sort -d 'print entries sorted by key'
-complete -c envctl -n '__fish_seen_subcommand_from env' -l redact -d 'mask secret-looking values'
+complete -c envctl -n '__fish_seen_subcommand_from env' -l redact -a 'never auto agent tty always' -d 'mask secret-looking values'
+complete -c envctl -n '__fish_seen_subcommand_from env' -l raw -d 'shorthand for --redact=never --show-control-chars'
+complete -c envctl -n '__fish_seen_subcommand_from env' -l show-control-chars -d 'print control bytes as they are'
 complete -c envctl -n '__fish_seen_subcommand_from env' -l paranoid -d 'apply the entropy bar to every value'
 
 complete -c envctl -n '__fish_seen_subcommand_from completions' -a 'bash zsh fish pwsh'

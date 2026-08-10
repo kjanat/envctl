@@ -70,16 +70,13 @@ envctl env                      # the whole environment, always redacted
 
 ```console
 $ envctl env
-# envctl v0.5.0 (redacted)
 PATH=/usr/bin:/bin
 API_TOKEN=<redacted>
 ```
 
-The first line names the build that produced the dump. Only `envctl env` prints
-it, so anything parsing that output should skip a leading `#`.
-
 Names outside `[A-Za-z_][A-Za-z0-9_]*` are skipped, which drops bash's exported
-functions. `envctl env` rejects `--raw`; its redaction is not optional.
+functions. `envctl env` masks by default; `--raw`, or `--redact=never`, prints
+the environment exactly as it stands.
 
 ## Filtering text
 
@@ -120,17 +117,18 @@ explicit form `envctl get env`.
 
 ## Flags
 
-| Flag         | Applies to                               | Effect                                              |
-| ------------ | ---------------------------------------- | --------------------------------------------------- |
-| `--dry-run`  | set, disable, enable, delete             | Print a unified diff, write nothing                 |
-| `--values`   | list                                     | Show values                                         |
-| `--all`      | list, not with `--env`                   | Include commented keys, tagged `(disabled)`         |
-| `--sort`     | list, env                                | Key order instead of file or environ order          |
-| `--env`      | get, list, redact                        | Use the process environment instead of a file       |
-| `--no-env`   | redact                                   | Skip the env file's literal values, heuristics only |
-| `--redact`   | all but completions, module              | Force masking                                       |
-| `--raw`      | all but redact, env, completions, module | Never mask, and never escape control bytes          |
-| `--paranoid` | all but completions, module              | Apply the entropy bar whatever the key is called    |
+| Flag                   | Applies to                          | Effect                                                        |
+| ---------------------- | ----------------------------------- | ------------------------------------------------------------- |
+| `--dry-run`            | set, disable, enable, delete        | Print a unified diff, write nothing                           |
+| `--values`             | list                                | Show values                                                   |
+| `--all`                | list, not with `--env`              | Include commented keys, tagged `(disabled)`                   |
+| `--sort`               | list, env                           | Key order instead of file or environ order                    |
+| `--env`                | get, list, redact                   | Use the process environment instead of a file                 |
+| `--no-env`             | redact                              | Skip the env file's literal values, heuristics only           |
+| `--redact[=WHEN]`      | all but completions, module         | Choose when masking applies, see [redaction.md](redaction.md) |
+| `--raw`                | all but redact, completions, module | Shorthand for `--redact=never --show-control-chars`           |
+| `--show-control-chars` | all but redact, completions, module | Print control bytes as they are                               |
+| `--paranoid`           | all but completions, module         | Apply the entropy bar whatever the key is called              |
 
 A flag outside its row is a usage error naming where it belongs:
 
