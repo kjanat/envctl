@@ -76,11 +76,31 @@ which only hold where the environment block passes through unmodified.
 Every redaction fix needs a case that fails without it. Leaks and their
 regression cases belong together in one commit.
 
+### Completions
+
+[`tests/completions.sh`] runs after the case suite and checks a different thing:
+it drives each shell's completion function and asks the parser whether what came
+back is valid. Reading the generated scripts cannot catch an emitter that puts
+correct data where the shell applies it too widely, which is the defect it
+exists for.
+
+It drives bash, zsh, and fish, and fails when one of them is missing rather than
+skipping it. `COMPLETIONS_SHELLS` narrows the set, which is how Windows CI runs
+it with bash alone:
+
+```sh
+COMPLETIONS_SHELLS=bash bash tests/completions.sh ./envctl
+```
+
+The final line names the shells it drove, so a green run says what it covered.
+It needs bash 4 for `mapfile` and associative arrays; macOS ships 3.2, so CI
+installs a newer one there.
+
 ## Format and lint
 
 ```sh
 dprint fmt                          # clang-format for C, shfmt for shell, plus md/json/yaml
-shellcheck tests/run.sh install.sh  # https://github.com/koalaman/shellcheck
+shellcheck tests/*.sh install.sh    # https://github.com/koalaman/shellcheck
 ```
 
 - dprint: https://dprint.dev/install/ (also requires clang-format on PATH),\
@@ -104,6 +124,7 @@ CI runs `make test` on Linux, macOS, and Windows.
 | `diff`           | Dry-run diff output                            |
 | `atomicity`      | File writes, atomic replace, mode preservation |
 | `agent-detect`   | Coding agent detection and TTY rules           |
+| `completions`    | Shell completion scripts and the pwsh module   |
 | `portability`    | Windows, macOS, BSD behavior                   |
 | `build`          | Makefile, CI, release artifacts                |
 | `tests`          | Suite and harness                              |
@@ -123,6 +144,7 @@ git push origin v0.2.0
 [`.dprint.jsonc`]: .dprint.jsonc
 [`.clang-format`]: .clang-format
 [`tests/run.sh`]: tests/run.sh
+[`tests/completions.sh`]: tests/completions.sh
 [`tests/cases/`]: tests/cases/
 [`tests/fixtures/`]: tests/fixtures/
 [SECURITY.md]: SECURITY.md#reporting

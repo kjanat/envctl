@@ -236,6 +236,23 @@ int main(void) {
 	for (int i = 0; i < FLAG_COUNT; i++) {
 		fputs(".TP\n.B ", stdout);
 		roff_escape(cli_flags[i].name);
+		if (cli_flags[i].values) {
+			fputs("[=", stdout);
+			for (const char *p = cli_flags[i].values; *p;) {
+				while (*p == ' ')
+					p++;
+				if (!*p)
+					break;
+				const char *e = p;
+				while (*e && *e != ' ')
+					e++;
+				if (p != cli_flags[i].values)
+					fputc('|', stdout);
+				roff_escape_n(p, (size_t)(e - p));
+				p = e;
+			}
+			fputc(']', stdout);
+		}
 		fputc('\n', stdout);
 		roff_tp_body(cli_flags[i].description);
 		valid_for(cli_flags[i].commands);

@@ -10,16 +10,32 @@ Masked values become `<redacted>`, `<redacted:private-key>`, or
 
 ## When it is on
 
-| Situation                                 | Masked?                 |
-| ----------------------------------------- | ----------------------- |
-| Human on a TTY                            | No, unless `--redact`   |
-| Coding agent detected and stdout is a TTY | Yes, unless `--raw`     |
-| Piped, redirected, or in a script         | No, unless `--redact`   |
-| `envctl redact` and `envctl env`          | Always, `--raw` refused |
+`--redact[=WHEN]` chooses the rule. A bare `--redact` means `always`.
 
-`get` stays raw on pipes so `API_KEY=$(envctl get API_KEY)` keeps working. Agent
-detection follows [unjs/std-env](https://github.com/unjs/std-env) signals, plus
-`AI_AGENT`.
+| `--redact=` | Masks when                                    |
+| ----------- | --------------------------------------------- |
+| `never`     | never                                         |
+| `auto`      | an agent is detected and stdout is a terminal |
+| `agent`     | an agent is detected, terminal or not         |
+| `tty`       | stdout is a terminal, agent or not            |
+| `always`    | always                                        |
+
+`auto` is the default, which leaves a human on a terminal unmasked and an agent
+on a terminal masked. Agents usually capture stdout rather than owning a
+terminal, and in that case `auto` does not mask, so that
+`API_KEY=$(envctl get API_KEY)` keeps working. `--redact=agent` is the setting
+that masks for an agent through a pipe as well.
+
+Agent detection follows [unjs/std-env](https://github.com/unjs/std-env) signals,
+plus `AI_AGENT`.
+
+`envctl redact` always masks and refuses `--redact=never`.
+
+`envctl env` masks unconditionally by default rather than following `auto`. An
+explicit `--redact=WHEN` replaces that default and is honoured as written, so
+`--redact=agent` leaves the dump unmasked when no agent is present, and
+`--redact=tty` leaves it unmasked in a pipe. `--redact=never` drops the masking
+but still escapes control bytes on a terminal; `--raw` drops both.
 
 Disk writes are never redacted.
 
@@ -30,8 +46,9 @@ newline, on a TTY and whenever redaction is on. Without it a `LESS_TERMCAP_*`
 value restyles everything printed after it, and a value containing a newline can
 forge extra `KEY=VALUE` lines in a dump.
 
-Pipes keep raw bytes unless redaction is enabled. `--raw` turns escaping off
-along with masking.
+Pipes keep raw bytes unless redaction is enabled. `--show-control-chars` turns
+escaping off on its own, leaving masking alone, following `ls`, which keeps
+`--color` and its control-character flags separate. `--raw` does both at once.
 
 ## What counts as a secret
 

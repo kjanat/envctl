@@ -9,5 +9,7 @@ posix-env
 ZZ_LAST=2
 AA_FIRST=1
 
-%% stdout-cmd
-printf '# envctl %s (redacted)\nAA_FIRST=1\nPATH=/usr/bin:/bin\nZZ_LAST=2\n' "$(git describe --tags --abbrev --dirty 2>/dev/null || echo unknown)"
+%% stdout
+AA_FIRST=1
+PATH=/usr/bin:/bin
+ZZ_LAST=2

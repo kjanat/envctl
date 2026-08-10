@@ -15,4 +15,4 @@ text/two-lines.txt
 %% stdout
 
 %% stderr
-envctl: --raw is only valid for set, get, disable, enable, delete, and list
+envctl: --raw is only valid for set, get, disable, enable, delete, list, and env

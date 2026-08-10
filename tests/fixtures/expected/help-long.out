@@ -21,17 +21,18 @@ Aliases: rm = delete, ls = list
 File: optional when ./.env exists as a regular file
 
 Flags:
-  --dry-run   print a unified diff and write nothing
-  --values    also print values
-  --all       also print disabled keys
-  --sort      print entries sorted by key
-  --env       use the process environment instead of a file
-  --no-env    skip the env file's literal values, use heuristics only
-  --redact    mask secret-looking values
-  --raw       never mask, and never escape control bytes
-  --paranoid  apply the entropy bar to every value
-  -h          print short usage
-  --help      print this help
-  --version   print the version this binary was built from (also -v, -V)
+  --dry-run             print a unified diff and write nothing
+  --values              also print values
+  --all                 also print disabled keys
+  --sort                print entries sorted by key
+  --env                 use the process environment instead of a file
+  --no-env              skip the env file's literal values, use heuristics only
+  --redact              mask secret-looking values
+  --raw                 shorthand for --redact=never --show-control-chars
+  --show-control-chars  print control bytes as they are
+  --paranoid            apply the entropy bar to every value
+  -h                    print short usage
+  --help                print this help
+  --version             print the version this binary was built from (also -v, -V)
 
 Redaction rules, filter mode, and guarantees: man envctl

@@ -78,6 +78,59 @@ NORETURN static void die_shell_choice(void) {
 	die("completions takes %s", join_names(names, SHELL_COUNT, "or"));
 }
 
+#define VALUE_MAX 8
+
+static int split_values(const char *spec, const char **out) {
+	int n = 0;
+	for (const char *p = spec; *p && n < VALUE_MAX;) {
+		while (*p == ' ')
+			p++;
+		if (!*p)
+			break;
+		const char *e = p;
+		while (*e && *e != ' ')
+			e++;
+		out[n++] = p;
+		p = e;
+	}
+	return n;
+}
+
+static int value_len(const char *v) {
+	const char *e = v;
+	while (*e && *e != ' ')
+		e++;
+	return (int)(e - v);
+}
+
+NORETURN static void die_flag_value(const Flag *f) {
+	const char *raw[VALUE_MAX];
+	char *owned[VALUE_MAX];
+	const char *names[VALUE_MAX];
+	int n = split_values(f->values, raw);
+
+	for (int i = 0; i < n; i++) {
+		int len = value_len(raw[i]);
+		owned[i] = xmalloc((size_t)len + 1);
+		memcpy(owned[i], raw[i], (size_t)len);
+		owned[i][len] = '\0';
+		names[i] = owned[i];
+	}
+	die("%s takes %s", f->name, join_names(names, n, "or"));
+}
+
+static const char *flag_value_match(const Flag *f, const char *given) {
+	const char *raw[VALUE_MAX];
+	int n = split_values(f->values, raw);
+
+	for (int i = 0; i < n; i++) {
+		int len = value_len(raw[i]);
+		if ((int)strlen(given) == len && !strncmp(given, raw[i], (size_t)len))
+			return raw[i];
+	}
+	return NULL;
+}
+
 static void check_flag_scope_mask(unsigned allowed, const int *opts) {
 	for (int i = 0; i < FLAG_COUNT; i++) {
 		if (opts[cli_flags[i].id] && !(cli_flags[i].commands & allowed))
@@ -151,19 +204,35 @@ int main(int argc, char **argv) {
 	_setmode(_fileno(stderr), _O_BINARY);
 #endif
 	int opts[FLAG_COUNT] = {0};
+	const char *optval[FLAG_COUNT] = {0};
 	int options = 1, np = 0;
 	HelpMode help = HELP_NONE;
 	const char *pos[16];
 
 	for (int i = 1; i < argc; i++) {
 		const char *a = argv[i];
-		const Flag *f = options ? cli_flag_by_name(a) : NULL;
+		const char *eq = options && a[0] == '-' ? strchr(a, '=') : NULL;
+		char namebuf[64];
+		const Flag *f = NULL;
+
+		if (eq && (size_t)(eq - a) < sizeof(namebuf)) {
+			memcpy(namebuf, a, (size_t)(eq - a));
+			namebuf[eq - a] = '\0';
+			f = cli_flag_by_name(namebuf);
+			if (f && !f->values)
+				die("%s takes no value", f->name);
+			if (f && !flag_value_match(f, eq + 1))
+				die_flag_value(f);
+		}
+		if (!f && !eq)
+			f = options ? cli_flag_by_name(a) : NULL;
 
 		if (options && !strcmp(a, "--"))
 			options = 0;
-		else if (f)
+		else if (f) {
 			opts[f->id] = 1;
-		else if (options && !strcmp(a, "-h"))
+			optval[f->id] = eq ? eq + 1 : NULL;
+		} else if (options && !strcmp(a, "-h"))
 			help = HELP_SHORT;
 		else if (options && !strcmp(a, "--help"))
 			help = HELP_LONG;
@@ -199,9 +268,32 @@ int main(int argc, char **argv) {
 	if (np == 0)
 		print_help(1);
 
+	RedactWhen when = WHEN_AUTO;
+	int show_control = opts[FLAG_SHOW_CONTROL] || opts[FLAG_RAW];
+
+	if (opts[FLAG_RAW])
+		when = WHEN_NEVER;
+	if (opts[FLAG_REDACT]) {
+		const char *v = optval[FLAG_REDACT];
+		if (!v || !strcmp(v, "always"))
+			when = WHEN_ALWAYS;
+		else if (!strcmp(v, "never"))
+			when = WHEN_NEVER;
+		else if (!strcmp(v, "agent"))
+			when = WHEN_AGENT;
+		else if (!strcmp(v, "tty"))
+			when = WHEN_TTY;
+		else
+			when = WHEN_AUTO;
+		if (opts[FLAG_RAW] && when != WHEN_NEVER)
+			die("--raw cannot be --redact=%s", v ? v : "always");
+	}
+
 	if (opts[FLAG_PARANOID]) {
-		if (opts[FLAG_RAW])
-			die("--paranoid cannot be --raw");
+		if (when == WHEN_NEVER)
+			die("--paranoid cannot be %s", opts[FLAG_RAW] ? "--raw" : "--redact=never");
+		if (!opts[FLAG_REDACT])
+			when = WHEN_ALWAYS;
 		redact_set_paranoid(1);
 	}
 
@@ -276,7 +368,9 @@ int main(int argc, char **argv) {
 	if (cmd->id == CMD_ENV) {
 		if (nr > 0)
 			die("too many arguments");
-		act_env_dump(opts[FLAG_SORT]);
+		int env_redact = want_redact(when == WHEN_AUTO ? WHEN_ALWAYS : when);
+		display_set_escape(!show_control && (env_redact || stdout_isatty()));
+		act_env_dump(opts[FLAG_SORT], env_redact);
 		stdout_flush_check();
 		return 0;
 	}
@@ -315,8 +409,8 @@ int main(int argc, char **argv) {
 			die("not a regular file: %s", file);
 	}
 
-	int redact = want_redact(opts[FLAG_REDACT] || opts[FLAG_PARANOID], opts[FLAG_RAW]);
-	display_set_escape(!opts[FLAG_RAW] && (redact || stdout_isatty()));
+	int redact = want_redact(when);
+	display_set_escape(!show_control && (redact || stdout_isatty()));
 
 	if (cmd->id == CMD_LIST) {
 		if (opts[FLAG_ENV]) {

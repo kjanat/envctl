@@ -20,29 +20,29 @@ _envctl() {
 		esac
 	done
 
-	if [[ ${cmd} == completions ]]; then
+	if [[ ${cur} != -* && ${cmd} == completions ]]; then
 		mapfile -t COMPREPLY < <(compgen -W 'bash zsh fish pwsh' -- "${cur}")
 		return
 	fi
 
-	if [[ ${cmd} == module ]]; then
+	if [[ ${cur} != -* && ${cmd} == module ]]; then
 		mapfile -t COMPREPLY < <(compgen -W 'pwsh' -- "${cur}")
 		return
 	fi
 
 	flags=
 	case ${cmd} in
-		set) flags='--dry-run --redact --raw --paranoid -h --help -v -V --version' ;;
-		get) flags='--env --redact --raw --paranoid -h --help -v -V --version' ;;
-		disable) flags='--dry-run --redact --raw --paranoid -h --help -v -V --version' ;;
-		enable) flags='--dry-run --redact --raw --paranoid -h --help -v -V --version' ;;
-		delete) flags='--dry-run --redact --raw --paranoid -h --help -v -V --version' ;;
-		list) flags='--values --all --sort --env --redact --raw --paranoid -h --help -v -V --version' ;;
-		redact) flags='--env --no-env --redact --paranoid -h --help -v -V --version' ;;
-		env) flags='--sort --redact --paranoid -h --help -v -V --version' ;;
+		set) flags='--dry-run --redact --redact=never --redact=auto --redact=agent --redact=tty --redact=always --raw --show-control-chars --paranoid -h --help -v -V --version' ;;
+		get) flags='--env --redact --redact=never --redact=auto --redact=agent --redact=tty --redact=always --raw --show-control-chars --paranoid -h --help -v -V --version' ;;
+		disable) flags='--dry-run --redact --redact=never --redact=auto --redact=agent --redact=tty --redact=always --raw --show-control-chars --paranoid -h --help -v -V --version' ;;
+		enable) flags='--dry-run --redact --redact=never --redact=auto --redact=agent --redact=tty --redact=always --raw --show-control-chars --paranoid -h --help -v -V --version' ;;
+		delete) flags='--dry-run --redact --redact=never --redact=auto --redact=agent --redact=tty --redact=always --raw --show-control-chars --paranoid -h --help -v -V --version' ;;
+		list) flags='--values --all --sort --env --redact --redact=never --redact=auto --redact=agent --redact=tty --redact=always --raw --show-control-chars --paranoid -h --help -v -V --version' ;;
+		redact) flags='--env --no-env --redact --redact=never --redact=auto --redact=agent --redact=tty --redact=always --paranoid -h --help -v -V --version' ;;
+		env) flags='--sort --redact --redact=never --redact=auto --redact=agent --redact=tty --redact=always --raw --show-control-chars --paranoid -h --help -v -V --version' ;;
 		completions) flags='-h --help -v -V --version' ;;
 		module) flags='-h --help -v -V --version' ;;
-		*) flags='--dry-run --values --all --sort --env --no-env --redact --raw --paranoid -h --help -v -V --version' ;;
+		*) flags='--dry-run --values --all --sort --env --no-env --redact --redact=never --redact=auto --redact=agent --redact=tty --redact=always --raw --show-control-chars --paranoid -h --help -v -V --version' ;;
 	esac
 
 	if [[ ${cur} == -* ]]; then

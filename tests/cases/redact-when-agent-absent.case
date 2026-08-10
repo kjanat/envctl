@@ -1,0 +1,11 @@
+%% args
+--redact=agent
+get
+basic.env
+API_TOKEN
+
+%% env
+env/basic.env
+
+%% stdout
+abcdefghij

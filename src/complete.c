@@ -83,12 +83,69 @@ static void put_command_words(const char *sep, int aliases) {
 	}
 }
 
+static void put_value_words(const Flag *f, const char *sep) {
+	int seen = 0;
+	for (const char *p = f->values; *p;) {
+		while (*p == ' ')
+			p++;
+		if (!*p)
+			break;
+		const char *e = p;
+		while (*e && *e != ' ')
+			e++;
+		printf("%s%.*s", seen++ ? sep : "", (int)(e - p), p);
+		p = e;
+	}
+}
+
+static void put_value_spellings(const Flag *f, const char *sep, const char *quote) {
+	for (const char *p = f->values; *p;) {
+		while (*p == ' ')
+			p++;
+		if (!*p)
+			break;
+		const char *e = p;
+		while (*e && *e != ' ')
+			e++;
+		printf("%s%s%s=%.*s%s", sep, quote, f->name, (int)(e - p), p, quote);
+		p = e;
+	}
+}
+
 static void put_command_flags(const Command *c, const char *sep) {
 	int seen = 0;
 	for (int i = 0; i < FLAG_COUNT; i++) {
-		if (flag_fits(c, &cli_flags[i]))
-			printf("%s%s", seen++ ? sep : "", cli_flags[i].name);
+		if (!flag_fits(c, &cli_flags[i]))
+			continue;
+		printf("%s%s", seen++ ? sep : "", cli_flags[i].name);
+		if (cli_flags[i].values)
+			put_value_spellings(&cli_flags[i], sep, "");
 	}
+}
+
+static void put_zsh_flag_spec_body(const Flag *f, const char *indent) {
+	printf("%s'%s", indent, f->name);
+	if (f->values)
+		fputs("=-", stdout);
+	fputc('[', stdout);
+	put_zsh_desc(f->summary);
+	fputc(']', stdout);
+	if (f->values) {
+		fputs("::when:(", stdout);
+		put_value_words(f, " ");
+		fputc(')', stdout);
+	}
+	fputc('\'', stdout);
+}
+
+static void put_zsh_flag_spec(const Flag *f, const char *indent) {
+	put_zsh_flag_spec_body(f, indent);
+	fputc('\n', stdout);
+}
+
+static void put_zsh_flag_spec_cont(const Flag *f, const char *indent) {
+	put_zsh_flag_spec_body(f, indent);
+	fputs(" \\\n", stdout);
 }
 
 static void put_shell_words(const char *sep) {
@@ -132,7 +189,7 @@ static void bash_script(void) {
 	fputs("\t\tesac\n"
 	      "\tdone\n"
 	      "\n"
-	      "\tif [[ ${cmd} == completions ]]; then\n"
+	      "\tif [[ ${cur} != -* && ${cmd} == completions ]]; then\n"
 	      "\t\tmapfile -t COMPREPLY < <(compgen -W '",
 	      stdout);
 	put_shell_words(" ");
@@ -140,7 +197,7 @@ static void bash_script(void) {
 	      "\t\treturn\n"
 	      "\tfi\n"
 	      "\n"
-	      "\tif [[ ${cmd} == module ]]; then\n"
+	      "\tif [[ ${cur} != -* && ${cmd} == module ]]; then\n"
 	      "\t\tmapfile -t COMPREPLY < <(compgen -W 'pwsh' -- \"${cur}\")\n"
 	      "\t\treturn\n"
 	      "\tfi\n"
@@ -155,8 +212,11 @@ static void bash_script(void) {
 		fputs("' ;;\n", stdout);
 	}
 	fputs("\t\t*) flags='", stdout);
-	for (int i = 0; i < FLAG_COUNT; i++)
+	for (int i = 0; i < FLAG_COUNT; i++) {
 		printf("%s%s", i ? " " : "", cli_flags[i].name);
+		if (cli_flags[i].values)
+			put_value_spellings(&cli_flags[i], " ", "");
+	}
 	put_help_flags(1, " ", "");
 	fputs("' ;;\n"
 	      "\tesac\n"
@@ -313,16 +373,43 @@ static void zsh_script(void) {
 		fputs("\t)\n", stdout);
 	}
 	fputs("\n"
+	      "\tlocal -a cmdflags\n"
+	      "\tlocal seen=\n"
+	      "\tinteger i\n"
+	      "\tfor ((i = 2; i < CURRENT; i++)); do\n"
+	      "\t\tcase $words[i] in\n",
+	      stdout);
+	for (int i = 0; i < CMD_COUNT; i++) {
+		printf("\t\t\t%s) seen=%s; break ;;\n", cli_commands[i].name, cli_commands[i].name);
+		if (cli_commands[i].alias)
+			printf("\t\t\t%s) seen=%s; break ;;\n", cli_commands[i].alias, cli_commands[i].name);
+	}
+	fputs("\t\tesac\n"
+	      "\tdone\n"
+	      "\tcase $seen in\n",
+	      stdout);
+	for (int i = 0; i < CMD_COUNT; i++) {
+		const Command *c = &cli_commands[i];
+		printf("\t\t%s)\n\t\t\tcmdflags=(\n", c->name);
+		for (int f = 0; f < FLAG_COUNT; f++) {
+			if (!flag_fits(c, &cli_flags[f]))
+				continue;
+			put_zsh_flag_spec(&cli_flags[f], "\t\t\t\t");
+		}
+		fputs("\t\t\t)\n\t\t\t;;\n", stdout);
+	}
+	fputs("\t\t*)\n\t\t\tcmdflags=(\n", stdout);
+	for (int f = 0; f < FLAG_COUNT; f++) {
+		put_zsh_flag_spec(&cli_flags[f], "\t\t\t\t");
+	}
+	fputs("\t\t\t)\n\t\t\t;;\n"
+	      "\tesac\n"
+	      "\n"
 	      "\t_arguments -C \\\n"
 	      "\t\t'(- *)'{-h,--help}'[print help and exit]' \\\n"
-	      "\t\t'(- *)'{-v,-V,--version}'[print the version and exit]' \\\n",
-	      stdout);
-	for (int f = 0; f < FLAG_COUNT; f++) {
-		printf("\t\t'%s[", cli_flags[f].name);
-		put_zsh_desc(cli_flags[f].summary);
-		fputs("]' \\\n", stdout);
-	}
-	fputs("\t\t'1: :->command' \\\n"
+	      "\t\t'(- *)'{-v,-V,--version}'[print the version and exit]' \\\n"
+	      "\t\t$cmdflags \\\n"
+	      "\t\t'1: :->command' \\\n"
 	      "\t\t'*:: :->args' && return 0\n"
 	      "\n"
 	      "\tcase $state in\n"
@@ -360,9 +447,7 @@ static void zsh_script(void) {
 		for (int f = 0; f < FLAG_COUNT; f++) {
 			if (!flag_fits(c, &cli_flags[f]))
 				continue;
-			printf("\t\t\t\t\t\t'%s[", cli_flags[f].name);
-			put_zsh_desc(cli_flags[f].summary);
-			fputs("]' \\\n", stdout);
+			put_zsh_flag_spec_cont(&cli_flags[f], "\t\t\t\t\t\t");
 		}
 		if (!c->takes_file) {
 			fputs("\t\t\t\t\t\t'*: :'\n\t\t\t\t\t;;\n", stdout);
@@ -444,8 +529,14 @@ static void fish_script(void) {
 	      "complete -c envctl -s v -l version -d 'print the version and exit'\n",
 	      stdout);
 	for (int f = 0; f < FLAG_COUNT; f++) {
-		printf("complete -c envctl -n __fish_use_subcommand -l %s -d '",
+		printf("complete -c envctl -n __fish_use_subcommand -l %s",
 		       long_flag_body(cli_flags[f].name));
+		if (cli_flags[f].values) {
+			fputs(" -a '", stdout);
+			put_value_words(&cli_flags[f], " ");
+			fputc('\'', stdout);
+		}
+		fputs(" -d '", stdout);
 		put_sq(cli_flags[f].summary);
 		fputs("'\n", stdout);
 	}
@@ -460,7 +551,13 @@ static void fish_script(void) {
 			printf("complete -c envctl -n '__fish_seen_subcommand_from %s", c->name);
 			if (c->alias)
 				printf(" %s", c->alias);
-			printf("' -l %s -d '", long_flag_body(cli_flags[f].name));
+			printf("' -l %s", long_flag_body(cli_flags[f].name));
+			if (cli_flags[f].values) {
+				fputs(" -a '", stdout);
+				put_value_words(&cli_flags[f], " ");
+				fputc('\'', stdout);
+			}
+			fputs(" -d '", stdout);
 			put_sq(cli_flags[f].summary);
 			fputs("'\n", stdout);
 		}
@@ -513,15 +610,21 @@ static void pwsh_script(void) {
 		printf("\t\t'%s' = @(", cli_commands[i].name);
 		int seen = 0;
 		for (int f = 0; f < FLAG_COUNT; f++) {
-			if (flag_fits(&cli_commands[i], &cli_flags[f]))
-				printf("%s'%s'", seen++ ? ", " : "", cli_flags[f].name);
+			if (!flag_fits(&cli_commands[i], &cli_flags[f]))
+				continue;
+			printf("%s'%s'", seen++ ? ", " : "", cli_flags[f].name);
+			if (cli_flags[f].values)
+				put_value_spellings(&cli_flags[f], ", ", "'");
 		}
 		put_help_flags(seen, ", ", "'");
 		fputs(")\n", stdout);
 	}
 	fputs("\t\t'' = @(", stdout);
-	for (int f = 0; f < FLAG_COUNT; f++)
+	for (int f = 0; f < FLAG_COUNT; f++) {
 		printf("%s'%s'", f ? ", " : "", cli_flags[f].name);
+		if (cli_flags[f].values)
+			put_value_spellings(&cli_flags[f], ", ", "'");
+	}
 	put_help_flags(1, ", ", "'");
 	fputs(")\n"
 	      "\t}\n"

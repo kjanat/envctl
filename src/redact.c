@@ -1048,11 +1048,19 @@ int should_mask_token(const char *s, size_t n) {
 	       (paranoid && !assignment_shaped(s, n) && entropy_secret(s, n));
 }
 
-int want_redact(int flag_redact, int flag_raw) {
-	if (flag_raw)
+int want_redact(RedactWhen when) {
+	switch (when) {
+	case WHEN_NEVER:
 		return 0;
-	if (flag_redact)
+	case WHEN_ALWAYS:
 		return 1;
+	case WHEN_AGENT:
+		return detect_agent();
+	case WHEN_TTY:
+		return stdout_isatty();
+	case WHEN_AUTO:
+		break;
+	}
 	return detect_agent() && stdout_isatty();
 }
 

@@ -8,7 +8,7 @@ usage: envctl <cmd> [file] [args...]
   commands: set get disable enable delete|rm list|ls redact env completions
             module
   flags:    --dry-run --values --all --sort --env --no-env --redact --raw
-            --paranoid
+            --show-control-chars --paranoid
   file:     optional when ./.env exists
   bare:     envctl [file] <KEY> == get, with VALUE == set
   more:     --help, or man envctl

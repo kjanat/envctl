@@ -1,10 +1,12 @@
 #ifndef ENVCTL_REDACT_H
 #define ENVCTL_REDACT_H
 
+#include "cli.h"
+
 #include <stddef.h>
 
 /* Presentation hygiene: agent + TTY auto-redact; pipes stay raw. */
-int want_redact(int flag_redact, int flag_raw);
+int want_redact(RedactWhen when);
 void redact_set_paranoid(int on);
 const char *value_body(const char *raw, size_t *len);
 int should_mask(const char *key, const char *val);

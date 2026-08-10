@@ -7,6 +7,14 @@
 			"cacheKeyFiles": [".clang-format"],
 		}],
 	},
+	"powershell": {
+		"braceStyle": "sameLine",
+		"useTabs": true,
+		"correctKeywordCasing": true,
+		"spaceAroundOperators": true,
+		"spaceAroundPipe": true,
+		"spaceAfterSeparator": true,
+	},
 	"shfmt": {
 		"useTabs": true,
 		"binaryNextLine": true,
@@ -31,5 +39,6 @@
 		"https://plugins.dprint.dev/exec-0.7.3.json@a7898d5f1897e77bff474cec3d948c3ec3a7f455e32de2cc60c8adb9a5dd24aa",
 		"https://plugins.dprint.dev/markdown-0.22.1.wasm",
 		"https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm",
+		"https://plugins.dprint.dev/kjanat/PSScriptAnalyzer-0.1.0.wasm",
 	],
 }

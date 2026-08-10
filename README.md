@@ -73,7 +73,6 @@ terminal, and whenever you ask with `--redact`:
 
 ```console
 $ envctl env
-# envctl v0.5.0 (redacted)
 PATH=/usr/bin:/bin
 API_TOKEN=<redacted>
 ```

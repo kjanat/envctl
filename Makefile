@@ -106,6 +106,7 @@ test: $(BIN) $(MANGEN)
 	}
 	@rm -f "$(MAN1).gen"
 	@bash tests/run.sh "$(CURDIR)/$(BIN)"
+	@bash tests/completions.sh "$(CURDIR)/$(BIN)"
 
 # ---------------------------------------------------------------------------
 # release artifacts — one compile of all sources per platform triple

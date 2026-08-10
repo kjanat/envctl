@@ -76,18 +76,128 @@ _envctl() {
 		'module:print a cmdlet wrapper module for pwsh'
 	)
 
+	local -a cmdflags
+	local seen=
+	integer i
+	for ((i = 2; i < CURRENT; i++)); do
+		case $words[i] in
+			set) seen=set; break ;;
+			get) seen=get; break ;;
+			disable) seen=disable; break ;;
+			enable) seen=enable; break ;;
+			delete) seen=delete; break ;;
+			rm) seen=delete; break ;;
+			list) seen=list; break ;;
+			ls) seen=list; break ;;
+			redact) seen=redact; break ;;
+			env) seen=env; break ;;
+			completions) seen=completions; break ;;
+			module) seen=module; break ;;
+		esac
+	done
+	case $seen in
+		set)
+			cmdflags=(
+				'--dry-run[print a unified diff and write nothing]'
+				'--redact=-[mask secret-looking values]::when:(never auto agent tty always)'
+				'--raw[shorthand for --redact=never --show-control-chars]'
+				'--show-control-chars[print control bytes as they are]'
+				'--paranoid[apply the entropy bar to every value]'
+			)
+			;;
+		get)
+			cmdflags=(
+				'--env[use the process environment instead of a file]'
+				'--redact=-[mask secret-looking values]::when:(never auto agent tty always)'
+				'--raw[shorthand for --redact=never --show-control-chars]'
+				'--show-control-chars[print control bytes as they are]'
+				'--paranoid[apply the entropy bar to every value]'
+			)
+			;;
+		disable)
+			cmdflags=(
+				'--dry-run[print a unified diff and write nothing]'
+				'--redact=-[mask secret-looking values]::when:(never auto agent tty always)'
+				'--raw[shorthand for --redact=never --show-control-chars]'
+				'--show-control-chars[print control bytes as they are]'
+				'--paranoid[apply the entropy bar to every value]'
+			)
+			;;
+		enable)
+			cmdflags=(
+				'--dry-run[print a unified diff and write nothing]'
+				'--redact=-[mask secret-looking values]::when:(never auto agent tty always)'
+				'--raw[shorthand for --redact=never --show-control-chars]'
+				'--show-control-chars[print control bytes as they are]'
+				'--paranoid[apply the entropy bar to every value]'
+			)
+			;;
+		delete)
+			cmdflags=(
+				'--dry-run[print a unified diff and write nothing]'
+				'--redact=-[mask secret-looking values]::when:(never auto agent tty always)'
+				'--raw[shorthand for --redact=never --show-control-chars]'
+				'--show-control-chars[print control bytes as they are]'
+				'--paranoid[apply the entropy bar to every value]'
+			)
+			;;
+		list)
+			cmdflags=(
+				'--values[also print values]'
+				'--all[also print disabled keys]'
+				'--sort[print entries sorted by key]'
+				'--env[use the process environment instead of a file]'
+				'--redact=-[mask secret-looking values]::when:(never auto agent tty always)'
+				'--raw[shorthand for --redact=never --show-control-chars]'
+				'--show-control-chars[print control bytes as they are]'
+				'--paranoid[apply the entropy bar to every value]'
+			)
+			;;
+		redact)
+			cmdflags=(
+				'--env[use the process environment instead of a file]'
+				'--no-env[skip the env file'\''s literal values, use heuristics only]'
+				'--redact=-[mask secret-looking values]::when:(never auto agent tty always)'
+				'--paranoid[apply the entropy bar to every value]'
+			)
+			;;
+		env)
+			cmdflags=(
+				'--sort[print entries sorted by key]'
+				'--redact=-[mask secret-looking values]::when:(never auto agent tty always)'
+				'--raw[shorthand for --redact=never --show-control-chars]'
+				'--show-control-chars[print control bytes as they are]'
+				'--paranoid[apply the entropy bar to every value]'
+			)
+			;;
+		completions)
+			cmdflags=(
+			)
+			;;
+		module)
+			cmdflags=(
+			)
+			;;
+		*)
+			cmdflags=(
+				'--dry-run[print a unified diff and write nothing]'
+				'--values[also print values]'
+				'--all[also print disabled keys]'
+				'--sort[print entries sorted by key]'
+				'--env[use the process environment instead of a file]'
+				'--no-env[skip the env file'\''s literal values, use heuristics only]'
+				'--redact=-[mask secret-looking values]::when:(never auto agent tty always)'
+				'--raw[shorthand for --redact=never --show-control-chars]'
+				'--show-control-chars[print control bytes as they are]'
+				'--paranoid[apply the entropy bar to every value]'
+			)
+			;;
+	esac
+
 	_arguments -C \
 		'(- *)'{-h,--help}'[print help and exit]' \
 		'(- *)'{-v,-V,--version}'[print the version and exit]' \
-		'--dry-run[print a unified diff and write nothing]' \
-		'--values[also print values]' \
-		'--all[also print disabled keys]' \
-		'--sort[print entries sorted by key]' \
-		'--env[use the process environment instead of a file]' \
-		'--no-env[skip the env file'\''s literal values, use heuristics only]' \
-		'--redact[mask secret-looking values]' \
-		'--raw[never mask, and never escape control bytes]' \
-		'--paranoid[apply the entropy bar to every value]' \
+		$cmdflags \
 		'1: :->command' \
 		'*:: :->args' && return 0
 
@@ -107,8 +217,9 @@ _envctl() {
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
 						'--dry-run[print a unified diff and write nothing]' \
-						'--redact[mask secret-looking values]' \
-						'--raw[never mask, and never escape control bytes]' \
+						'--redact=-[mask secret-looking values]::when:(never auto agent tty always)' \
+						'--raw[shorthand for --redact=never --show-control-chars]' \
+						'--show-control-chars[print control bytes as they are]' \
 						'--paranoid[apply the entropy bar to every value]' \
 						'1: :->pos1' \
 						'2: :->pos2' \
@@ -135,8 +246,9 @@ _envctl() {
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
 						'--env[use the process environment instead of a file]' \
-						'--redact[mask secret-looking values]' \
-						'--raw[never mask, and never escape control bytes]' \
+						'--redact=-[mask secret-looking values]::when:(never auto agent tty always)' \
+						'--raw[shorthand for --redact=never --show-control-chars]' \
+						'--show-control-chars[print control bytes as they are]' \
 						'--paranoid[apply the entropy bar to every value]' \
 						'1: :->pos1' \
 						'2: :->pos2'
@@ -166,8 +278,9 @@ _envctl() {
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
 						'--dry-run[print a unified diff and write nothing]' \
-						'--redact[mask secret-looking values]' \
-						'--raw[never mask, and never escape control bytes]' \
+						'--redact=-[mask secret-looking values]::when:(never auto agent tty always)' \
+						'--raw[shorthand for --redact=never --show-control-chars]' \
+						'--show-control-chars[print control bytes as they are]' \
 						'--paranoid[apply the entropy bar to every value]' \
 						'1: :->pos1' \
 						'2: :->pos2'
@@ -193,8 +306,9 @@ _envctl() {
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
 						'--dry-run[print a unified diff and write nothing]' \
-						'--redact[mask secret-looking values]' \
-						'--raw[never mask, and never escape control bytes]' \
+						'--redact=-[mask secret-looking values]::when:(never auto agent tty always)' \
+						'--raw[shorthand for --redact=never --show-control-chars]' \
+						'--show-control-chars[print control bytes as they are]' \
 						'--paranoid[apply the entropy bar to every value]' \
 						'1: :->pos1' \
 						'2: :->pos2'
@@ -220,8 +334,9 @@ _envctl() {
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
 						'--dry-run[print a unified diff and write nothing]' \
-						'--redact[mask secret-looking values]' \
-						'--raw[never mask, and never escape control bytes]' \
+						'--redact=-[mask secret-looking values]::when:(never auto agent tty always)' \
+						'--raw[shorthand for --redact=never --show-control-chars]' \
+						'--show-control-chars[print control bytes as they are]' \
 						'--paranoid[apply the entropy bar to every value]' \
 						'1: :->pos1' \
 						'2: :->pos2'
@@ -250,8 +365,9 @@ _envctl() {
 						'--all[also print disabled keys]' \
 						'--sort[print entries sorted by key]' \
 						'--env[use the process environment instead of a file]' \
-						'--redact[mask secret-looking values]' \
-						'--raw[never mask, and never escape control bytes]' \
+						'--redact=-[mask secret-looking values]::when:(never auto agent tty always)' \
+						'--raw[shorthand for --redact=never --show-control-chars]' \
+						'--show-control-chars[print control bytes as they are]' \
 						'--paranoid[apply the entropy bar to every value]' \
 						'1: :->pos1'
 					case $state in
@@ -267,7 +383,7 @@ _envctl() {
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
 						'--env[use the process environment instead of a file]' \
 						'--no-env[skip the env file'\''s literal values, use heuristics only]' \
-						'--redact[mask secret-looking values]' \
+						'--redact=-[mask secret-looking values]::when:(never auto agent tty always)' \
 						'--paranoid[apply the entropy bar to every value]' \
 						'1: :->pos1'
 					case $state in
@@ -282,7 +398,9 @@ _envctl() {
 						'(- *)'{-h,--help}'[print help and exit]' \
 						'(- *)'{-v,-V,--version}'[print the version and exit]' \
 						'--sort[print entries sorted by key]' \
-						'--redact[mask secret-looking values]' \
+						'--redact=-[mask secret-looking values]::when:(never auto agent tty always)' \
+						'--raw[shorthand for --redact=never --show-control-chars]' \
+						'--show-control-chars[print control bytes as they are]' \
 						'--paranoid[apply the entropy bar to every value]' \
 						'*: :'
 					;;
