@@ -141,6 +141,11 @@ git tag -s v0.2.0 -m "v0.2.0"
 git push origin v0.2.0
 ```
 
+The tag's message body becomes the release notes, with the generated commit list
+appended below it, so write the tag for a reader who was not here. The first
+line is the version alone; everything after the blank line is published. An
+empty body fails the release job rather than shipping a bare commit list.
+
 [`.dprint.jsonc`]: .dprint.jsonc
 [`.clang-format`]: .clang-format
 [`tests/run.sh`]: tests/run.sh
