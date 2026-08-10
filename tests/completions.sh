@@ -144,12 +144,20 @@ zsh_render() {
 		done
 		[[ \$buf == *MARK* ]] || { print -u2 'zpty setup failed'; exit 1 }
 		zpty -w -n c ${line@Q}\$'\t'
-		sleep 1
 		buf=
-		while zpty -r -t c line 2>/dev/null; do buf+=\$line; done
+		quiet=0
+		for i in {1..100}; do
+			if zpty -r -t c line 2>/dev/null; then
+				buf+=\$line
+				quiet=0
+			elif [[ -n \$buf ]] && (( ++quiet >= 10 )); then
+				break
+			fi
+			sleep 0.1
+		done
 		zpty -d c
 		print -r -- \$buf
-	" >"${work}/zsh.raw" 2>/dev/null
+	" >"${work}/zsh.raw" 2>"${work}/zsh.err"
 	# The redrawn prompt line runs into the last candidate, so break it apart
 	# before anything looks for a candidate as a whole word.
 	sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' -e 's/\x1b[<>=]//g' -e 's/\r//g' \
@@ -191,6 +199,12 @@ check_rendered() {
 	((seen)) || fail "${shell}: [${context}] offered none of ${cmd}'s flags"
 }
 
+# Keep the pty bytes behind the first zsh mismatch; later ones overwrite the file.
+keep_first_fail() {
+	((failed > $1)) || return 0
+	[[ -e ${work}/zsh.firstfail ]] || cp "${work}/zsh.raw" "${work}/zsh.firstfail"
+}
+
 # Every value a flag enumerates must be offered after its "=", and nothing else.
 check_values() {
 	local shell=$1 context=$2 got=$3 spec=$4 v
@@ -211,6 +225,7 @@ value_flags_for() {
 
 run_shell() {
 	local shell=$1 script=${work}/script.$1 cmd first ctx got vflag v f
+	local -i before=${failed} pre=0
 	command -v "${shell}" >/dev/null 2>&1 || {
 		fail "${shell}: not installed, so nothing it offers was checked"
 		return
@@ -219,6 +234,9 @@ run_shell() {
 		fail "${shell}: generating the script failed"
 		return
 	}
+	# zsh loads _arguments and its helpers from disk on the first completion in a
+	# fresh shell, which outruns the read deadline on a cold cache.
+	[[ ${shell} == zsh ]] && zsh_render "${script}" "envctl -" >/dev/null
 
 	# Every command, plus each alias, which must offer what its command offers.
 	local -a words=("${commands[@]}" "${!alias_of[@]}")
@@ -240,8 +258,10 @@ run_shell() {
 					check_exact "${shell}" "${ctx}" "${cmd}" "${got}"
 					;;
 				zsh)
+					pre=${failed}
 					got=$(zsh_render "${script}" "${ctx}")
 					check_rendered zsh "${ctx}" "${cmd}" "${got}"
+					keep_first_fail "${pre}"
 					;;
 				*) fail "unknown shell ${shell}" ;;
 			esac
@@ -273,16 +293,26 @@ run_shell() {
 					check_values "${shell}" "${ctx}" "${got}" "${flag_values[${vflag}]}"
 					;;
 				zsh)
+					pre=${failed}
 					got=$(zsh_render "${script}" "${ctx}")
 					for v in ${flag_values[${vflag}]}; do
 						grep -qw -- "${v}" <<<"${got}" \
 							|| fail "zsh: [${ctx}] does not offer ${v}"
 					done
+					keep_first_fail "${pre}"
 					;;
 				*) fail "unknown shell ${shell}" ;;
 			esac
 		done <"${work}/vflags"
 	done
+
+	# A zsh mismatch is as often the pty driver as the script, so show the bytes.
+	if [[ ${shell} == zsh ]] && ((failed > before)) && [[ -e ${work}/zsh.firstfail ]]; then
+		printf '  --- pty output behind the first mismatch ---\n'
+		od -c <"${work}/zsh.firstfail"
+		printf '  --- zsh stderr, last render ---\n'
+		cat "${work}/zsh.err"
+	fi
 }
 
 for shell in "${shells[@]}"; do
