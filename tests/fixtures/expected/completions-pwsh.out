@@ -14,7 +14,7 @@ Register-ArgumentCompleter -Native -CommandName envctl -ScriptBlock {
 		'env' = @('--sort', '--redact', '--redact=never', '--redact=auto', '--redact=agent', '--redact=tty', '--redact=always', '--raw', '--show-control-chars', '--paranoid', '-h', '--help', '-v', '-V', '--version')
 		'completions' = @('-h', '--help', '-v', '-V', '--version')
 		'module' = @('-h', '--help', '-v', '-V', '--version')
-		'' = @('--dry-run', '--values', '--all', '--sort', '--env', '--no-env', '--redact', '--raw', '--show-control-chars', '--paranoid', '-h', '--help', '-v', '-V', '--version')
+		'' = @('--dry-run', '--values', '--all', '--sort', '--env', '--no-env', '--redact', '--redact=never', '--redact=auto', '--redact=agent', '--redact=tty', '--redact=always', '--raw', '--show-control-chars', '--paranoid', '-h', '--help', '-v', '-V', '--version')
 	}
 	$tips = @{
 		'set' = 'set or replace KEY, uncommenting if commented'

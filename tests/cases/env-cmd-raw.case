@@ -7,7 +7,9 @@ posix-env
 
 %% setenv
 API_TOKEN=abcdefghij
+STYLE=[01;31mbold
 
 %% stdout
 PATH=/usr/bin:/bin
 API_TOKEN=abcdefghij
+STYLE=[01;31mbold

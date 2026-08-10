@@ -75,8 +75,10 @@ API_TOKEN=<redacted>
 ```
 
 Names outside `[A-Za-z_][A-Za-z0-9_]*` are skipped, which drops bash's exported
-functions. `envctl env` masks by default; `--raw`, or `--redact=never`, prints
-the environment exactly as it stands.
+functions. `envctl env` masks unconditionally by default. An explicit
+`--redact=WHEN` replaces that default, so `--redact=agent` leaves the dump
+unmasked when no agent is detected. `--redact=never` drops the masking but still
+escapes control bytes on a terminal; `--raw` drops both.
 
 ## Filtering text
 

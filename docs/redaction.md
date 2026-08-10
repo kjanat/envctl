@@ -29,9 +29,13 @@ that masks for an agent through a pipe as well.
 Agent detection follows [unjs/std-env](https://github.com/unjs/std-env) signals,
 plus `AI_AGENT`.
 
-`envctl redact` always masks and refuses `--redact=never`. `envctl env` masks by
-default and accepts `--redact=never`, or its shorthand `--raw`, to print the
-environment exactly as it stands.
+`envctl redact` always masks and refuses `--redact=never`.
+
+`envctl env` masks unconditionally by default rather than following `auto`. An
+explicit `--redact=WHEN` replaces that default and is honoured as written, so
+`--redact=agent` leaves the dump unmasked when no agent is present, and
+`--redact=tty` leaves it unmasked in a pipe. `--redact=never` drops the masking
+but still escapes control bytes on a terminal; `--raw` drops both.
 
 Disk writes are never redacted.
 

@@ -212,8 +212,11 @@ static void bash_script(void) {
 		fputs("' ;;\n", stdout);
 	}
 	fputs("\t\t*) flags='", stdout);
-	for (int i = 0; i < FLAG_COUNT; i++)
+	for (int i = 0; i < FLAG_COUNT; i++) {
 		printf("%s%s", i ? " " : "", cli_flags[i].name);
+		if (cli_flags[i].values)
+			put_value_spellings(&cli_flags[i], " ", "");
+	}
 	put_help_flags(1, " ", "");
 	fputs("' ;;\n"
 	      "\tesac\n"
@@ -526,8 +529,14 @@ static void fish_script(void) {
 	      "complete -c envctl -s v -l version -d 'print the version and exit'\n",
 	      stdout);
 	for (int f = 0; f < FLAG_COUNT; f++) {
-		printf("complete -c envctl -n __fish_use_subcommand -l %s -d '",
+		printf("complete -c envctl -n __fish_use_subcommand -l %s",
 		       long_flag_body(cli_flags[f].name));
+		if (cli_flags[f].values) {
+			fputs(" -a '", stdout);
+			put_value_words(&cli_flags[f], " ");
+			fputc('\'', stdout);
+		}
+		fputs(" -d '", stdout);
 		put_sq(cli_flags[f].summary);
 		fputs("'\n", stdout);
 	}
@@ -611,8 +620,11 @@ static void pwsh_script(void) {
 		fputs(")\n", stdout);
 	}
 	fputs("\t\t'' = @(", stdout);
-	for (int f = 0; f < FLAG_COUNT; f++)
+	for (int f = 0; f < FLAG_COUNT; f++) {
 		printf("%s'%s'", f ? ", " : "", cli_flags[f].name);
+		if (cli_flags[f].values)
+			put_value_spellings(&cli_flags[f], ", ", "'");
+	}
 	put_help_flags(1, ", ", "'");
 	fputs(")\n"
 	      "\t}\n"

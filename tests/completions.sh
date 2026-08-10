@@ -34,22 +34,29 @@ fail() {
 readonly help_out=${work}/help
 "${bin}" --help >"${help_out}" 2>&1
 
-mapfile -t commands < <(awk '
+awk '
 	/^Commands:/ { in_cmd = 1; next }
 	/^$/         { in_cmd = 0 }
 	in_cmd && /^  [a-z]/ { print $1 }
-' "${help_out}")
+' "${help_out}" >"${work}/commands"
+mapfile -t commands <"${work}/commands"
 
-mapfile -t flags < <(awk '
+awk '
 	/^Flags:/ { in_flag = 1; next }
 	/^$/      { in_flag = 0 }
 	in_flag && /^  --/ { print $1 }
-' "${help_out}")
+' "${help_out}" >"${work}/flags"
+mapfile -t flags <"${work}/flags"
 
+sed -n 's/^Aliases: //p' "${help_out}" >"${work}/aliasline"
+tr ',' '\n' <"${work}/aliasline" >"${work}/aliassplit"
+tr -d ' ' <"${work}/aliassplit" >"${work}/aliastrim"
+sed 's/=/ /' <"${work}/aliastrim" >"${work}/aliases"
 declare -A alias_of=()
-while read -r a _ c; do
-	[[ -n ${a} ]] && alias_of[${a}]=${c}
-done < <(sed -n 's/^Aliases: //p' "${help_out}" | tr ',' '\n' | tr -d ' ' | sed 's/=/ = /')
+while read -r a c; do
+	[[ -n ${a} ]] || continue
+	alias_of[${a}]=${c}
+done <"${work}/aliases"
 
 ((${#commands[@]} >= 5)) || {
 	echo "could not read the command list from --help" >&2
@@ -69,6 +76,17 @@ parser_accepts() {
 	out=$("${bin}" "$1" "$2" 2>&1 >/dev/null)
 	[[ ${out} != *"is only valid for"* ]]
 }
+
+# The parser names a flag's values when it rejects a bogus one, so ask it
+# rather than reading them back out of anything generated.
+declare -A flag_values=()
+for f in "${flags[@]}"; do
+	out=$("${bin}" get "${f}=__probe__" 2>&1 >/dev/null)
+	[[ ${out} == *" takes "* && ${out} != *"takes no value"* ]] || continue
+	flag_values[${f}]=$(sed -e 's/.* takes //' -e 's/, or / /' -e 's/ or / /' -e 's/,/ /g' <<<"${out}")
+done
+flag_under_test=
+ran_any=0
 
 valid_flags_for() {
 	local cmd=$1 f
@@ -98,7 +116,8 @@ bash_offers() {
 
 fish_offers() {
 	local script=$1 line=$2
-	fish -c "source ${script}; complete -C ${line@Q}" 2>/dev/null | cut -f 1
+	fish -c "source ${script}; complete -C ${line@Q}" >"${work}/fish.raw" 2>/dev/null
+	cut -f 1 <"${work}/fish.raw"
 }
 
 zsh_render() {
@@ -120,7 +139,11 @@ zsh_render() {
 		while zpty -r -t c line 2>/dev/null; do buf+=\$line; done
 		zpty -d c
 		print -r -- \$buf
-	" 2>/dev/null | sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' -e 's/\x1b[<>=]//g' -e 's/\r//g'
+	" >"${work}/zsh.raw" 2>/dev/null
+	# The redrawn prompt line runs into the last candidate, so break it apart
+	# before anything looks for a candidate as a whole word.
+	sed -e 's/\x1b\[[0-9;]*[a-zA-Z]//g' -e 's/\x1b[<>=]//g' -e 's/\r//g' \
+		-e 's/envctl /\nenvctl /g' <"${work}/zsh.raw"
 }
 
 # ---------------------------------------------------------------------------
@@ -158,43 +181,99 @@ check_rendered() {
 	((seen)) || fail "${shell}: [${context}] offered none of ${cmd}'s flags"
 }
 
+# Every value a flag enumerates must be offered after its "=", and nothing else.
+check_values() {
+	local shell=$1 context=$2 got=$3 spec=$4 v
+	for v in ${spec}; do
+		grep -qxF -- "${v}" <<<"${got}" \
+			|| grep -qxF -- "${flag_under_test}=${v}" <<<"${got}" \
+			|| fail "${shell}: [${context}] does not offer ${v}"
+	done
+}
+
+value_flags_for() {
+	local cmd=$1 i
+	for ((i = 0; i < ${#flags[@]}; i++)); do
+		[[ -n ${flag_values[${flags[i]}]:-} ]] || continue
+		parser_accepts "${cmd}" "${flags[i]}" && printf '%s\n' "${flags[i]}"
+	done
+}
+
 run_shell() {
-	local shell=$1 script=${work}/script.$1 cmd first ctx got
+	local shell=$1 script=${work}/script.$1 cmd first ctx got vflag v f
 	command -v "${shell}" >/dev/null 2>&1 || {
 		skipped+=("${shell} (not installed)")
 		return
 	}
+	ran_any=1
 	"${bin}" completions "${shell}" >"${script}" || {
 		fail "${shell}: generating the script failed"
 		return
 	}
 
-	for cmd in "${commands[@]}"; do
-		first=$(valid_flags_for "${cmd}" | head -n 1)
+	# Every command, plus each alias, which must offer what its command offers.
+	local -a words=("${commands[@]}" "${!alias_of[@]}")
+	local word
+	for word in "${words[@]}"; do
+		cmd=${alias_of[${word}]:-${word}}
+		valid_flags_for "${cmd}" >"${work}/valid"
+		first=$(head -n 1 "${work}/valid")
 
-		for ctx in "${bin##*/} ${cmd} -" "${bin##*/} ${cmd} ${first} -"; do
-			[[ ${ctx} == *" - " ]] && continue
-			[[ -z ${first} && ${ctx} == *"${cmd}  -" ]] && continue
+		for ctx in "envctl ${word} -" "envctl ${word} ${first} -"; do
+			[[ -z ${first} && ${ctx} == *"${word}  -" ]] && continue
 			case ${shell} in
-				bash) got=$(bash_offers "${script}" "${ctx}") ;;
-				fish) got=$(fish_offers "${script}" "${ctx}") ;;
-			esac
-			case ${shell} in
-				bash | fish) check_exact "${shell}" "${ctx}" "${cmd}" "${got}" ;;
+				bash)
+					got=$(bash_offers "${script}" "${ctx}")
+					check_exact "${shell}" "${ctx}" "${cmd}" "${got}"
+					;;
+				fish)
+					got=$(fish_offers "${script}" "${ctx}")
+					check_exact "${shell}" "${ctx}" "${cmd}" "${got}"
+					;;
+				zsh)
+					got=$(zsh_render "${script}" "${ctx}")
+					check_rendered zsh "${ctx}" "${cmd}" "${got}"
+					;;
+				*) fail "unknown shell ${shell}" ;;
 			esac
 		done
 	done
 
-	if [[ ${shell} == zsh ]]; then
-		for cmd in "${commands[@]}"; do
-			first=$(valid_flags_for "${cmd}" | head -n 1)
-			for ctx in "envctl ${cmd} -" "envctl ${cmd} ${first} -"; do
-				[[ -z ${first} && ${ctx} == *"${cmd}  -" ]] && continue
-				got=$(zsh_render "${script}" "${ctx}")
-				check_rendered zsh "${ctx}" "${cmd}" "${got}"
+	# A flag that enumerates values must offer them after its "=", in every
+	# command that accepts it and before any command word.
+	for cmd in "${commands[@]}" ""; do
+		if [[ -n ${cmd} ]]; then
+			value_flags_for "${cmd}" >"${work}/vflags"
+		else
+			: >"${work}/vflags"
+			for f in "${flags[@]}"; do
+				[[ -n ${flag_values[${f}]:-} ]] && printf '%s\n' "${f}" >>"${work}/vflags"
 			done
-		done
-	fi
+		fi
+		while read -r vflag; do
+			[[ -n ${vflag} ]] || continue
+			flag_under_test=${vflag}
+			ctx="envctl ${cmd:+${cmd} }${vflag}="
+			case ${shell} in
+				bash)
+					got=$(bash_offers "${script}" "${ctx}")
+					check_values "${shell}" "${ctx}" "${got}" "${flag_values[${vflag}]}"
+					;;
+				fish)
+					got=$(fish_offers "${script}" "${ctx}")
+					check_values "${shell}" "${ctx}" "${got}" "${flag_values[${vflag}]}"
+					;;
+				zsh)
+					got=$(zsh_render "${script}" "${ctx}")
+					for v in ${flag_values[${vflag}]}; do
+						grep -qw -- "${v}" <<<"${got}" \
+							|| fail "zsh: [${ctx}] does not offer ${v}"
+					done
+					;;
+				*) fail "unknown shell ${shell}" ;;
+			esac
+		done <"${work}/vflags"
+	done
 }
 
 for shell in bash fish zsh; do
@@ -205,6 +284,10 @@ printf '\n'
 if ((${#skipped[@]})); then
 	printf '%d skipped:\n' "${#skipped[@]}"
 	printf '  %s\n' "${skipped[@]}"
+fi
+if ((!ran_any)); then
+	printf 'no shell was available, so nothing was checked\n' >&2
+	exit 1
 fi
 if ((failed == 0)); then
 	printf 'completions consistent with the parser\n'

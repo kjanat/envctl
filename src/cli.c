@@ -92,8 +92,9 @@ const Flag cli_flags[FLAG_COUNT] = {
      "Chooses when values are masked. never disables it; auto is the default and masks when a "
      "coding agent is detected and stdout is a terminal; agent masks whenever an agent is "
      "detected, terminal or not; tty masks whenever stdout is a terminal; always masks "
-     "unconditionally. A bare --redact means always. redact and env mask unconditionally, so "
-     "there only --redact=never changes anything."},
+     "unconditionally. A bare --redact means always. redact always masks. env masks "
+     "unconditionally by default, and an explicit WHEN replaces that default, so --redact=agent "
+     "leaves the dump unmasked when no agent is detected."},
     {FLAG_RAW, "--raw", M_DISPLAY | M_ENV, NULL,
      "shorthand for --redact=never --show-control-chars",
      "Prints values exactly as stored: no masking, and control bytes as they are rather than in "

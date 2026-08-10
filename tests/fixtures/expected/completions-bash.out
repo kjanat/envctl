@@ -42,7 +42,7 @@ _envctl() {
 		env) flags='--sort --redact --redact=never --redact=auto --redact=agent --redact=tty --redact=always --raw --show-control-chars --paranoid -h --help -v -V --version' ;;
 		completions) flags='-h --help -v -V --version' ;;
 		module) flags='-h --help -v -V --version' ;;
-		*) flags='--dry-run --values --all --sort --env --no-env --redact --raw --show-control-chars --paranoid -h --help -v -V --version' ;;
+		*) flags='--dry-run --values --all --sort --env --no-env --redact --redact=never --redact=auto --redact=agent --redact=tty --redact=always --raw --show-control-chars --paranoid -h --help -v -V --version' ;;
 	esac
 
 	if [[ ${cur} == -* ]]; then

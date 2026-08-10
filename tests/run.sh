@@ -47,6 +47,7 @@ fi
 # MSYS fifos cannot feed a native binary's stdin.
 case $(uname -s) in
 	MINGW* | MSYS* | CYGWIN*) fifo_ok=no ;;
+	*) ;;
 esac
 readonly fifo_ok
 
@@ -55,6 +56,7 @@ readonly fifo_ok
 env_order=yes
 case $(uname -s) in
 	MINGW* | MSYS* | CYGWIN*) env_order=no ;;
+	*) ;;
 esac
 readonly env_order
 
@@ -298,8 +300,8 @@ run_case() {
 					<"${stdin}" >"${dir}/.raw" 2>>"${dir}/.stderr"
 			fi
 			rc=$?
-			tr -d '\r\b' <"${dir}/.raw" \
-				| sed -e '1s/^\^D//' -e $'1s/^\x04//' >"${dir}/.stdout"
+			tr -d '\r\b' <"${dir}/.raw" >"${dir}/.stripped"
+			sed -e '1s/^\^D//' -e $'1s/^\x04//' <"${dir}/.stripped" >"${dir}/.stdout"
 			;;
 		nosigpipe)
 			# A reader that closes early, with SIGPIPE ignored, so the write
@@ -406,7 +408,8 @@ run_case() {
 	elif has_section "${file}" stdout-cmd; then
 		# The expectation for values the build baked in, computed the same
 		# way at run time, from the repo the binary was built in.
-		(cd "${root}/.." && bash -c "$(section "${file}" stdout-cmd)") >"${dir}/.want"
+		section "${file}" stdout-cmd >"${dir}/.wantcmd"
+		(cd "${root}/.." && bash "${dir}/.wantcmd") >"${dir}/.want"
 	fi
 	compare "${name}" stdout "${want_stdout}" "${dir}/.stdout" || ok=0
 	: >"${dir}/.want-err"
