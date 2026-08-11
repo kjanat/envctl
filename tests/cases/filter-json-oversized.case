@@ -1,0 +1,9 @@
+%% args
+redact
+--no-env
+
+%% stdin-file
+text/json-oversized.txt
+
+%% stdout-file
+text/json-oversized.txt

@@ -33,7 +33,6 @@ typedef struct {
 	long json_depth;
 	int json_string;
 	int json_escape;
-	int json_drop;
 } ScanState;
 
 void scan_state_init(ScanState *st);

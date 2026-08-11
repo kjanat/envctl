@@ -1810,7 +1810,6 @@ static void json_reset(ScanState *st) {
 	st->json_depth = 0;
 	st->json_string = 0;
 	st->json_escape = 0;
-	st->json_drop = 0;
 }
 
 static int json_append(ScanState *st, const char *in, size_t n) {
@@ -1841,8 +1840,8 @@ static void scan_plain(const char *in, size_t inlen, char **out, size_t *outcap,
 			size_t close = 0;
 			json_feed(st, in + os, inlen - os, &close);
 			if (!json_append(st, in + os, inlen - os)) {
-				st->json_drop = 1;
-				buf_put(out, outcap, len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
+				json_reset(st);
+				scan_plain(in + os, inlen - os, out, outcap, len, st, 0);
 			}
 			return;
 		} else {
@@ -1853,7 +1852,7 @@ static void scan_plain(const char *in, size_t inlen, char **out, size_t *outcap,
 }
 
 static void scan_segments(const char *in, size_t inlen, char **out, size_t *outcap, size_t *len,
-                          ScanState *st) {
+                          ScanState *st, int stream_json) {
 	size_t pos = 0;
 	while (pos < inlen) {
 		size_t boff = 0, bend = 0;
@@ -1883,7 +1882,7 @@ static void scan_segments(const char *in, size_t inlen, char **out, size_t *outc
 		pos = bend;
 	}
 	if (pos < inlen)
-		scan_plain(in + pos, inlen - pos, out, outcap, len, st, 1);
+		scan_plain(in + pos, inlen - pos, out, outcap, len, st, stream_json);
 }
 
 static size_t putty_count(const char *in, size_t n, size_t start, int *valid) {
@@ -1945,30 +1944,27 @@ int scan_text_line(const char *in, size_t inlen, const char *eol, size_t eollen,
 		size_t close = 0;
 		json_feed(st, in, inlen, &close);
 		size_t take = close ? close : inlen;
-		if (!st->json_drop && (st->json_lines > JSON_LINE_MAX || !json_append(st, in, take))) {
-			st->json_drop = 1;
-			st->json_len = 0;
-			buf_put(out, outcap, &len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
+		if (st->json_lines > JSON_LINE_MAX || !json_append(st, in, take)) {
+			scan_plain(st->json_buf, st->json_len, out, outcap, &len, st, 0);
+			json_reset(st);
+			scan_segments(in, inlen, out, outcap, &len, st, 0);
+			goto done;
 		}
 		if (!close) {
-			if (!st->json_drop && eollen && !json_append(st, eol, eollen)) {
-				st->json_drop = 1;
-				st->json_len = 0;
-				buf_put(out, outcap, &len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
+			if (eollen && !json_append(st, eol, eollen)) {
+				scan_plain(st->json_buf, st->json_len, out, outcap, &len, st, 0);
+				json_reset(st);
+				goto done;
 			}
-			if (st->json_drop && len && eollen)
-				buf_put(out, outcap, &len, eol, eollen);
 			goto emit;
 		}
-		if (!st->json_drop) {
-			if (json_private_object(st->json_buf, st->json_len))
-				buf_put(out, outcap, &len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
-			else
-				scan_plain(st->json_buf, st->json_len, out, outcap, &len, st, 0);
-		}
+		if (json_private_object(st->json_buf, st->json_len))
+			buf_put(out, outcap, &len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
+		else
+			scan_plain(st->json_buf, st->json_len, out, outcap, &len, st, 0);
 		json_reset(st);
 		if (close < inlen)
-			scan_segments(in + close, inlen - close, out, outcap, &len, st);
+			scan_segments(in + close, inlen - close, out, outcap, &len, st, 1);
 		goto done;
 	}
 
@@ -1981,7 +1977,7 @@ int scan_text_line(const char *in, size_t inlen, const char *eol, size_t eollen,
 			size_t tn = (size_t)(in + inlen - tail);
 			if (!tn)
 				return 0;
-			scan_segments(tail, tn, out, outcap, &len, st);
+			scan_segments(tail, tn, out, outcap, &len, st, 1);
 			goto done;
 		}
 		if (st->pem_open > PEM_CARRY_MAX && !pem_body_line(in, inlen))
@@ -1999,7 +1995,7 @@ int scan_text_line(const char *in, size_t inlen, const char *eol, size_t eollen,
 			size_t after = (size_t)(cl - in) + 1;
 			if (after >= inlen)
 				return 0;
-			scan_segments(in + after, inlen - after, out, outcap, &len, st);
+			scan_segments(in + after, inlen - after, out, outcap, &len, st, 1);
 			goto done;
 		}
 		if (st->quote_n > PEM_CARRY_MAX) {
@@ -2114,16 +2110,14 @@ int scan_text_line(const char *in, size_t inlen, const char *eol, size_t eollen,
 		goto done;
 	}
 
-	scan_segments(in, inlen, out, outcap, &len, st);
+	scan_segments(in, inlen, out, outcap, &len, st, 1);
 	if (st->json_depth > 0) {
 		st->json_lines = 1;
-		if (!st->json_drop && eollen && !json_append(st, eol, eollen)) {
-			st->json_drop = 1;
-			st->json_len = 0;
-			buf_put(out, outcap, &len, PRIVKEY_TOKEN, strlen(PRIVKEY_TOKEN));
-			buf_put(out, outcap, &len, eol, eollen);
-		} else if (st->json_drop && len && eollen)
-			buf_put(out, outcap, &len, eol, eollen);
+		if (eollen && !json_append(st, eol, eollen)) {
+			scan_plain(st->json_buf, st->json_len, out, outcap, &len, st, 0);
+			json_reset(st);
+			goto done;
+		}
 		goto emit;
 	}
 
