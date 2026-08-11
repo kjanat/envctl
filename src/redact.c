@@ -1885,6 +1885,19 @@ static void scan_segments(const char *in, size_t inlen, char **out, size_t *outc
 		scan_plain(in + pos, inlen - pos, out, outcap, len, st, stream_json);
 }
 
+static int json_line_buffered(ScanState *st, const char *eol, size_t eollen, char **out,
+                              size_t *outcap, size_t *len) {
+	if (st->json_depth <= 0)
+		return 0;
+	st->json_lines = 1;
+	if (eollen && !json_append(st, eol, eollen)) {
+		scan_plain(st->json_buf, st->json_len, out, outcap, len, st, 0);
+		json_reset(st);
+		return 0;
+	}
+	return 1;
+}
+
 static size_t putty_count(const char *in, size_t n, size_t start, int *valid) {
 	size_t m = 0;
 	*valid = 0;
@@ -1978,6 +1991,8 @@ int scan_text_line(const char *in, size_t inlen, const char *eol, size_t eollen,
 			if (!tn)
 				return 0;
 			scan_segments(tail, tn, out, outcap, &len, st, 1);
+			if (json_line_buffered(st, eol, eollen, out, outcap, &len))
+				goto emit;
 			goto done;
 		}
 		if (st->pem_open > PEM_CARRY_MAX && !pem_body_line(in, inlen))
@@ -1996,6 +2011,8 @@ int scan_text_line(const char *in, size_t inlen, const char *eol, size_t eollen,
 			if (after >= inlen)
 				return 0;
 			scan_segments(in + after, inlen - after, out, outcap, &len, st, 1);
+			if (json_line_buffered(st, eol, eollen, out, outcap, &len))
+				goto emit;
 			goto done;
 		}
 		if (st->quote_n > PEM_CARRY_MAX) {
@@ -2111,15 +2128,8 @@ int scan_text_line(const char *in, size_t inlen, const char *eol, size_t eollen,
 	}
 
 	scan_segments(in, inlen, out, outcap, &len, st, 1);
-	if (st->json_depth > 0) {
-		st->json_lines = 1;
-		if (eollen && !json_append(st, eol, eollen)) {
-			scan_plain(st->json_buf, st->json_len, out, outcap, &len, st, 0);
-			json_reset(st);
-			goto done;
-		}
+	if (json_line_buffered(st, eol, eollen, out, outcap, &len))
 		goto emit;
-	}
 
 done:
 	if (eollen)

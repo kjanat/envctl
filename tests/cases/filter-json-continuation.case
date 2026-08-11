@@ -1,0 +1,20 @@
+%% args
+redact
+--no-env
+
+%% stdin
+-----BEGIN PRIVATE KEY-----
+QUJDREVGR0hJSktMTU5PUA==
+-----END PRIVATE KEY-----{"message":"still
+loading"}
+API_SECRET="AbC123XyZ987QrStUvWxYz456789012345
+last"{"message":"still
+loading"}
+
+%% stdout
+<redacted:private-key>
+{"message":"still
+loading"}
+API_SECRET="<redacted>"
+{"message":"still
+loading"}

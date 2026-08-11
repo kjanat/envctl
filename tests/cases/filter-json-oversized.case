@@ -6,4 +6,4 @@ redact
 text/json-oversized.txt
 
 %% stdout-file
-text/json-oversized.txt
+expected/json-oversized.out
