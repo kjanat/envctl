@@ -14,6 +14,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y zsh fish
       # bash 3.2 ships with macOS and cannot run tests/completions.sh.
       - if: runner.os == 'macOS'
-        run: brew install fish bash
+        run: brew untap aws/tap && brew install fish bash
       - run: run -s make test
         env: { COMPLETIONS_SHELLS: "${{ runner.os == 'Windows' && 'bash' || 'bash zsh fish' }}" }
