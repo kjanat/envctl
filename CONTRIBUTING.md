@@ -45,8 +45,8 @@ bash tests/run.sh ./envctl
 A case is a set of `%% <name>` sections. `args` holds one argv element per line,
 so a value never passes through shell word splitting. `env` names a fixture that
 is copied into a scratch directory, `stdin-file` names one to feed on stdin, and
-`stdout`, `stderr`, `file` and `exit` are the expectations. Cases run under
-`env -i` so agent detection sees a clean environment; `setenv` opts back in.
+`stdout`, `stderr`, `file` and `exit` are the expectations. Cases run under `env
+-i` so agent detection sees a clean environment; `setenv` opts back in.
 `fifo-file` names a fixture served through a FIFO in the scratch directory,
 standing in for shell process substitution; `{FIFO}` in `args` expands to its
 relative path. Such cases require `plain` mode and are skipped where `mkfifo` is

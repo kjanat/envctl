@@ -62,9 +62,9 @@ envctl completions <shell>            completion script for bash/zsh/fish/pwsh
 envctl module pwsh                    PowerShell cmdlets wrapping the binary
 ```
 
-`./.env` is assumed when you leave the file out. Without a command word,
-`envctl <KEY>` is a get and `envctl <KEY> <VALUE>` is a set. `ls` and `rm` are
-aliases for `list` and `delete`.
+`./.env` is assumed when you leave the file out. Without a command word, `envctl
+<KEY>` is a get and `envctl <KEY> <VALUE>` is a set. `ls` and `rm` are aliases
+for `list` and `delete`.
 
 ## Secrets stay out of the way
 

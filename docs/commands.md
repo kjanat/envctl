@@ -1,8 +1,8 @@
 # Command reference
 
-Every command, what it does, and the rules it follows. `man envctl` and
-`envctl <cmd> --help` carry the same reference, generated from the same table
-the parser validates against.
+Every command, what it does, and the rules it follows. `man envctl` and `envctl
+<cmd> --help` carry the same reference, generated from the same table the parser
+validates against.
 
 ## Reading
 
@@ -14,8 +14,12 @@ envctl list [file] --all      # include commented keys, tagged (disabled)
 envctl list [file] --sort     # key order instead of file order
 ```
 
-`get` prints the value followed by a newline. A multiline value prints in full.
-`list --values` prints the first line of an unmasked multiline value.
+`get` prints the value followed by a newline. For file values, it removes one
+surrounding pair of single, double, or backtick quotes and any whitespace or
+comment outside them: `MESSAGE="hello world"` prints `hello world`. The contents
+stay literal, including escapes and `$VARIABLE` references. A multiline value
+prints in full. `get --env` returns the environment value as stored. `list
+--values` prints the first line of an unmasked multiline value.
 
 ## Editing
 

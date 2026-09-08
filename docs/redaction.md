@@ -22,9 +22,9 @@ Masked values become `<redacted>`, `<redacted:private-key>`, or
 
 `auto` is the default, which leaves a human on a terminal unmasked and an agent
 on a terminal masked. Agents usually capture stdout rather than owning a
-terminal, and in that case `auto` does not mask, so that
-`API_KEY=$(envctl get API_KEY)` keeps working. `--redact=agent` is the setting
-that masks for an agent through a pipe as well.
+terminal, and in that case `auto` does not mask, so that `API_KEY=$(envctl get
+API_KEY)` keeps working. `--redact=agent` is the setting that masks for an agent
+through a pipe as well.
 
 Agent detection follows [unjs/std-env](https://github.com/unjs/std-env) signals,
 plus `AI_AGENT`.

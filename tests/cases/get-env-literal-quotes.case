@@ -1,0 +1,10 @@
+%% args
+get
+--env
+MESSAGE
+
+%% setenv
+MESSAGE="hello world"
+
+%% stdout
+"hello world"

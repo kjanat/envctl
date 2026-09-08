@@ -1,0 +1,10 @@
+%% args
+get
+get-quoted.env
+ESCAPED
+
+%% env
+env/get-quoted.env
+
+%% stdout
+say \"hello\"\n$NAME

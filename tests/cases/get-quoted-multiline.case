@@ -1,0 +1,11 @@
+%% args
+get
+get-quoted.env
+MULTILINE
+
+%% env
+env/get-quoted.env
+
+%% stdout
+hello
+world

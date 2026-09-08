@@ -1,0 +1,10 @@
+%% args
+get
+get-quoted.env
+PLAIN
+
+%% env
+env/get-quoted.env
+
+%% stdout-file
+expected/get-quoted-plain.out

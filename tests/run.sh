@@ -240,7 +240,7 @@ run_case() {
 				epipe_input_ok=0
 			fi
 		} <"${stdin}"
-		if ((!epipe_input_ok)); then
+		if ((! epipe_input_ok)); then
 			fail_case "${name}"
 			printf '        epipe-open stdin needs exactly two newline-terminated lines\n'
 			return

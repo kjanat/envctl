@@ -1,0 +1,10 @@
+%% args
+get
+get-quoted.env
+UNTERMINATED
+
+%% env
+env/get-quoted.env
+
+%% stdout
+"hello

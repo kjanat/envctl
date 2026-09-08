@@ -47,7 +47,7 @@ Keys must match [A\-Za\-z_][A\-Za\-z0\-9_]*. An active assignment is optional wh
 Sets KEY to VALUE, creating the assignment when it is absent. The first active definition is updated in place, any further active duplicates are commented out, and when no active definition exists the first commented one is revived. Failing all of that the assignment is appended. VALUE is literal: no shell or regex reinterpretation. An omitted VALUE writes an empty value.
 .TP
 .B get [file] <KEY>
-Prints the active value of KEY followed by a newline and exits 1 when KEY has no active definition. A multiline value prints in full.
+Prints the active value of KEY followed by a newline and exits 1 when KEY has no active definition. File values lose one surrounding pair of single, double, or backtick quotes and any whitespace or comment outside them. Contents stay literal, including escapes. A multiline value prints in full. \-\-env returns the environment value as stored.
 .TP
 .B disable [file] <KEY>
 Comments out every active definition of KEY, keeping the value and its position in the file.

@@ -1,0 +1,11 @@
+%% args
+--raw
+get
+windows-path.env
+W
+
+%% env
+env/windows-path.env
+
+%% stdout
+C:\Users\me\

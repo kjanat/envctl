@@ -480,12 +480,27 @@ Lines act_delete(Lines *L, const char *key, size_t kl) {
 	return out;
 }
 
+static const char *get_value_body(char *val) {
+	const char *p = skip_ws(val);
+	if (*p != '"' && *p != '\'' && *p != '`')
+		return val;
+	const char *end = quote_any_at(p + 1, *p);
+	if (!end)
+		return val;
+	/* A quoted fragment followed by more value text stays literal. */
+	const char *tail = skip_ws(end + 1);
+	if (*tail && *tail != '#')
+		return val;
+	val[end - val] = '\0';
+	return p + 1;
+}
+
 int act_get(Lines *L, const char *key, size_t kl, int redact) {
 	for (size_t i = 0; i < L->n;) {
 		size_t span = logical_span(L, i, NULL);
 		if (is_active_def(L->v[i], key, kl)) {
 			char *val = join_span(L, i, span);
-			print_value(key, val, redact);
+			print_value(key, get_value_body(val), redact);
 			free(val);
 			return 0;
 		}

@@ -25,7 +25,9 @@ const Command cli_commands[CMD_COUNT] = {
      "empty value."},
     {CMD_GET, "get", NULL, "[file] <KEY>", 1, "read", "print the active value; exit 1 if unset",
      "Prints the active value of KEY followed by a newline and exits 1 when KEY has no active "
-     "definition. A multiline value prints in full."},
+     "definition. File values lose one surrounding pair of single, double, or backtick quotes "
+     "and any whitespace or comment outside them. Contents stay literal, including escapes. "
+     "A multiline value prints in full. --env returns the environment value as stored."},
     {CMD_DISABLE, "disable", NULL, "[file] <KEY>", 1, "edit", "comment KEY out, keeping its value",
      "Comments out every active definition of KEY, keeping the value and its position in the "
      "file."},

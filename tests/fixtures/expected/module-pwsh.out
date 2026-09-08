@@ -5,7 +5,7 @@ function Get-EnvctlValue {
 	.SYNOPSIS
 	print the active value; exit 1 if unset, through envctl get.
 	.DESCRIPTION
-	Prints the active value of KEY followed by a newline and exits 1 when KEY has no active definition. A multiline value prints in full.
+	Prints the active value of KEY followed by a newline and exits 1 when KEY has no active definition. File values lose one surrounding pair of single, double, or backtick quotes and any whitespace or comment outside them. Contents stay literal, including escapes. A multiline value prints in full. --env returns the environment value as stored.
 	.PARAMETER Key
 	The key to read.
 	.PARAMETER File
