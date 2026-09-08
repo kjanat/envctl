@@ -1,4 +1,5 @@
 # Build artifacts (`make` compiles src/*.c).
+/package-lock.json
 /envctl
 /envctl.exe
 /gen/man
