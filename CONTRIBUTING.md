@@ -116,6 +116,11 @@ shellcheck tests/*.sh install.sh    # https://github.com/koalaman/shellcheck
 
 CI runs `make test` on Linux, macOS, and Windows.
 
+The setup action has separate tests: `node --test tests/action.test.mjs`. CI
+also installs a published release through the action and checks that later steps
+can run it from `PATH`. A Windows ARM64 job builds the release artifact, checks
+its executable architecture, and runs it to verify its version.
+
 ## Labels
 
 | Label            | Use for                                        |
@@ -150,6 +155,11 @@ appended below it, so write the tag for a reader who was not here. The first
 line is the version alone; everything after the blank line is published. An
 empty body fails the release job rather than shipping a bare commit list.
 
+The workflow appends the build attestation link and a verification command to
+the release notes. Each binary's architecture and embedded version are checked
+before upload. Windows ARM64 builds use the MSYS2 CLANGARM64 toolchain; a runner
+with an ARM64 CPU can still have an x64 compiler on its default `PATH`.
+
 [`.dprint.jsonc`]: .dprint.jsonc
 [`.clang-format`]: .clang-format
 [`tests/run.sh`]: tests/run.sh
@@ -157,3 +167,5 @@ empty body fails the release job rather than shipping a bare commit list.
 [`tests/cases/`]: tests/cases/
 [`tests/fixtures/`]: tests/fixtures/
 [SECURITY.md]: SECURITY.md#reporting
+
+<!-- markdownlint-disable-file no-bare-urls line-length -->

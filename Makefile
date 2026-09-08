@@ -21,7 +21,7 @@ STAMP := .version
 LINUX_AMD64_CC   ?= $(CC)
 LINUX_ARM64_CC   ?= $(CC)
 WINDOWS_AMD64_CC ?= gcc
-WINDOWS_ARM64_CC ?= gcc
+WINDOWS_ARM64_CC ?= clang --target=aarch64-w64-windows-gnu
 DARWIN_CC        ?= $(CC)
 
 ifeq ($(OS),Windows_NT)
