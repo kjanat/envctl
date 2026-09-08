@@ -1,0 +1,9 @@
+name: Setup envctl
+description: Install a verified envctl release and add it to PATH.
+inputs:
+  version: { description: "Release tag to install, or latest for the latest stable release.", default: latest }
+  token: { description: "GitHub token used to download and verify the release.", default: "${{ github.token }}" }
+outputs:
+  version: { description: Installed release tag. }
+  path: { description: Full path to the installed executable. }
+runs: { using: node24, main: action.mjs }

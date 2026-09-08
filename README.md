@@ -47,6 +47,21 @@ git clone https://github.com/kjanat/envctl.git && cd envctl && make && make inst
 completion scripts under `PREFIX` (`~/.local` by default). `make test` runs the
 suite.
 
+In GitHub Actions, use the root setup action to install the latest stable
+release and put `envctl` on `GITHUB_PATH` for subsequent steps:
+
+```yaml
+- uses: kjanat/envctl@<SHA>
+- run: envctl --version
+```
+
+The action verifies the downloaded checksums, binary architecture, signed source
+commit, and build provenance before running the binary or changing
+`GITHUB_PATH`. Verification failures fail the action. Set `with: { version:
+v0.7.0 }` to select an exact release. The `version` and `path` outputs identify
+the installed release and executable. Self-hosted runners need a recent GitHub
+CLI with `gh attestation verify`; GitHub-hosted runners already provide it.
+
 ## Commands
 
 ```text

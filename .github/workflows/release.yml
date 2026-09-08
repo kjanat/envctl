@@ -2,10 +2,12 @@ name: release
 on: { push: { tags: [v*] } }
 permissions: { contents: read }
 defaults: { run: { shell: bash } }
+env: { RUNNER_RUNNER: make }
 jobs:
   build:
     name: ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -19,15 +21,28 @@ jobs:
         ]
     steps:
       - uses: actions/checkout@v7
-      - uses: kjanat/runner@master
+      - uses: kjanat/runner@v0.26.1
+      - name: Set up ARM64 compiler
+        if: matrix.target == 'dist-windows-arm64'
+        uses: msys2/setup-msys2@v2
+        with: { msystem: CLANGARM64, update: true, install: "make mingw-w64-clang-aarch64-clang" }
       - name: Build artifact
-        run: run ${{ matrix.target }}
+        if: matrix.target != 'dist-windows-arm64'
+        run: run '${{ matrix.target }}'
+      - name: Build ARM64 Windows artifact
+        if: matrix.target == 'dist-windows-arm64'
+        shell: msys2 {0}
+        run: make dist-windows-arm64 VERSION="${GITHUB_REF_NAME}"
+      - name: Verify artifact architecture and version
+        run: node .github/check-artifact.mjs "dist/${ARTIFACT}"
+        env: { ARTIFACT: "${{ matrix.artifact }}" }
       - uses: actions/upload-artifact@v7
         with: { if-no-files-found: error, name: "${{ matrix.artifact }}", path: "dist/${{ matrix.artifact }}" }
   publish:
     name: publish
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions: { contents: write, id-token: write, attestations: write }
     steps:
       - uses: actions/checkout@v7
@@ -44,8 +59,18 @@ jobs:
       - name: Checksums
         run: make checksums
       - name: Attest build provenance
+        id: attest
         uses: actions/attest@v4
         with: { subject-path: dist/envctl-* }
+      - name: Add provenance verification to release notes
+        env: { ATTESTATION_URL: "${{ steps.attest.outputs.attestation-url }}" }
+        run: |
+          test -n "${ATTESTATION_URL}"
+          {
+            printf '\n\nAll six binaries have a [build provenance attestation](%s).\n\n' "${ATTESTATION_URL}"
+            printf 'Verify a downloaded binary with the GitHub CLI, substituting its filename:\n\n'
+            printf '%s\n' '```sh' 'gh attestation verify ./envctl-linux-amd64 --owner kjanat --signer-workflow kjanat/envctl/.github/workflows/release.yml' '```'
+          } >> "${RUNNER_TEMP}/notes.md"
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
         with:

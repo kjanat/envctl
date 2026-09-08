@@ -1,5 +1,10 @@
-# yaml-language-server: $schema=https://www.schemastore.org/actionlint.json
----
+# yaml-language-server: $schema=https://cdn.jsdelivr.net/gh/kjanat/actionlint/actionlint.schema.json
 # github-hosted-runners: https://docs.github.com/actions/reference/runners/github-hosted-runners
 # available-images: https://github.com/actions/runner-images#available-images
-self-hosted-runner: { labels: [ubuntu-26.04, ubuntu-26.04-arm, windows-11-vs2026-arm] }
+---
+assume-default-permissions: permissive
+policy:
+  require-job-timeout: true
+  required-actions: []
+  require-commit-hash: false
+config-secrets: []

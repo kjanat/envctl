@@ -1,0 +1,8 @@
+{
+	"name": "envctl",
+	"version": "0.0.0",
+	"private": true,
+	"imports": {
+		"#action": "./action.mjs"
+	}
+}
