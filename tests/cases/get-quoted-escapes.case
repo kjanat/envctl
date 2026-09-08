@@ -7,4 +7,5 @@ ESCAPED
 env/get-quoted.env
 
 %% stdout
-say \"hello\"\n$NAME
+say "hello"
+$NAME

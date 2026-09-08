@@ -1,0 +1,11 @@
+%% args
+set
+empty.env
+VALUE
+hello # literal
+
+%% env
+env/empty.env
+
+%% file
+VALUE="hello # literal"

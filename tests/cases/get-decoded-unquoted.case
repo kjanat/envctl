@@ -1,0 +1,11 @@
+%% args
+--raw
+get
+get-decoded.env
+UNQUOTED
+
+%% env
+env/get-decoded.env
+
+%% stdout-file
+expected/get-decoded-unquoted.out

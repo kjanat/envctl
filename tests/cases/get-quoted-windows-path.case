@@ -7,5 +7,8 @@ W
 %% env
 env/windows-path.env
 
-%% stdout
-C:\Users\me\
+%% stderr
+envctl: unterminated value for W
+
+%% exit
+2

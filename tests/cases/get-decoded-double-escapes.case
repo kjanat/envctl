@@ -1,0 +1,11 @@
+%% args
+--raw
+get
+get-decoded.env
+DOUBLE_ESCAPES
+
+%% env
+env/get-decoded.env
+
+%% stdout-file
+expected/get-decoded-double-escapes.out

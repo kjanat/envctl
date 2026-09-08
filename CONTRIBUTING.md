@@ -73,6 +73,10 @@ where those cases report as skipped in the summary rather than passing silently.
 `posix-env` is for environ-order expectations (`envctl env`, `list --env`),
 which only hold where the environment block passes through unmodified.
 
+`tests/roundtrip.sh` reuses the decoded-value fixtures to verify that `set`
+followed by `get` preserves each value byte-for-byte, repeated `set` makes no
+change, and disabling then enabling a value preserves its contents.
+
 Every redaction fix needs a case that fails without it. Leaks and their
 regression cases belong together in one commit.
 

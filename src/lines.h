@@ -20,6 +20,13 @@ typedef struct {
 	int crlf;
 } StreamLine;
 
+typedef struct {
+	const char *key;
+	size_t key_len;
+	const char *value;
+	int commented;
+} Assignment;
+
 void lpush(Lines *L, char *s);
 Lines read_file(const char *file);
 void lines_free(Lines *L);
@@ -30,6 +37,8 @@ void streamline_free(StreamLine *sl);
 
 size_t logical_span(const Lines *L, size_t i, int *unterminated);
 char *join_span(const Lines *L, size_t i, size_t span);
+int parse_assignment(const char *line, Assignment *a);
+char *decode_value(const char *raw);
 
 const char *skip_ws(const char *s);
 const char *skip_export(const char *s);

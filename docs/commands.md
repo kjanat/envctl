@@ -14,12 +14,12 @@ envctl list [file] --all      # include commented keys, tagged (disabled)
 envctl list [file] --sort     # key order instead of file order
 ```
 
-`get` prints the value followed by a newline. For file values, it removes one
-surrounding pair of single, double, or backtick quotes and any whitespace or
-comment outside them: `MESSAGE="hello world"` prints `hello world`. The contents
-stay literal, including escapes and `$VARIABLE` references. A multiline value
-prints in full. `get --env` returns the environment value as stored. `list
---values` prints the first line of an unmasked multiline value.
+`get` prints the decoded value followed by a newline: `MESSAGE="hello\nworld"`
+prints two lines, and `MESSAGE="say \"hello\""` prints `say "hello"`. The file
+format below defines quoting, escapes, and comments. Malformed quoted values
+exit 2 without printing a partial value. `get --env` returns the environment
+value as stored. `list --values` shows the file spelling, including quotes and
+escapes, and prints the first line of an unmasked multiline value.
 
 ## Editing
 
@@ -32,7 +32,9 @@ envctl delete  [file] <KEY>           # remove active and commented alike
 
 Aliases: `rm` for `delete`, `ls` for `list`.
 
-`VALUE` is literal. Nothing reinterprets it as shell syntax or a regex. An
+`VALUE` is literal input. `set` adds file quoting and escapes when needed so
+`get` returns that same value, including quotes, backslashes, comments, and
+newlines supplied as data. Nothing evaluates it as shell syntax or a regex. An
 omitted `VALUE` writes an empty value.
 
 ### What `set` does
@@ -166,7 +168,23 @@ word is found wherever it sits.
 | Active    | optional whitespace and `export`, then `KEY=...` |
 | Commented | leading `#`, optional whitespace, then the same  |
 
-Keys must match `[A-Za-z_][A-Za-z0-9_]*`.
+Keys must match `[A-Za-z_][A-Za-z0-9_]*`. Spaces and tabs around the key and `=`
+are accepted. A UTF-8 byte order mark before an assignment is ignored.
+
+- Unquoted values lose leading and trailing spaces and tabs. `#` starts a
+  comment when preceded by a space or tab: `KEY=value # note` reads `value`,
+  while `KEY=value#suffix` and `KEY=#prefix` keep the hash. Backslashes stay
+  literal in unquoted values.
+- Single-quoted values decode `\\` and `\'`. Other escapes stay literal.
+- Double-quoted values decode `\\`, `\"`, `\'`, `\a`, `\b`, `\f`, `\n`, `\r`,
+  `\t`, and `\v`. Unknown escapes retain their backslash.
+- Backtick-quoted values decode an escaped backtick or backslash; other escapes
+  stay literal. Backticks are value delimiters and never run commands.
+
+Whitespace inside quotes is preserved. After a closing quote, only spaces, tabs,
+and an optional `#` comment are allowed. Variable references such as `$NAME` and
+`${NAME}` stay literal; reading a value does not interpolate the process
+environment or evaluate shell expressions.
 
 A value that opens a quote (`"`, `'`, `` ` ``) or a `-----BEGIN` block runs
 until its terminator, up to 512 lines. Those continuation lines belong to the

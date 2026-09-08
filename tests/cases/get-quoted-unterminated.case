@@ -6,5 +6,8 @@ UNTERMINATED
 %% env
 env/get-quoted.env
 
-%% stdout
-"hello
+%% stderr
+envctl: unterminated value for UNTERMINATED
+
+%% exit
+2

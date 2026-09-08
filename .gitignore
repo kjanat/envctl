@@ -14,3 +14,5 @@
 !/tests/fixtures/*
 !/tests/fixtures/env/.env
 !/.env.test
+!/src/**/*.h
+!/src/**/*.c

@@ -1,0 +1,11 @@
+%% args
+set
+empty.env
+VALUE
+-----BEGIN PRIVATE KEY-----
+
+%% env
+env/empty.env
+
+%% file
+VALUE="-----BEGIN PRIVATE KEY-----"

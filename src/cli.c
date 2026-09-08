@@ -21,13 +21,13 @@ const Command cli_commands[CMD_COUNT] = {
      "Sets KEY to VALUE, creating the assignment when it is absent. The first active definition is "
      "updated in place, any further active duplicates are commented out, and when no active "
      "definition exists the first commented one is revived. Failing all of that the assignment is "
-     "appended. VALUE is literal: no shell or regex reinterpretation. An omitted VALUE writes an "
-     "empty value."},
+     "appended. VALUE is literal input; quoting and escaping are added when needed so get "
+     "returns the same value. An omitted VALUE writes an empty value."},
     {CMD_GET, "get", NULL, "[file] <KEY>", 1, "read", "print the active value; exit 1 if unset",
-     "Prints the active value of KEY followed by a newline and exits 1 when KEY has no active "
-     "definition. File values lose one surrounding pair of single, double, or backtick quotes "
-     "and any whitespace or comment outside them. Contents stay literal, including escapes. "
-     "A multiline value prints in full. --env returns the environment value as stored."},
+     "Prints the decoded value of KEY followed by a newline and exits 1 when KEY has no active "
+     "definition. File values are parsed with quote-aware escape and comment handling; "
+     "malformed quoted values exit 2. Multiline values print in full. Variable references "
+     "remain literal. --env returns the environment value as stored."},
     {CMD_DISABLE, "disable", NULL, "[file] <KEY>", 1, "edit", "comment KEY out, keeping its value",
      "Comments out every active definition of KEY, keeping the value and its position in the "
      "file."},

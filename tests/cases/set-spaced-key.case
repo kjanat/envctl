@@ -1,0 +1,12 @@
+%% args
+set
+lenient-space.env
+KEY
+new
+
+%% env
+env/lenient-space.env
+
+%% file
+KEY=new
+TAIL=ok

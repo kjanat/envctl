@@ -1,0 +1,11 @@
+%% args
+--raw
+get
+get-decoded.env
+INCOMPLETE_PEM
+
+%% env
+env/get-decoded.env
+
+%% stdout-file
+expected/get-decoded-pem-literal.out

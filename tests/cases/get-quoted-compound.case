@@ -6,5 +6,8 @@ COMPOUND
 %% env
 env/get-quoted.env
 
-%% stdout
-"hello" "world"
+%% stderr
+envctl: invalid quoted value for COMPOUND
+
+%% exit
+2

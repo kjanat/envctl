@@ -1,0 +1,11 @@
+%% args
+--raw
+get
+get-decoded.env
+SINGLE_MULTILINE
+
+%% env
+env/get-decoded.env
+
+%% stdout-file
+expected/get-decoded-single-multiline.out

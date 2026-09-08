@@ -1,0 +1,11 @@
+%% args
+--redact
+get
+lenient-space.env
+KEY
+
+%% env
+env/lenient-space.env
+
+%% stdout
+<redacted:private-key>
