@@ -1,0 +1,11 @@
+%% args
+--raw
+get
+get-decoded.env
+HASH
+
+%% env
+env/get-decoded.env
+
+%% stdout-file
+expected/get-decoded-hash.out

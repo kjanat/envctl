@@ -40,14 +40,18 @@ If the first positional is an existing path it names the file. Otherwise ./.env 
 .PP
 With no command word, envctl [file] <KEY> is a get and envctl [file] <KEY> <VALUE> is a set. A command name always wins over a same\-named file, so envctl .env get API_KEY is a get. That includes env: a key literally named env needs envctl get env.
 .PP
-Keys must match [A\-Za\-z_][A\-Za\-z0\-9_]*. An active assignment is optional whitespace and export, then KEY=...; a commented one is a leading # before the same. A value that opens a quote (\(dq, \(aq, or \(ga) or a \-\-\-\-\-BEGIN block runs until its terminator, up to 512 lines, and those lines belong to the key, so set, disable, enable, and delete move all of them. Mutating a key whose value never terminates exits non\-zero and writes nothing.
+Keys must match [A\-Za\-z_][A\-Za\-z0\-9_]*. An active assignment is optional whitespace and export, then KEY=...; a commented one is a leading # before the same. Spaces and tabs around the key and = are accepted, and a UTF\-8 byte order mark before an assignment is ignored. Unquoted values lose outer spaces and tabs; # starts a comment when preceded by a space or tab. Backslashes stay literal in unquoted values.
+.PP
+Single quotes decode \e\e and \e\(aq. Double quotes decode \e\e, \e\(dq, \e\(aq, \ea, \eb, \ef, \en, \er, \et, and \ev. Backtick quotes decode an escaped backtick or backslash. Unknown escapes retain their backslash. After a closing quote, only spaces, tabs, and an optional # comment are allowed. get rejects malformed quoted values with exit 2. Variable references remain literal; reading values never interpolates the process environment or evaluates shell expressions.
+.PP
+A value that opens a quote (\(dq, \(aq, or \(ga) or a \-\-\-\-\-BEGIN block runs until its terminator, up to 512 lines, and those lines belong to the key, so set, disable, enable, and delete move all of them. Mutating a key whose value never terminates exits non\-zero and writes nothing.
 .SH COMMANDS
 .TP
 .B set [file] <KEY> [VALUE]
-Sets KEY to VALUE, creating the assignment when it is absent. The first active definition is updated in place, any further active duplicates are commented out, and when no active definition exists the first commented one is revived. Failing all of that the assignment is appended. VALUE is literal: no shell or regex reinterpretation. An omitted VALUE writes an empty value.
+Sets KEY to VALUE, creating the assignment when it is absent. The first active definition is updated in place, any further active duplicates are commented out, and when no active definition exists the first commented one is revived. Failing all of that the assignment is appended. VALUE is literal input; quoting and escaping are added when needed so get returns the same value. An omitted VALUE writes an empty value.
 .TP
 .B get [file] <KEY>
-Prints the active value of KEY followed by a newline and exits 1 when KEY has no active definition. A multiline value prints in full.
+Prints the decoded value of KEY followed by a newline and exits 1 when KEY has no active definition. File values are parsed with quote\-aware escape and comment handling; malformed quoted values exit 2. Multiline values print in full. Variable references remain literal. \-\-env returns the environment value as stored.
 .TP
 .B disable [file] <KEY>
 Comments out every active definition of KEY, keeping the value and its position in the file.
@@ -141,11 +145,11 @@ Trivial values keep a value visible even under a strong secret name: true/false,
 .PP
 \&.pgpass lines (host:port:db:user:password) are not detected: five colon\-separated fields are too generic a shape to key on without masking ordinary text, so mask those by key name or with \-\-paranoid.
 .PP
-Surrounding \(dq, \(aq, or \(ga is stripped before detection and the output keeps the original bytes. A quoted or PEM value spanning several lines is one logical assignment: masking it prints one line and its continuation lines are never printed.
+File values are decoded before detection. Unmasked listings and previews retain the stored spelling, while get returns the decoded contents. A quoted or PEM value spanning several lines is one logical assignment: masking it prints one line and its continuation lines are never printed.
 .SH FILTER MODE
 envctl redact reads stdin and writes stdout with secrets masked. It always redacts and rejects \-\-raw, so agent detection and the TTY check do not apply.
 .PP
-Every maskable value in the env file is matched literally, together with its base64, URL\-encoded, and JSON\-escaped forms. The value\-shape heuristics then run over the rest of the text, and entropy applies only on lines that carry a key name, or on every line under \-\-paranoid. An assignment parses with or without spaces around its separator, so INI files such as .aws/credentials are covered, and the key stays attached to its value either way: under \-\-paranoid a spaced GIT_COMMIT = ... keeps the same digest exemption its unspaced form gets.
+Every maskable value in the env file, including disabled assignments, is matched in both stored and decoded forms, together with its base64, URL\-encoded, and JSON\-escaped forms. The value\-shape heuristics then run over the rest of the text, and entropy applies only on lines that carry a key name, or on every line under \-\-paranoid. An assignment parses with or without spaces around its separator, so INI files such as .aws/credentials are covered, and the key stays attached to its value either way: under \-\-paranoid a spaced GIT_COMMIT = ... keeps the same digest exemption its unspaced form gets.
 .PP
 A PEM private key prints as one <redacted:private\-key> line and its body lines are dropped. If the \-\-\-\-\-END\-\-\-\-\- marker never arrives, the first 511 continuation lines are suppressed; after that, base64\-looking body lines remain suppressed but the first non\-body line resumes normal processing.
 .PP

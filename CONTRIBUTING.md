@@ -45,8 +45,8 @@ bash tests/run.sh ./envctl
 A case is a set of `%% <name>` sections. `args` holds one argv element per line,
 so a value never passes through shell word splitting. `env` names a fixture that
 is copied into a scratch directory, `stdin-file` names one to feed on stdin, and
-`stdout`, `stderr`, `file` and `exit` are the expectations. Cases run under
-`env -i` so agent detection sees a clean environment; `setenv` opts back in.
+`stdout`, `stderr`, `file` and `exit` are the expectations. Cases run under `env
+-i` so agent detection sees a clean environment; `setenv` opts back in.
 `fifo-file` names a fixture served through a FIFO in the scratch directory,
 standing in for shell process substitution; `{FIFO}` in `args` expands to its
 relative path. Such cases require `plain` mode and are skipped where `mkfifo` is
@@ -72,6 +72,10 @@ fixture instead.
 where those cases report as skipped in the summary rather than passing silently.
 `posix-env` is for environ-order expectations (`envctl env`, `list --env`),
 which only hold where the environment block passes through unmodified.
+
+`tests/roundtrip.sh` reuses the decoded-value fixtures to verify that `set`
+followed by `get` preserves each value byte-for-byte, repeated `set` makes no
+change, and disabling then enabling a value preserves its contents.
 
 Every redaction fix needs a case that fails without it. Leaks and their
 regression cases belong together in one commit.

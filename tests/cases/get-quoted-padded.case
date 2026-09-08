@@ -1,0 +1,10 @@
+%% args
+get
+get-quoted.env
+PADDED
+
+%% env
+env/get-quoted.env
+
+%% stdout-file
+expected/get-quoted-padded.out

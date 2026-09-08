@@ -1,0 +1,11 @@
+%% args
+--redact
+get
+get-decoded.env
+CONTROLS
+
+%% env
+env/get-decoded.env
+
+%% stdout
+start^G^H^L^J^M^I^Kend

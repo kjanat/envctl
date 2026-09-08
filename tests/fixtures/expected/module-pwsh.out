@@ -5,7 +5,7 @@ function Get-EnvctlValue {
 	.SYNOPSIS
 	print the active value; exit 1 if unset, through envctl get.
 	.DESCRIPTION
-	Prints the active value of KEY followed by a newline and exits 1 when KEY has no active definition. A multiline value prints in full.
+	Prints the decoded value of KEY followed by a newline and exits 1 when KEY has no active definition. File values are parsed with quote-aware escape and comment handling; malformed quoted values exit 2. Multiline values print in full. Variable references remain literal. --env returns the environment value as stored.
 	.PARAMETER Key
 	The key to read.
 	.PARAMETER File
@@ -50,7 +50,7 @@ function Set-EnvctlValue {
 	.SYNOPSIS
 	set or replace KEY, uncommenting if commented, through envctl set.
 	.DESCRIPTION
-	Sets KEY to VALUE, creating the assignment when it is absent. The first active definition is updated in place, any further active duplicates are commented out, and when no active definition exists the first commented one is revived. Failing all of that the assignment is appended. VALUE is literal: no shell or regex reinterpretation. An omitted VALUE writes an empty value.
+	Sets KEY to VALUE, creating the assignment when it is absent. The first active definition is updated in place, any further active duplicates are commented out, and when no active definition exists the first commented one is revived. Failing all of that the assignment is appended. VALUE is literal input; quoting and escaping are added when needed so get returns the same value. An omitted VALUE writes an empty value.
 	.PARAMETER Key
 	The key to set or replace.
 	.PARAMETER Value

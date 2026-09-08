@@ -1,0 +1,14 @@
+%% args
+--raw
+get
+windows-path.env
+W
+
+%% env
+env/windows-path.env
+
+%% stderr
+envctl: unterminated value for W
+
+%% exit
+2

@@ -150,22 +150,17 @@ const char *skip_export(const char *s) {
 }
 
 int key_at(const char *s, const char *key, size_t kl) {
-	return strncmp(s, key, kl) == 0 && s[kl] == '=';
+	return strncmp(s, key, kl) == 0 && *skip_ws(s + kl) == '=';
 }
 
 int is_active_def(const char *line, const char *key, size_t kl) {
-	const char *p = skip_ws(line);
-	if (*p == '#')
-		return 0;
-	return key_at(skip_export(p), key, kl);
+	Assignment a;
+	return parse_assignment(line, &a) && !a.commented && a.key_len == kl && !memcmp(a.key, key, kl);
 }
 
 int is_comment_def(const char *line, const char *key, size_t kl) {
-	const char *p = skip_ws(line);
-	if (*p != '#')
-		return 0;
-	p = skip_ws(p + 1);
-	return key_at(skip_export(p), key, kl);
+	Assignment a;
+	return parse_assignment(line, &a) && a.commented && a.key_len == kl && !memcmp(a.key, key, kl);
 }
 
 void find_defs(const Lines *L, const char *key, size_t kl, long *active, long *commented) {
@@ -183,6 +178,8 @@ void find_defs(const Lines *L, const char *key, size_t kl, long *active, long *c
 }
 
 static const char *head_body(const char *line, int *commented) {
+	if (!strncmp(line, "\xef\xbb\xbf", 3))
+		line += 3;
 	const char *p = skip_ws(line);
 	if (commented)
 		*commented = 0;
@@ -192,6 +189,22 @@ static const char *head_body(const char *line, int *commented) {
 		p = skip_ws(p + 1);
 	}
 	return skip_export(p);
+}
+
+int parse_assignment(const char *line, Assignment *a) {
+	const char *p = head_body(line, &a->commented);
+	const char *eq = strchr(p, '=');
+	if (!eq)
+		return 0;
+	const char *end = eq;
+	while (end > p && (end[-1] == ' ' || end[-1] == '\t'))
+		end--;
+	if (!valid_keychars(p, (size_t)(end - p)))
+		return 0;
+	a->key = p;
+	a->key_len = (size_t)(end - p);
+	a->value = eq + 1;
+	return 1;
 }
 
 static int pem_open_at(const char *s, char *label, size_t cap) {
@@ -220,31 +233,12 @@ static int pem_close_at(const char *s, const char *label) {
 	return strstr(s, end) != NULL;
 }
 
-static const char *quote_close_at(const char *s, char qc) {
+static const char *quote_end(const char *s, char qc) {
 	for (const char *p = s; *p; p++) {
-		if (qc == '"' && *p == '\\' && p[1]) {
+		if (*p == '\\' && p[1]) {
 			p++;
 			continue;
 		}
-		if (*p != qc)
-			continue;
-		const char *q = skip_ws(p + 1);
-		if (*q == '\0' || *q == '#')
-			return p;
-	}
-	return NULL;
-}
-
-static const char *quote_any_at(const char *s, char qc) {
-	for (const char *p = s; *p; p++) {
-		if (qc == '"' && *p == '\\' && p[1]) {
-			p++;
-			continue;
-		}
-		if (*p == qc)
-			return p;
-	}
-	for (const char *p = s; *p; p++) {
 		if (*p == qc)
 			return p;
 	}
@@ -265,11 +259,8 @@ static int lenient_head(const char *p, const char *eq) {
 }
 
 static const char *span_value_start(const char *line) {
-	const char *p = head_body(line, NULL);
-	const char *eq = strchr(p, '=');
-	if (eq && valid_keychars(p, (size_t)(eq - p)))
-		return eq + 1;
-	return line;
+	Assignment a;
+	return parse_assignment(line, &a) ? a.value : line;
 }
 
 size_t logical_span(const Lines *L, size_t i, int *unterminated) {
@@ -299,10 +290,10 @@ size_t logical_span(const Lines *L, size_t i, int *unterminated) {
 		quote_open = 1;
 		v++;
 	}
-	if (pem_open_at(v, label, sizeof(label)))
+	if (!quote_open && pem_open_at(v, label, sizeof(label)))
 		pem_open = 1;
 
-	if (quote_open && quote_any_at(v, qc))
+	if (quote_open && quote_end(v, qc))
 		quote_open = 0;
 	if (pem_open && pem_close_at(v, label))
 		pem_open = 0;
@@ -319,8 +310,11 @@ size_t logical_span(const Lines *L, size_t i, int *unterminated) {
 			c = skip_ws(c + 1);
 		}
 		span++;
-		if (quote_open && quote_close_at(c, qc))
-			quote_open = 0;
+		if (quote_open) {
+			const char *end = quote_end(c, qc);
+			if (end && (*skip_ws(end + 1) == '\0' || *skip_ws(end + 1) == '#'))
+				quote_open = 0;
+		}
 		if (pem_open && pem_close_at(c, label))
 			pem_open = 0;
 		if (!quote_open && !pem_open)
@@ -334,6 +328,8 @@ size_t logical_span(const Lines *L, size_t i, int *unterminated) {
 
 char *join_span(const Lines *L, size_t i, size_t span) {
 	const char *head = span_value_start(L->v[i]);
+	Assignment a;
+	int commented = parse_assignment(L->v[i], &a) && a.commented;
 	size_t n = strlen(head) + 1;
 	for (size_t j = 1; j < span && i + j < L->n; j++)
 		n += strlen(L->v[i + j]) + 1;
@@ -342,9 +338,18 @@ char *join_span(const Lines *L, size_t i, size_t span) {
 	size_t o = strlen(head);
 	memcpy(s, head, o);
 	for (size_t j = 1; j < span && i + j < L->n; j++) {
-		size_t ln = strlen(L->v[i + j]);
+		const char *line = L->v[i + j];
+		if (commented) {
+			line = skip_ws(line);
+			if (*line == '#') {
+				line++;
+				if (*line == ' ')
+					line++;
+			}
+		}
+		size_t ln = strlen(line);
 		s[o++] = '\n';
-		memcpy(s + o, L->v[i + j], ln);
+		memcpy(s + o, line, ln);
 		o += ln;
 	}
 	s[o] = '\0';
@@ -368,10 +373,88 @@ int valid_keychars(const char *k, size_t kl) {
 	return 1;
 }
 
+/* Decode file syntax without interpolation or shell evaluation. Unknown
+ * escapes retain their backslash; single/backtick quotes only escape their
+ * delimiter and a backslash. NULL denotes malformed quoted input. */
+char *decode_value(const char *raw) {
+	const char *p = skip_ws(raw);
+	char qc = *p;
+	int quoted = qc == '"' || qc == '\'' || qc == '`';
+	const char *end;
+	if (quoted) {
+		end = quote_end(++p, qc);
+		if (!end)
+			return NULL;
+		const char *tail = skip_ws(end + 1);
+		if (*tail && *tail != '#')
+			return NULL;
+	} else {
+		end = p;
+		while (*end && !(*end == '#' && end > raw && (end[-1] == ' ' || end[-1] == '\t')))
+			end++;
+		while (end > p && (end[-1] == ' ' || end[-1] == '\t'))
+			end--;
+	}
+	char *out = xmalloc((size_t)(end - p) + 1);
+	size_t n = 0;
+	while (p < end) {
+		char c = *p++;
+		if (quoted && c == '\\' && p < end) {
+			if (*p == qc || *p == '\\') {
+				c = *p++;
+			} else if (qc == '"') {
+				const char *escapes = "abfnrtv'";
+				const char *decoded = "\a\b\f\n\r\t\v'";
+				const char *e = strchr(escapes, *p);
+				if (e) {
+					c = decoded[e - escapes];
+					p++;
+				}
+			}
+		}
+		out[n++] = c;
+	}
+	out[n] = '\0';
+	return out;
+}
+
+static char *encode_value(const char *val) {
+	char *decoded = decode_value(val);
+	int quoted = !decoded || strcmp(decoded, val);
+	free(decoded);
+	char label[PEM_LABEL_MAX];
+	if (pem_open_at(val, label, sizeof(label)))
+		quoted = 1;
+	for (const unsigned char *p = (const unsigned char *)val; *p; p++) {
+		if (*p < 0x20 || *p == 0x7f)
+			quoted = 1;
+	}
+	if (!quoted)
+		return xstrdup(val);
+	char *out = NULL;
+	size_t cap = 0, n = 0;
+	buf_put(&out, &cap, &n, "\"", 1);
+	for (const char *p = val; *p; p++) {
+		const char *special = "\a\b\f\n\r\t\v\\\"";
+		const char *escaped = "abfnrtv\\\"";
+		const char *e = strchr(special, *p);
+		if (e) {
+			buf_put(&out, &cap, &n, "\\", 1);
+			buf_put(&out, &cap, &n, escaped + (e - special), 1);
+		} else {
+			buf_put(&out, &cap, &n, p, 1);
+		}
+	}
+	buf_put(&out, &cap, &n, "\"", 1);
+	return out;
+}
+
 char *mk_kv(const char *key, const char *val) {
-	size_t n = strlen(key) + 1 + strlen(val) + 1;
+	char *encoded = encode_value(val);
+	size_t n = strlen(key) + 1 + strlen(encoded) + 1;
 	char *s = xmalloc(n);
-	snprintf(s, n, "%s=%s", key, val);
+	snprintf(s, n, "%s=%s", key, encoded);
+	free(encoded);
 	return s;
 }
 
@@ -384,7 +467,10 @@ char *mk_comment(const char *line) {
 
 char *uncomment(const char *line) {
 	const char *p = skip_ws(line);
-	return xstrdup(skip_ws(p + 1));
+	p++;
+	if (*p == ' ')
+		p++;
+	return xstrdup(p);
 }
 
 Lines act_set(Lines *L, const char *key, size_t kl, const char *val) {
@@ -482,10 +568,16 @@ Lines act_delete(Lines *L, const char *key, size_t kl) {
 
 int act_get(Lines *L, const char *key, size_t kl, int redact) {
 	for (size_t i = 0; i < L->n;) {
-		size_t span = logical_span(L, i, NULL);
+		int unterm = 0;
+		size_t span = logical_span(L, i, &unterm);
 		if (is_active_def(L->v[i], key, kl)) {
+			require_terminated(unterm, key);
 			char *val = join_span(L, i, span);
-			print_value(key, val, redact);
+			char *decoded = decode_value(val);
+			if (!decoded)
+				die("invalid quoted value for %s", key);
+			print_value(key, decoded, redact);
+			free(decoded);
 			free(val);
 			return 0;
 		}
@@ -495,30 +587,12 @@ int act_get(Lines *L, const char *key, size_t kl, int redact) {
 }
 
 static void list_span(const Lines *L, size_t i, size_t span, int values, int all, int redact) {
-	const char *orig = L->v[i];
-	const char *s;
-	int commented = 0;
-	const char *p = skip_ws(orig);
-
-	if (*p == '#') {
-		if (!all)
-			return;
-		commented = 1;
-		s = skip_ws(p + 1);
-	} else {
-		s = p;
-	}
-
-	s = skip_export(s);
-	const char *eq = strchr(s, '=');
-	if (!eq)
+	Assignment a;
+	if (!parse_assignment(L->v[i], &a) || (a.commented && !all))
 		return;
-
-	size_t kl = (size_t)(eq - s);
-	if (!valid_keychars(s, kl))
-		return;
-
-	const char *tag = commented ? " (disabled)" : "";
+	const char *s = a.key;
+	size_t kl = a.key_len;
+	const char *tag = a.commented ? " (disabled)" : "";
 	if (!values) {
 		printf("%.*s%s\n", (int)kl, s, tag);
 		return;
@@ -529,12 +603,15 @@ static void list_span(const Lines *L, size_t i, size_t span, int values, int all
 	kbuf[kl] = '\0';
 
 	char *joined = join_span(L, i, span);
-	const char *shown = eq + 1;
-	if (redact && should_mask(kbuf, joined))
-		shown = redact_token(kbuf, joined);
+	char *decoded = redact ? decode_value(joined) : NULL;
+	const char *masked = decoded && should_mask(kbuf, decoded) ? decoded : joined;
+	const char *shown = a.value;
+	if (redact && should_mask(kbuf, masked))
+		shown = redact_token(kbuf, masked);
 	printf("%.*s=", (int)kl, s);
 	fputs_display(shown);
 	printf("%s\n", tag);
+	free(decoded);
 	free(joined);
 	free(kbuf);
 }
@@ -546,13 +623,10 @@ typedef struct {
 } SpanRef;
 
 static void sort_key(const char *line, const char **k, size_t *kl) {
-	const char *p = skip_ws(line);
-	if (*p == '#')
-		p = skip_ws(p + 1);
-	p = skip_export(p);
-	const char *eq = strchr(p, '=');
-	*k = p;
-	*kl = eq ? (size_t)(eq - p) : 0;
+	Assignment a;
+	int valid = parse_assignment(line, &a);
+	*k = valid ? a.key : line;
+	*kl = valid ? a.key_len : 0;
 }
 
 static int span_cmp(const void *pa, const void *pb) {

@@ -8,7 +8,7 @@ PK
 env/multiline-pem.env
 
 %% stdout
-"-----BEGIN PRIVATE KEY-----
+-----BEGIN PRIVATE KEY-----
 Zm9vYmFyYmF6cXV4c2VjcmV0ZGF0YQ==
 MIIBIjANBgkq
------END PRIVATE KEY-----"
+-----END PRIVATE KEY-----

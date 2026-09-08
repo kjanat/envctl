@@ -1,0 +1,10 @@
+%% args
+get
+get-decoded.env
+UNQUOTED
+
+%% env
+env/get-decoded.env
+
+%% stdout
+hello\nworld

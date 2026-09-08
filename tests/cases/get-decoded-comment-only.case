@@ -1,0 +1,11 @@
+%% args
+--raw
+get
+get-decoded.env
+COMMENT_ONLY
+
+%% env
+env/get-decoded.env
+
+%% stdout-file
+expected/get-decoded-comment-only.out

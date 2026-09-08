@@ -1,0 +1,13 @@
+%% args
+get
+get-quoted.env
+COMPOUND
+
+%% env
+env/get-quoted.env
+
+%% stderr
+envctl: invalid quoted value for COMPOUND
+
+%% exit
+2

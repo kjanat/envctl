@@ -284,18 +284,11 @@ static void add_segments(MaskSet *M, const char *key, const char *raw) {
 void maskset_load_lines(MaskSet *M, const Lines *L) {
 	for (size_t i = 0; i < L->n;) {
 		size_t span = logical_span(L, i, NULL);
-		const char *p = skip_ws(L->v[i]);
-
-		if (*p == '#')
-			p = skip_ws(p + 1);
-		p = skip_export(p);
-
-		const char *eq = strchr(p, '=');
-		size_t kl = eq ? (size_t)(eq - p) : 0;
-
-		if (eq && valid_keychars(p, kl)) {
+		Assignment a;
+		if (parse_assignment(L->v[i], &a)) {
+			size_t kl = a.key_len;
 			char *kbuf = xmalloc(kl + 1);
-			memcpy(kbuf, p, kl);
+			memcpy(kbuf, a.key, kl);
 			kbuf[kl] = '\0';
 			char *val = join_span(L, i, span);
 			if (literal_maskable(kbuf, val)) {
@@ -303,6 +296,16 @@ void maskset_load_lines(MaskSet *M, const Lines *L) {
 				if (span > 1 && !is_pem_private(val))
 					add_segments(M, kbuf, val);
 			}
+			char *decoded = decode_value(val);
+			if (decoded && literal_maskable(kbuf, decoded)) {
+				/* Include the exact decoded value as well as normalized variants:
+				 * quotes in decoded data are literal, not another syntax layer. */
+				add_body(M, decoded, strlen(decoded), redact_token(kbuf, decoded));
+				add_value(M, kbuf, decoded);
+				if (strchr(decoded, '\n') && !is_pem_private(decoded))
+					add_segments(M, kbuf, decoded);
+			}
+			free(decoded);
 			free(val);
 			free(kbuf);
 		}

@@ -1,0 +1,11 @@
+%% args
+--raw
+get
+get-decoded.env
+WINDOWS_SINGLE
+
+%% env
+env/get-decoded.env
+
+%% stdout-file
+expected/get-decoded-windows-single.out

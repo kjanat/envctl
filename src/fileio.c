@@ -35,13 +35,8 @@ size_t render_span(FILE *out, const Lines *L, size_t i, size_t span, const char 
 	if (!redact)
 		return put_span(out, L, i, span, prefix);
 
-	const char *p = skip_ws(line);
-	if (*p == '#')
-		p = skip_ws(p + 1);
-	p = skip_export(p);
-
-	const char *eq = strchr(p, '=');
-	if (!eq || !valid_keychars(p, (size_t)(eq - p))) {
+	Assignment a;
+	if (!parse_assignment(line, &a)) {
 		if (is_pem_private(line)) {
 			if (out) {
 				fputs(prefix, out);
@@ -52,24 +47,27 @@ size_t render_span(FILE *out, const Lines *L, size_t i, size_t span, const char 
 		return put_span(out, L, i, span, prefix);
 	}
 
-	size_t kl = (size_t)(eq - p);
+	size_t kl = a.key_len;
 	char *kbuf = xmalloc(kl + 1);
-	memcpy(kbuf, p, kl);
+	memcpy(kbuf, a.key, kl);
 	kbuf[kl] = '\0';
 
 	char *val = join_span(L, i, span);
+	char *decoded = decode_value(val);
+	const char *masked = decoded && should_mask(kbuf, decoded) ? decoded : val;
 	size_t n;
-	if (should_mask(kbuf, val)) {
+	if (should_mask(kbuf, masked)) {
 		if (out) {
 			fputs(prefix, out);
-			fwrite(line, 1, (size_t)(eq - line) + 1, out);
-			fputs(redact_token(kbuf, val), out);
+			fwrite(line, 1, (size_t)(a.value - line), out);
+			fputs(redact_token(kbuf, masked), out);
 			fputc('\n', out);
 		}
 		n = 1;
 	} else {
 		n = put_span(out, L, i, span, prefix);
 	}
+	free(decoded);
 	free(val);
 	free(kbuf);
 	return n;

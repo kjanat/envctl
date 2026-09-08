@@ -1,0 +1,13 @@
+%% args
+get
+get-quoted.env
+UNTERMINATED
+
+%% env
+env/get-quoted.env
+
+%% stderr
+envctl: unterminated value for UNTERMINATED
+
+%% exit
+2

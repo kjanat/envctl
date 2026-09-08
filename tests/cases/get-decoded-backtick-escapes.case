@@ -1,0 +1,11 @@
+%% args
+--raw
+get
+get-decoded.env
+BACKTICK_ESCAPES
+
+%% env
+env/get-decoded.env
+
+%% stdout-file
+expected/get-decoded-backtick-escapes.out

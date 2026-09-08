@@ -22,9 +22,9 @@ Masked values become `<redacted>`, `<redacted:private-key>`, or
 
 `auto` is the default, which leaves a human on a terminal unmasked and an agent
 on a terminal masked. Agents usually capture stdout rather than owning a
-terminal, and in that case `auto` does not mask, so that
-`API_KEY=$(envctl get API_KEY)` keeps working. `--redact=agent` is the setting
-that masks for an agent through a pipe as well.
+terminal, and in that case `auto` does not mask, so that `API_KEY=$(envctl get
+API_KEY)` keeps working. `--redact=agent` is the setting that masks for an agent
+through a pipe as well.
 
 Agent detection follows [unjs/std-env](https://github.com/unjs/std-env) signals,
 plus `AI_AGENT`.
@@ -139,8 +139,9 @@ paths, and digest-like key names still stay visible.
 
 ## Quoting and multiline values
 
-Surrounding `"`, `'`, or `` ` `` is stripped before detection, and the output
-keeps the original bytes.
+File values are decoded before detection, using the quote and escape rules in
+the [command reference](commands.md#file-format). Unmasked file listings and
+previews retain the stored spelling; `get` returns the decoded contents.
 
 A quoted or PEM value spanning several lines is one logical assignment. Masked,
 it prints as a single token line and its continuation lines are never printed.
@@ -157,8 +158,9 @@ npm run build 2>&1 | envctl redact --env
 ```
 
 The positional names the env file supplying literal values, defaulting to
-`./.env` when it exists. Every maskable value in that file is matched literally,
-together with its base64, URL-encoded, and JSON-escaped forms. The value-shape
+`./.env` when it exists. Every maskable value in that file is matched in both
+its stored and decoded forms, together with its base64, URL-encoded, and
+JSON-escaped forms. This also covers disabled assignments. The value-shape
 heuristics then run over the rest of the text, and entropy applies only on lines
 carrying a key name, or on every line under `--paranoid`.
 

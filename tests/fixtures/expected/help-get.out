@@ -1,7 +1,10 @@
 usage: envctl get [file] <KEY>
 
-Prints the active value of KEY followed by a newline and exits 1 when KEY has
-no active definition. A multiline value prints in full.
+Prints the decoded value of KEY followed by a newline and exits 1 when KEY has
+no active definition. File values are parsed with quote-aware escape and
+comment handling; malformed quoted values exit 2. Multiline values print in
+full. Variable references remain literal. --env returns the environment value
+as stored.
 
 Flags:
   --env                 use the process environment instead of a file
