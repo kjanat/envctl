@@ -21,7 +21,8 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
           VERSION: ${{ inputs.version }}
-          FILE: envctl-freebsd-${{ matrix.arch }}
+          FILE: &File envctl-freebsd-${{ matrix.arch }}
+          FILEPATH: &Dist "dist/envctl-freebsd-${{ matrix.arch }}"
         with:
           release: ${{ env.FREEBSD_RELEASE }}
           arch: ${{ matrix.vm-arch }}
@@ -32,9 +33,9 @@ jobs:
             # Version fixtures derive the default version from the checkout.
             env -u VERSION gmake test
             gmake "dist-freebsd-${ARCH}" VERSION="${VERSION}"
-            node .github/check-artifact.mjs "dist/${{ env.FILE }}" "${VERSION}"
+            node .github/check-artifact.mjs '${{ env.FILEPATH }}' "${VERSION}"
       - uses: actions/upload-artifact@v7
         with:
           if-no-files-found: error
-          name: ${{ env.FILE }}
-          path: "dist/${{ env.FILE }}"
+          name: *File
+          path: *Dist
