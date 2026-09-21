@@ -30,7 +30,7 @@ jobs:
           test "${actual_version}" = "${EXPECTED_VERSION}"
         env: { EXPECTED_VERSION: "${{ steps.setup.outputs.version }}" }
   freebsd:
-    uses: ./.github/workflows/freebsd.yml
+    uses: $/.github/workflows/freebsd.yml
   actionlint:
     runs-on: ubuntu-latest
     timeout-minutes: 5
