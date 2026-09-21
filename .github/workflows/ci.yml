@@ -10,8 +10,8 @@ jobs:
     timeout-minutes: 20
     strategy: { matrix: { os: [ubuntu-26.04, macos-15, windows-2025-vs2026] }, fail-fast: false }
     steps:
-      - uses: actions/checkout@v7
-      - uses: kjanat/runner@v0.26.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: kjanat/runner@8baa9ee978cfed038b98741749673c788ff161d1 # v0.26.2
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y zsh fish
       # bash 3.2 ships with macOS and cannot run tests/completions.sh.
@@ -34,4 +34,4 @@ jobs:
   actionlint:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    steps: [{ uses: actions/checkout@v7 }, { uses: kjanat/actionlint@v1 }]
+    steps: [{ uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 }, { uses: kjanat/actionlint@722799fa4b8cc6734debb97bae24aca9e0dbaf59 }]

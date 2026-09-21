@@ -20,11 +20,11 @@ jobs:
           { os: macos-15, target: dist-darwin-arm64, artifact: envctl-darwin-arm64 },
         ]
     steps:
-      - uses: actions/checkout@v7
-      - uses: kjanat/runner@v0.26.2
+      - &CO { uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1, with: { persist-credentials: false } } # v7
+      - uses: kjanat/runner@8baa9ee978cfed038b98741749673c788ff161d1 # v0.26.2
       - name: Set up ARM64 compiler
         if: matrix.target == 'dist-windows-arm64'
-        uses: msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
         with: { msystem: CLANGARM64, update: true, install: "make mingw-w64-clang-aarch64-clang" }
       - name: Build artifact
         if: matrix.target != 'dist-windows-arm64'
@@ -36,7 +36,7 @@ jobs:
       - name: Verify artifact architecture and version
         run: node .github/check-artifact.mjs "dist/${ARTIFACT}"
         env: { ARTIFACT: "${{ matrix.artifact }}" }
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with: { if-no-files-found: error, name: "${{ matrix.artifact }}", path: "dist/${{ matrix.artifact }}" }
   build-freebsd:
     uses: $/.github/workflows/freebsd.yml
@@ -48,7 +48,7 @@ jobs:
     timeout-minutes: 10
     permissions: { contents: write, id-token: write, attestations: write }
     steps:
-      - uses: actions/checkout@v7
+      - *CO
       - name: Release notes from the tag message
         run: |
           git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
@@ -57,13 +57,13 @@ jobs:
             echo "tag ${GITHUB_REF_NAME} carries no message body to release with" >&2
             exit 1
           }
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with: { path: dist, merge-multiple: true }
       - name: Checksums
         run: make checksums
       - name: Attest build provenance
         id: attest
-        uses: actions/attest@v4
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with: { subject-path: dist/envctl-* }
       - name: Add provenance verification to release notes
         env: { ATTESTATION_URL: "${{ steps.attest.outputs.attestation-url }}" }
@@ -75,7 +75,7 @@ jobs:
             printf '%s\n' '```sh' 'gh attestation verify ./envctl-linux-amd64 --owner kjanat --signer-workflow kjanat/envctl/.github/workflows/release.yml' '```'
           } >> "${RUNNER_TEMP}/notes.md"
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           working_directory: dist
           files: "envctl-*\nSHA256SUMS"
