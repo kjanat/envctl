@@ -6,14 +6,14 @@ env:
 jobs:
   build:
     name: FreeBSD 13.5 / ${{ matrix.arch }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { arch: amd64, vm-arch: x86_64 }
-          - { arch: arm64, vm-arch: aarch64 }
+          - { os: ubuntu-26.04, arch: amd64, vm-arch: x86_64 }
+          - { os: ubuntu-26.04-arm, arch: arm64, vm-arch: aarch64 }
     steps:
       - uses: actions/checkout@v7
       - name: Build and test on FreeBSD
