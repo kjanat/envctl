@@ -21,7 +21,7 @@ jobs:
         ]
     steps:
       - uses: actions/checkout@v7
-      - uses: kjanat/runner@v0.26.1
+      - uses: kjanat/runner@v0.26.2
       - name: Set up ARM64 compiler
         if: matrix.target == 'dist-windows-arm64'
         uses: msys2/setup-msys2@v2
@@ -38,9 +38,12 @@ jobs:
         env: { ARTIFACT: "${{ matrix.artifact }}" }
       - uses: actions/upload-artifact@v7
         with: { if-no-files-found: error, name: "${{ matrix.artifact }}", path: "dist/${{ matrix.artifact }}" }
+  build-freebsd:
+    uses: $/.github/workflows/freebsd.yml
+    with: { version: "${{ github.ref_name }}" }
   publish:
     name: publish
-    needs: build
+    needs: [build, build-freebsd]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions: { contents: write, id-token: write, attestations: write }
@@ -67,7 +70,7 @@ jobs:
         run: |
           test -n "${ATTESTATION_URL}"
           {
-            printf '\n\nAll six binaries have a [build provenance attestation](%s).\n\n' "${ATTESTATION_URL}"
+            printf '\n\nAll binaries have a [build provenance attestation](%s).\n\n' "${ATTESTATION_URL}"
             printf 'Verify a downloaded binary with the GitHub CLI, substituting its filename:\n\n'
             printf '%s\n' '```sh' 'gh attestation verify ./envctl-linux-amd64 --owner kjanat --signer-workflow kjanat/envctl/.github/workflows/release.yml' '```'
           } >> "${RUNNER_TEMP}/notes.md"

@@ -23,6 +23,8 @@ LINUX_ARM64_CC   ?= $(CC)
 WINDOWS_AMD64_CC ?= gcc
 WINDOWS_ARM64_CC ?= clang --target=aarch64-w64-windows-gnu
 DARWIN_CC        ?= $(CC)
+FREEBSD_AMD64_CC ?= $(CC)
+FREEBSD_ARM64_CC ?= $(CC)
 
 ifeq ($(OS),Windows_NT)
 EXE := .exe
@@ -52,6 +54,8 @@ ART_DARWIN_AMD64  := $(DIST)/envctl-darwin-amd64
 ART_DARWIN_ARM64  := $(DIST)/envctl-darwin-arm64
 ART_WINDOWS_AMD64 := $(DIST)/envctl-windows-amd64.exe
 ART_WINDOWS_ARM64 := $(DIST)/envctl-windows-arm64.exe
+ART_FREEBSD_AMD64 := $(DIST)/envctl-freebsd-amd64
+ART_FREEBSD_ARM64 := $(DIST)/envctl-freebsd-arm64
 
 NPROCS := $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || getconf NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || nproc 2>/dev/null || echo 2)
 MAKEFLAGS += -j$(NPROCS)
@@ -59,6 +63,7 @@ MAKEFLAGS += -j$(NPROCS)
 .PHONY: all clean install fmt format test man FORCE
 .PHONY: dist-linux-amd64 dist-linux-arm64 dist-darwin-amd64 dist-darwin-arm64
 .PHONY: dist-windows-amd64 dist-windows-arm64 checksums
+.PHONY: dist-freebsd-amd64 dist-freebsd-arm64
 
 all: $(BIN)
 
@@ -123,6 +128,14 @@ $(ART_LINUX_AMD64): $(SRCS) $(STAMP) | $(DIST)
 dist-linux-arm64: $(ART_LINUX_ARM64)
 $(ART_LINUX_ARM64): $(SRCS) $(STAMP) | $(DIST)
 	$(LINUX_ARM64_CC) $(CFLAGS) -static -s -o $@ $(SRCS)
+
+dist-freebsd-amd64: $(ART_FREEBSD_AMD64)
+$(ART_FREEBSD_AMD64): $(SRCS) $(STAMP) | $(DIST)
+	$(FREEBSD_AMD64_CC) $(CFLAGS) -static -s -o $@ $(SRCS)
+
+dist-freebsd-arm64: $(ART_FREEBSD_ARM64)
+$(ART_FREEBSD_ARM64): $(SRCS) $(STAMP) | $(DIST)
+	$(FREEBSD_ARM64_CC) $(CFLAGS) -static -s -o $@ $(SRCS)
 
 dist-darwin-amd64: $(ART_DARWIN_AMD64)
 $(ART_DARWIN_AMD64): $(SRCS) $(STAMP) | $(DIST)

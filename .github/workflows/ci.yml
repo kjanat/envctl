@@ -11,7 +11,7 @@ jobs:
     strategy: { matrix: { os: [ubuntu-26.04, macos-15, windows-2025-vs2026] }, fail-fast: false }
     steps:
       - uses: actions/checkout@v7
-      - uses: kjanat/runner@v0.26.1
+      - uses: kjanat/runner@v0.26.2
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y zsh fish
       # bash 3.2 ships with macOS and cannot run tests/completions.sh.
@@ -25,8 +25,12 @@ jobs:
         id: setup
         uses: ./
       - name: Check installed version
-        run: test "$(envctl --version)" = "${EXPECTED_VERSION}"
+        run: |
+          actual_version=$(envctl --version)
+          test "${actual_version}" = "${EXPECTED_VERSION}"
         env: { EXPECTED_VERSION: "${{ steps.setup.outputs.version }}" }
+  freebsd:
+    uses: ./.github/workflows/freebsd.yml
   actionlint:
     runs-on: ubuntu-latest
     timeout-minutes: 5

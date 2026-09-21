@@ -1,0 +1,28 @@
+name: FreeBSD
+on: { workflow_call: { inputs: { version: { type: string, default: ci } } } }
+permissions: { contents: read }
+jobs:
+  build:
+    name: FreeBSD 13.5 / ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: { include: [{ arch: amd64, vm-arch: x86_64 }, { arch: arm64, vm-arch: aarch64 }] }
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and test on FreeBSD
+        uses: vmactions/freebsd-vm@v1
+        env: { VERSION: "${{ inputs.version }}", ARCH: "${{ matrix.arch }}" }
+        with:
+          release: "13.5"
+          arch: ${{ matrix.vm-arch }}
+          envs: VERSION ARCH
+          prepare: pkg install -y gmake bash zsh fish node22
+          run: |
+            set -eu
+            gmake test VERSION="${VERSION}"
+            gmake "dist-freebsd-${ARCH}" VERSION="${VERSION}"
+            node .github/check-artifact.mjs "dist/envctl-freebsd-${ARCH}" "${VERSION}"
+      - uses: actions/upload-artifact@v7
+        with: { if-no-files-found: error, name: "envctl-freebsd-${{ matrix.arch }}", path: "dist/envctl-freebsd-${{ matrix.arch }}" }

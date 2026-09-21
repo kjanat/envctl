@@ -11,6 +11,7 @@ machine=$(uname -m)
 case ${sys} in
 	Linux) os=linux ;;
 	Darwin) os=darwin ;;
+	FreeBSD) os=freebsd ;;
 	MINGW* | MSYS* | CYGWIN*) os=windows ;;
 	*)
 		echo "unsupported OS: ${sys}" >&2
@@ -40,19 +41,21 @@ fi
 tmp=$(mktemp -d)
 trap 'rm -rf "${tmp}"' EXIT INT TERM
 
-fetch() {
+download() {
 	if command -v curl >/dev/null; then
 		curl -fsSL -o "$2" "$1"
 	elif command -v wget >/dev/null; then
 		wget -qO "$2" "$1"
+	elif command -v fetch >/dev/null; then
+		fetch -o "$2" "$1"
 	else
-		echo "need curl or wget" >&2
+		echo "need curl, wget, or fetch" >&2
 		exit 1
 	fi
 }
 
-fetch "${base}/${asset}" "${tmp}/${asset}"
-fetch "${base}/SHA256SUMS" "${tmp}/SHA256SUMS"
+download "${base}/${asset}" "${tmp}/${asset}"
+download "${base}/SHA256SUMS" "${tmp}/SHA256SUMS"
 
 grep " ${asset}\$" "${tmp}/SHA256SUMS" >"${tmp}/expected"
 (
@@ -61,8 +64,12 @@ grep " ${asset}\$" "${tmp}/SHA256SUMS" >"${tmp}/expected"
 		sha256sum -c expected >/dev/null
 	elif command -v shasum >/dev/null; then
 		shasum -a 256 -c expected >/dev/null
+	elif command -v sha256 >/dev/null; then
+		read -r checksum _ <expected \
+			&& sha256 -c "${checksum}" "${asset}" >/dev/null
 	else
-		echo "note: no sha256 tool, skipping checksum verification" >&2
+		echo "need sha256sum, shasum, or sha256 for checksum verification" >&2
+		exit 1
 	fi
 ) || {
 	echo "checksum verification failed for ${asset}" >&2
