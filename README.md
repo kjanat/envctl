@@ -19,7 +19,7 @@ with no runtime dependencies.
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/kjanat/envctl/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kjanat/envctl/master/install.sh | sh
 ```
 
 [`install.sh`] picks the release asset for your OS and architecture, checks it

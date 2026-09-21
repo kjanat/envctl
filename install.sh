@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 set -eu
 
 repo=kjanat/envctl
@@ -29,10 +29,10 @@ case ${machine} in
 esac
 
 ext=
-[[ ${os} == windows ]] && ext=.exe
+[ "${os}" = windows ] && ext=.exe
 asset="envctl-${os}-${arch}${ext}"
 
-if [[ ${version} == latest ]]; then
+if [ "${version}" = latest ]; then
 	base="https://github.com/${repo}/releases/latest/download"
 else
 	base="https://github.com/${repo}/releases/download/${version}"
@@ -76,7 +76,7 @@ grep " ${asset}\$" "${tmp}/SHA256SUMS" >"${tmp}/expected"
 	exit 1
 }
 
-if [[ -n ${ENVCTL_ATTEST:-} ]]; then
+if [ -n "${ENVCTL_ATTEST:-}" ]; then
 	if ! command -v gh >/dev/null; then
 		echo "ENVCTL_ATTEST is set but gh is not installed" >&2
 		exit 1

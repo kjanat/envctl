@@ -60,6 +60,13 @@ case $(uname -s) in
 esac
 readonly env_order
 
+# Some env implementations prepend assignments instead of appending them.
+# Probe the launcher independently of envctl so ordered fixtures stay exact.
+env_probe=$(env -i ENVCTL_ORDER_FIRST=1 ENVCTL_ORDER_LAST=2) || exit 2
+env_reversed=no
+[[ ${env_probe} == $'ENVCTL_ORDER_LAST=2\nENVCTL_ORDER_FIRST=1' ]] && env_reversed=yes
+readonly env_reversed
+
 declare -i passed=0
 declare -a failures=()
 declare -a skipped=()
@@ -275,6 +282,14 @@ run_case() {
 	# Agent detection reads the environment, so cases run from a clean one and
 	# opt into agent behaviour through setenv.
 	local -a launch=(env -i "PATH=${clean_path}" ${envv[@]+"${envv[@]}"} "${bin}" ${argv[@]+"${argv[@]}"})
+	if [[ ${mode} == posix-env && ${env_reversed} == yes ]]; then
+		launch=(env -i)
+		local -i ei
+		for ((ei = ${#envv[@]} - 1; ei >= 0; ei--)); do
+			launch+=("${envv[ei]}")
+		done
+		launch+=("PATH=${clean_path}" "${bin}" ${argv[@]+"${argv[@]}"})
+	fi
 	local cmdstr
 	case ${mode} in
 		plain | posix-env)
