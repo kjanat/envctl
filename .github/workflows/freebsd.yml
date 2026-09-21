@@ -5,37 +5,27 @@ env:
   FREEBSD_RELEASE: "13.5"
 jobs:
   build:
-    name: FreeBSD 13.5 / ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+    name: FreeBSD 13.5 / amd64
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { os: ubuntu-26.04, arch: amd64, vm-arch: x86_64 }
-          - { os: ubuntu-26.04-arm, arch: arm64, vm-arch: aarch64 }
     steps:
       - uses: actions/checkout@v7
       - name: Build and test on FreeBSD
         uses: vmactions/freebsd-vm@v1
         env:
-          ARCH: ${{ matrix.arch }}
           VERSION: ${{ inputs.version }}
-          FILE: &File envctl-freebsd-${{ matrix.arch }}
-          FILEPATH: &Dist "dist/envctl-freebsd-${{ matrix.arch }}"
+          FILE: &File envctl-freebsd-amd64
+          FILEPATH: &Dist dist/envctl-freebsd-amd64
         with:
           release: ${{ env.FREEBSD_RELEASE }}
-          arch: ${{ matrix.vm-arch }}
-          envs: VERSION ARCH
+          arch: x86_64
+          envs: VERSION
           prepare: pkg install -y gmake bash zsh fish node24
           run: |
             set -eu
             # Version fixtures derive the default version from the checkout.
             env -u VERSION gmake test
-            gmake "dist-freebsd-${ARCH}" VERSION="${VERSION}"
-            node .github/check-artifact.mjs '${{ env.FILEPATH }}' "${VERSION}"
+            gmake dist-freebsd-amd64 VERSION="${VERSION}"
+            ./.github/check-artifact.mjs '${{ env.FILEPATH }}' "${VERSION}"
       - uses: actions/upload-artifact@v7
-        with:
-          if-no-files-found: error
-          name: *File
-          path: *Dist
+        with: { if-no-files-found: error, name: *File, path: *Dist }

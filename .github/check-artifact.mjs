@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { verifyArchitecture } from "#action";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
