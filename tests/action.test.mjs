@@ -143,3 +143,16 @@ test("malformed PE headers are rejected without reading outside the file", () =>
 test("runner architecture selects the artifact even under an emulated shell", () => {
 	assert.deepEqual(platform("Windows", "ARM64"), { os: "windows", arch: "arm64" });
 });
+
+for (const arch of ["amd64", "arm64"]) {
+	test(`FreeBSD ${arch} artifacts require the FreeBSD ELF ABI and matching architecture`, () => {
+		const target = { os: "freebsd", arch };
+		const bytes = executable("linux", arch);
+		assert.throws(() => verifyArchitecture(bytes, target), /does not match/);
+		bytes[7] = 9;
+		assert.doesNotThrow(() => verifyArchitecture(bytes, target));
+		const otherArch = arch === "amd64" ? "arm64" : "amd64";
+		assert.throws(() => verifyArchitecture(bytes, { ...target, arch: otherArch }), /does not match/);
+		assert.throws(() => verifyArchitecture(bytes.subarray(0, 19), target), /does not match/);
+	});
+}

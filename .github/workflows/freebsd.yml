@@ -1,0 +1,31 @@
+name: FreeBSD
+on: { workflow_call: { inputs: { version: { type: string, default: ci } } } }
+permissions: { contents: read }
+env:
+  FREEBSD_RELEASE: "13.5"
+jobs:
+  build:
+    name: FreeBSD 13.5 / amd64
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and test on FreeBSD
+        uses: vmactions/freebsd-vm@v1
+        env:
+          VERSION: ${{ inputs.version }}
+          FILE: &File envctl-freebsd-amd64
+          FILEPATH: &Dist dist/envctl-freebsd-amd64
+        with:
+          release: ${{ env.FREEBSD_RELEASE }}
+          arch: x86_64
+          envs: VERSION
+          prepare: pkg install -y gmake bash zsh fish node24
+          run: |
+            set -eu
+            # Version fixtures derive the default version from the checkout.
+            env -u VERSION gmake test
+            gmake dist-freebsd-amd64 VERSION="${VERSION}"
+            ./.github/check-artifact.mjs '${{ env.FILEPATH }}' "${VERSION}"
+      - uses: actions/upload-artifact@v7
+        with: { if-no-files-found: error, name: *File, path: *Dist }

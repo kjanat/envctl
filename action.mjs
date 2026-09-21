@@ -17,8 +17,9 @@ export function platform(os, architecture) {
 
 export function verifyArchitecture(bytes, { os, arch }) {
 	let valid = false;
-	if (os === "linux" && bytes.length >= 20) {
+	if ((os === "linux" || os === "freebsd") && bytes.length >= 20) {
 		valid = bytes.subarray(0, 6).equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46, 2, 1]))
+			&& (os !== "freebsd" || bytes[7] === 9)
 			&& bytes.readUInt16LE(18) === (arch === "amd64" ? 0x3e : 0xb7);
 	} else if (os === "darwin" && bytes.length >= 8) {
 		valid = bytes.readUInt32LE(0) === 0xfeedfacf
