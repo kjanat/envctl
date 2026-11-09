@@ -1,5 +1,5 @@
 name: release
-on: { push: { tags: [v*] } }
+on: { push: { tags: ["v*.*.*"] } }
 permissions: { contents: read }
 defaults: { run: { shell: bash } }
 env: { RUNNER_RUNNER: make }

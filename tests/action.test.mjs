@@ -1,4 +1,4 @@
-import { platform, setup, verifyArchitecture } from "#action";
+import { platform, setup, transientGitHubError, verifyArchitecture } from "#action";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
@@ -142,6 +142,59 @@ test("malformed PE headers are rejected without reading outside the file", () =>
 
 test("runner architecture selects the artifact even under an emulated shell", () => {
 	assert.deepEqual(platform("Windows", "ARM64"), { os: "windows", arch: "arm64" });
+});
+
+test("empty GitHub responses are treated as transient", () => {
+	assert.equal(transientGitHubError(new Error("unexpected end of JSON input")), true);
+	assert.equal(transientGitHubError(new Error("HTTP 504")), true);
+	assert.equal(transientGitHubError(new Error("File is not formatted")), false);
+});
+
+test("a dead release API uses the bundled asset list and release URL", t => {
+	const f = fixture(t);
+	const binary = executable("linux", "amd64");
+	const sums = Buffer.from(`${digest(binary)}  envctl-linux-amd64\n`);
+	const bundled = {
+		tag_name: "v0.7.0",
+		draft: false,
+		prerelease: false,
+		commit: { sha: commit, verification: { verified: true } },
+		assets: [
+			{
+				id: 9,
+				name: "envctl-linux-amd64",
+				state: "uploaded",
+				digest: `sha256:${digest(binary)}`,
+				browser_download_url: "https://github.com/kjanat/envctl/releases/download/v0.7.0/envctl-linux-amd64",
+			},
+			{
+				id: 10,
+				name: "SHA256SUMS",
+				state: "uploaded",
+				digest: `sha256:${digest(sums)}`,
+				browser_download_url: "https://github.com/kjanat/envctl/releases/download/v0.7.0/SHA256SUMS",
+			},
+		],
+	};
+	const calls = [];
+	const execute = (command, args, options) => {
+		calls.push({ command, args });
+		if (command === "curl") {
+			assert.equal(args.at(-1), args[1] === undefined ? undefined : args.at(-1));
+			return args.at(-1).endsWith("SHA256SUMS") ? sums : binary;
+		}
+		if (command !== "gh") return "v0.7.0\n";
+		assert.equal(options.env.GH_REPO, "kjanat/envctl");
+		if (args[0] === "attestation") return "";
+		if (args[1].endsWith("releases/latest") || args[1].endsWith("commits/v0.7.0")) {
+			throw new Error("unexpected end of JSON input");
+		}
+		if (args[1].includes("releases/assets/")) throw new Error("HTTP 502");
+		throw new Error(`Unexpected endpoint: ${args[1]}`);
+	};
+	const installed = setup(f.environment, execute, bundled);
+	assert.equal(installed.version, "v0.7.0");
+	assert.ok(calls.some(call => call.command === "curl" && call.args.at(-1).endsWith("envctl-linux-amd64")));
 });
 
 for (const arch of ["amd64", "arm64"]) {

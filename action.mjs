@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, chmodSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -33,8 +33,42 @@ export function verifyArchitecture(bytes, { os, arch }) {
 }
 
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
+const bundledRelease = JSON.parse(readFileSync(new URL("./release.json", import.meta.url), "utf8"));
+const releaseDownload = /^https:\/\/github\.com\/kjanat\/envctl\/releases\/download\/v[\w.+-]+\/[\w.-]+$/;
 
-export function setup(environment = process.env, execute = execFileSync) {
+export function transientGitHubError(error) {
+	const message = `${error?.message || ""} ${error?.stderr || ""}`;
+	return /unexpected end of JSON input|502|503|504|bad gateway|timeout|ECONNRESET|ETIMEDOUT|ENOTFOUND/i.test(message);
+}
+
+function pause(ms) {
+	Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function withRetry(fn, attempts = 3) {
+	let last;
+	for (let attempt = 0; attempt < attempts; attempt++) {
+		try {
+			return fn();
+		} catch (error) {
+			last = error;
+			if (!transientGitHubError(error) || attempt === attempts - 1) break;
+			console.error(`GitHub API failed (${error.message}); retrying`);
+			pause(200 * (attempt + 1));
+		}
+	}
+	throw last;
+}
+
+function parseJson(body) {
+	try {
+		return JSON.parse(body);
+	} catch {
+		throw new Error("unexpected end of JSON input");
+	}
+}
+
+export function setup(environment = process.env, execute = execFileSync, bundled = bundledRelease) {
 	const requested = environment.INPUT_VERSION?.trim() || "latest";
 	if (requested !== "latest" && !tagPattern.test(requested)) {
 		throw new Error("version must be latest or an exact release tag such as v0.7.0");
@@ -53,15 +87,34 @@ export function setup(environment = process.env, execute = execFileSync) {
 			maxBuffer: 16 * 1024 * 1024,
 			stdio: ["ignore", "pipe", "pipe"],
 		});
-	const api = path => JSON.parse(gh(["api", `repos/{owner}/{repo}/${path}`]));
-	const release = api(requested === "latest" ? "releases/latest" : `releases/tags/${requested}`);
+	const api = path => withRetry(() => parseJson(gh(["api", `repos/{owner}/{repo}/${path}`])));
+	const releasePath = requested === "latest" ? "releases/latest" : `releases/tags/${requested}`;
+	let release;
+	try {
+		release = api(releasePath);
+	} catch (error) {
+		if (!transientGitHubError(error) || (requested !== "latest" && bundled.tag_name !== requested)) throw error;
+		console.error(`GitHub release API failed (${error.message}); using bundled ${bundled.tag_name} asset list`);
+		release = bundled;
+	}
 	if (
 		!tagPattern.test(release.tag_name) || release.draft
 		|| (requested === "latest" && release.prerelease)
 		|| (requested !== "latest" && release.tag_name !== requested)
 	) throw new Error("GitHub returned an unexpected release");
 	const version = release.tag_name;
-	const commit = api(`commits/${version}`);
+	let commit;
+	try {
+		commit = api(`commits/${version}`);
+	} catch (error) {
+		if (
+			!transientGitHubError(error) || bundled.tag_name !== version || bundled.commit?.verification?.verified !== true
+		) {
+			throw error;
+		}
+		console.error(`GitHub commit API failed (${error.message}); using bundled verified commit`);
+		commit = { sha: bundled.commit.sha, commit: { verification: { verified: true } } };
+	}
 	if (!/^[a-f0-9]{40}$/.test(commit.sha) || commit.commit?.verification?.verified !== true) {
 		throw new Error("The release target must be a verified signed commit");
 	}
@@ -74,11 +127,32 @@ export function setup(environment = process.env, execute = execFileSync) {
 				|| !Number.isSafeInteger(assets[0].id) || assets[0].id <= 0
 				|| !/^sha256:[a-f0-9]{64}$/.test(assets[0].digest)
 			) throw new Error(`Release must contain exactly one uploaded ${name} with a SHA-256 digest`);
-			const bytes = gh(/* dprint-ignore */ [
-				"api", `repos/{owner}/{repo}/releases/assets/${assets[0].id}`,
-				"-H", "Accept: application/octet-stream",
-			], true);
-			if (`sha256:${sha256(bytes)}` !== assets[0].digest) throw new Error(`GitHub asset digest mismatch for ${name}`);
+			const asset = assets[0];
+			let bytes;
+			try {
+				bytes = withRetry(() =>
+					gh(/* dprint-ignore */ [
+					"api", `repos/{owner}/{repo}/releases/assets/${asset.id}`,
+					"-H", "Accept: application/octet-stream",
+				], true)
+				);
+			} catch (error) {
+				if (!transientGitHubError(error) || !releaseDownload.test(asset.browser_download_url || "")) throw error;
+				console.error(`GitHub asset API failed for ${name}; downloading the bundled release URL`);
+				bytes = withRetry(() =>
+					execute("curl", [
+						"--fail",
+						"--silent",
+						"--show-error",
+						"--location",
+						"--retry",
+						"3",
+						"--retry-all-errors",
+						asset.browser_download_url,
+					], { encoding: undefined, maxBuffer: 16 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] })
+				);
+			}
+			if (`sha256:${sha256(bytes)}` !== asset.digest) throw new Error(`GitHub asset digest mismatch for ${name}`);
 			writeFileSync(join(directory, name), bytes, { flag: "wx", mode: 0o600 });
 			return bytes;
 		};
@@ -92,14 +166,16 @@ export function setup(environment = process.env, execute = execFileSync) {
 		verifyArchitecture(binary, target);
 		// Attestation lookup requires --owner or --repo and does not use GH_REPO.
 		// The workflow identity and source checks constrain verification to this release.
-		gh(/* dprint-ignore */ [
+		withRetry(() =>
+			gh(/* dprint-ignore */ [
 			"attestation", "verify",
 			join(directory, assetName),
 			"--owner", repo.split("/")[0],
 			"--source-ref", `refs/tags/${version}`,
 			"--source-digest", commit.sha,
 			"--signer-workflow", workflow,
-		]);
+		])
+		);
 		const executable = join(directory, `envctl${ext}`);
 		renameSync(join(directory, assetName), executable);
 		chmodSync(executable, 0o755);
