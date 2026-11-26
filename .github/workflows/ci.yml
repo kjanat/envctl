@@ -11,7 +11,7 @@ jobs:
     strategy: { matrix: { os: [ubuntu-26.04, macos-15, windows-2025-vs2026] }, fail-fast: false }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: kjanat/runner@8baa9ee978cfed038b98741749673c788ff161d1 # v0.26.2
+      - uses: kjanat/runner@b32ea932a1813ae0be44e755c16df9f9f5ca86a4 # v0.28.0
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y zsh fish
       # bash 3.2 ships with macOS and cannot run tests/completions.sh.
